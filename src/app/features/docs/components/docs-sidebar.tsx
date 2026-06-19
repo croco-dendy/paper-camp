@@ -1,12 +1,9 @@
-import { fetchIconDataUri } from '@/app/services/icon-api';
-import { fetchPackageName } from '@/app/services/package-api';
+import { useProjectIdentity } from '@/app/hooks';
 import { useAppStore } from '@/app/stores/app-store';
+import { fontFamily, fontSize, layout, space } from '@/app/styles/tokens';
 import { FolderIcon, Icon, ListItem } from '@dendelion/paper-ui';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { SidebarSection } from '../../plans/components/sidebar-section';
-
-const kebabToTitle = (s: string) =>
-  s.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const simplecaseLabel = (name: string) =>
   name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
@@ -27,18 +24,13 @@ export const DocsSidebar = () => {
     setActiveDocTitle,
   } = useAppStore();
 
-  const [projectName, setProjectName] = useState<string | null>(null);
-  const [iconDataUri, setIconDataUri] = useState<string | null>(null);
+  const { projectName, iconDataUri } = useProjectIdentity();
 
   useEffect(() => {
     loadDecisions();
     loadOpenQuestions();
     loadProgress();
     loadRepoDocs();
-    fetchPackageName().then((name) => {
-      if (name) setProjectName(kebabToTitle(name));
-    });
-    fetchIconDataUri().then(setIconDataUri);
   }, [loadDecisions, loadOpenQuestions, loadProgress, loadRepoDocs]);
 
   const handleSelectDecision = (title: string) => {
@@ -47,13 +39,13 @@ export const DocsSidebar = () => {
   };
 
   const divider = (
-    <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: '0.75rem 0.75rem' }} />
+    <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: `${space[3]} ${space[3]}` }} />
   );
 
   return (
     <aside
       style={{
-        width: 220,
+        width: layout.sidebarWidth,
         flexShrink: 0,
         height: '100%',
         position: 'sticky',
@@ -64,8 +56,8 @@ export const DocsSidebar = () => {
         overflow: 'hidden',
       }}
     >
-      <div style={{ padding: '1.25rem 0.75rem 1rem', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ padding: `${space[5]} ${space[3]} ${space[4]}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
           {iconDataUri ? (
             <img src={iconDataUri} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
           ) : (
@@ -73,9 +65,9 @@ export const DocsSidebar = () => {
           )}
           <span
             style={{
-              fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+              fontFamily: fontFamily.serif,
               fontWeight: 600,
-              fontSize: '1.25rem',
+              fontSize: fontSize.md,
             }}
           >
             {projectName ?? 'Paper Camp'}
@@ -85,7 +77,7 @@ export const DocsSidebar = () => {
 
       {divider}
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingTop: '0.25rem' }}>
+      <div style={{ flex: 1, overflowY: 'auto', paddingTop: space[1] }}>
         <SidebarSection label="Repo Docs">
           {repoDocs.length > 0 ? (
             repoDocs.map((f) => (
@@ -106,7 +98,7 @@ export const DocsSidebar = () => {
               className="text-sm"
               style={{
                 display: 'block',
-                padding: '0.25rem 0.75rem',
+                padding: `${space[1]} ${space[3]}`,
                 opacity: 0.35,
                 fontStyle: 'italic',
               }}
@@ -133,7 +125,7 @@ export const DocsSidebar = () => {
               className="text-sm"
               style={{
                 display: 'block',
-                padding: '0.25rem 0.75rem',
+                padding: `${space[1]} ${space[3]}`,
                 opacity: 0.35,
                 fontStyle: 'italic',
               }}
@@ -163,7 +155,7 @@ export const DocsSidebar = () => {
               className="text-sm"
               style={{
                 display: 'block',
-                padding: '0.25rem 0.75rem',
+                padding: `${space[1]} ${space[3]}`,
                 opacity: 0.35,
                 fontStyle: 'italic',
               }}
@@ -193,7 +185,7 @@ export const DocsSidebar = () => {
               className="text-sm"
               style={{
                 display: 'block',
-                padding: '0.25rem 0.75rem',
+                padding: `${space[1]} ${space[3]}`,
                 opacity: 0.35,
                 fontStyle: 'italic',
               }}

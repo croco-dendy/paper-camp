@@ -1,10 +1,11 @@
 import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
+import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { Button, Checkbox, Stamp } from '@dendelion/paper-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { STATUS_BAR_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
+import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
 import { ProgressBar } from './progress-bar';
 
@@ -41,17 +42,17 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          gap: '1rem',
-          marginBottom: '0.75rem',
+          gap: space[4],
+          marginBottom: space[3],
         }}
       >
         <h2
           style={{
-            fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+            fontFamily: fontFamily.serif,
             fontWeight: 600,
             fontSize: '1.75rem',
             margin: 0,
-            lineHeight: 1.2,
+            lineHeight: lineHeight.tight,
           }}
         >
           {plan.title}
@@ -71,9 +72,9 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: space[2],
           flexWrap: 'wrap',
-          marginBottom: '1rem',
+          marginBottom: space[4],
         }}
       >
         <Stamp
@@ -96,16 +97,19 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
       </div>
 
       {plan.body && (
-        <p className="text-base" style={{ margin: '0 0 1rem', opacity: 0.8, lineHeight: 1.5 }}>
+        <p
+          className="text-base"
+          style={{ margin: `0 0 ${space[4]}`, opacity: 0.8, lineHeight: lineHeight.normal }}
+        >
           {plan.body}
         </p>
       )}
 
       {progress !== null && (
-        <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ marginBottom: space[5] }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
             <div style={{ flex: 1 }}>
-              <ProgressBar pct={progress.pct} color={STATUS_BAR_COLOR[plan.status]} />
+              <ProgressBar pct={progress.pct} color={STATUS_COLOR[plan.status]} />
             </div>
             <span className="text-sm" style={{ opacity: 0.5, flexShrink: 0 }}>
               {progress.done}/{progress.total}
@@ -122,7 +126,7 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
             listStyle: 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.25rem',
+            gap: space[1],
           }}
         >
           {plan.phases.map((phase, i) => (
@@ -132,7 +136,7 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
                 <span
                   className={`text-base ${phase.done ? 'line-through' : ''}`}
                   style={{
-                    fontFamily: '"Cormorant Garamond", Georgia, serif',
+                    fontFamily: fontFamily.body,
                     lineHeight: 1.4,
                     opacity: phase.done ? 0.65 : 1,
                   }}

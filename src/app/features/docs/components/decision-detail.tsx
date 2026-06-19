@@ -1,5 +1,6 @@
-import { Markdown } from '@/app/components/markdown';
+import { LinkButton, Markdown } from '@/app/components';
 import { useAppStore } from '@/app/stores/app-store';
+import { color, fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
 import { Stamp } from '@dendelion/paper-ui';
 
 export const DecisionDetail = () => {
@@ -18,19 +19,17 @@ export const DecisionDetail = () => {
     <div>
       <h2
         style={{
-          fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+          fontFamily: fontFamily.serif,
           fontWeight: 600,
           fontSize: '1.75rem',
-          margin: '0 0 0.75rem',
-          lineHeight: 1.2,
+          margin: `0 0 ${space[3]}`,
+          lineHeight: lineHeight.tight,
         }}
       >
         {decision.title}
       </h2>
 
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', gap: space[2], marginBottom: space[5] }}>
         <span className="text-sm" style={{ opacity: 0.5 }}>
           {decision.date}
         </span>
@@ -41,54 +40,32 @@ export const DecisionDetail = () => {
               ? 'rgba(143, 185, 150, 0.25)'
               : 'rgba(201, 139, 139, 0.25)'
           }
-          textColor={decision.status === 'decided' ? '#5E8A66' : '#6E3A3A'}
+          textColor={decision.status === 'decided' ? color.accentGreenDark : '#6E3A3A'}
         >
           {decision.status}
         </Stamp>
         {decision.supersededBy && (
           <span className="text-sm" style={{ opacity: 0.5 }}>
             Superseded by{' '}
-            <button
-              type="button"
-              onClick={() => setActiveDocTitle(decision.supersededBy!)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: '#A67B4F',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                font: 'inherit',
-              }}
-            >
+            <LinkButton onClick={() => setActiveDocTitle(decision.supersededBy!)}>
               {decision.supersededBy}
-            </button>
+            </LinkButton>
           </span>
         )}
         {resolvedQuestions.length > 0 && (
           <span className="text-sm" style={{ opacity: 0.5 }}>
-            {resolvedQuestions.length === 1 ? 'Resolves' : 'Resolves'}{' '}
+            {resolvedQuestions.length === 1 ? 'Resolves' : 'Resolves all of'}{' '}
             {resolvedQuestions.map((q, i) => (
               <span key={q.title}>
                 {i > 0 && ', '}
-                <button
-                  type="button"
+                <LinkButton
                   onClick={() => {
                     setActiveDocSection('questions');
                     setActiveDocTitle(q.title);
                   }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    color: '#A67B4F',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    font: 'inherit',
-                  }}
                 >
                   {q.title}
-                </button>
+                </LinkButton>
               </span>
             ))}
           </span>
@@ -97,9 +74,9 @@ export const DecisionDetail = () => {
 
       <div
         style={{
-          fontFamily: '"Cormorant Garamond", Georgia, serif',
-          fontSize: '1.125rem',
-          lineHeight: 1.65,
+          fontFamily: fontFamily.body,
+          fontSize: fontSize.base,
+          lineHeight: lineHeight.relaxed,
           color: '#1C1B18',
         }}
       >

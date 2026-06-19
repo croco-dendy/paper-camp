@@ -1,10 +1,11 @@
 import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
+import { fontSize, lineHeight, space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { Button, Card, Stamp } from '@dendelion/paper-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { STATUS_ACCENT, STATUS_BAR_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
+import { STATUS_ACCENT, STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
 import { ProgressBar } from './progress-bar';
 
@@ -52,7 +53,7 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
-            gap: '0.75rem',
+            gap: space[3],
           }}
         >
           <h2 className="text-lg" style={{ margin: 0, lineHeight: 1.3 }}>
@@ -72,7 +73,7 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
             marginTop: '0.3rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: space[2],
             flexWrap: 'wrap',
           }}
         >
@@ -89,16 +90,19 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
         </div>
 
         {plan.body && (
-          <p className="text-base" style={{ margin: '0.6rem 0 0', opacity: 0.8, lineHeight: 1.5 }}>
+          <p
+            className="text-base"
+            style={{ margin: '0.6rem 0 0', opacity: 0.8, lineHeight: lineHeight.normal }}
+          >
             {plan.body}
           </p>
         )}
 
         {progress !== null && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ marginTop: space[3] }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
               <div style={{ flex: 1 }}>
-                <ProgressBar pct={progress.pct} color={STATUS_BAR_COLOR[plan.status]} />
+                <ProgressBar pct={progress.pct} color={STATUS_COLOR[plan.status]} />
               </div>
               <span className="text-sm" style={{ opacity: 0.5, flexShrink: 0 }}>
                 {progress.done}/{progress.total}
@@ -107,7 +111,7 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
           </div>
         )}
 
-        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+        <div style={{ marginTop: space[3], display: 'flex', gap: space[2] }}>
           {onOpen && (
             <Button
               variant="primary"

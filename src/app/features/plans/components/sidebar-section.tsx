@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import type { ReactNode } from 'react';
 
 interface SidebarSectionProps {
@@ -8,14 +9,14 @@ interface SidebarSectionProps {
 
 export const SidebarSection = ({ label, children, action }: SidebarSectionProps) => {
   return (
-    <div style={{ marginBottom: '1.25rem' }}>
+    <div style={{ marginBottom: space[5] }}>
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: '0.35rem',
-          padding: '0 0.75rem',
+          padding: `0 ${space[3]}`,
         }}
       >
         <span

@@ -1,5 +1,6 @@
-import { Markdown } from '@/app/components/markdown';
+import { LinkButton, Markdown } from '@/app/components';
 import { useAppStore } from '@/app/stores/app-store';
+import { color, fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
 import { Stamp } from '@dendelion/paper-ui';
 
 export const OpenQuestionDetail = () => {
@@ -22,19 +23,17 @@ export const OpenQuestionDetail = () => {
     <div>
       <h2
         style={{
-          fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+          fontFamily: fontFamily.serif,
           fontWeight: 600,
           fontSize: '1.75rem',
-          margin: '0 0 0.75rem',
-          lineHeight: 1.2,
+          margin: `0 0 ${space[3]}`,
+          lineHeight: lineHeight.tight,
         }}
       >
         {question.title}
       </h2>
 
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', gap: space[2], marginBottom: space[5] }}>
         <span className="text-sm" style={{ opacity: 0.5 }}>
           {question.raised}
         </span>
@@ -43,37 +42,23 @@ export const OpenQuestionDetail = () => {
           fillColor={
             question.status === 'open' ? 'rgba(212, 163, 115, 0.25)' : 'rgba(143, 185, 150, 0.25)'
           }
-          textColor={question.status === 'open' ? '#A67B4F' : '#5E8A66'}
+          textColor={question.status === 'open' ? color.accentAmberDark : color.accentGreenDark}
         >
           {question.status}
         </Stamp>
         {question.resolvedBy && (
           <span className="text-sm" style={{ opacity: 0.5 }}>
             Resolved by{' '}
-            <button
-              type="button"
-              onClick={handleResolvedByClick}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: '#A67B4F',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                font: 'inherit',
-              }}
-            >
-              {question.resolvedBy}
-            </button>
+            <LinkButton onClick={handleResolvedByClick}>{question.resolvedBy}</LinkButton>
           </span>
         )}
       </div>
 
       <div
         style={{
-          fontFamily: '"Cormorant Garamond", Georgia, serif',
-          fontSize: '1.125rem',
-          lineHeight: 1.65,
+          fontFamily: fontFamily.body,
+          fontSize: fontSize.base,
+          lineHeight: lineHeight.relaxed,
           color: '#1C1B18',
         }}
       >

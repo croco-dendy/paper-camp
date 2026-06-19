@@ -1,24 +1,13 @@
 import { PageTitle } from '@/app/components/page-title';
 import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
-import type { PhaseItem, PlanEntry } from '@/types/index';
+import { fontFamily, lineHeight, space } from '@/app/styles/tokens';
+import type { PhaseItem } from '@/types/index';
 import { Alert, Button, Progress, Stamp } from '@dendelion/paper-ui';
 import { useMemo, useState } from 'react';
 import { STATUS_LABEL, STATUS_STAMP } from '../plans/constants';
-import { phaseProgress, relativeDate } from '../plans/helpers';
+import { findFocusPlan, phaseProgress, relativeDate } from '../plans/helpers';
 import { FocusPhaseItem } from './components/focus-phase-item';
-
-const findFocusPlan = (
-  plans: PlanEntry[] | undefined,
-  activePlanTitle: string | null,
-): PlanEntry | undefined => {
-  if (!plans) return undefined;
-  if (activePlanTitle) {
-    const selected = plans.find((p) => p.title === activePlanTitle);
-    if (selected) return selected;
-  }
-  return plans.find((p) => p.status === 'in-progress');
-};
 
 export const FocusPage = () => {
   const { plans, plansError, activePlanTitle, loadPlans } = useAppStore();
@@ -106,12 +95,12 @@ export const FocusPage = () => {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          gap: '1rem',
-          marginBottom: '1.5rem',
+          gap: space[4],
+          marginBottom: space[6],
         }}
       >
         <PageTitle>Focus</PageTitle>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
           <Stamp
             size="small"
             fillColor={STATUS_STAMP[plan.status].fill}
@@ -134,16 +123,16 @@ export const FocusPage = () => {
       <h2
         className="text-2xl"
         style={{
-          fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+          fontFamily: fontFamily.serif,
           fontWeight: 600,
-          margin: '0 0 0.75rem',
-          lineHeight: 1.2,
+          margin: `0 0 ${space[3]}`,
+          lineHeight: lineHeight.tight,
         }}
       >
         {plan.title}
       </h2>
 
-      <p className="text-sm" style={{ opacity: 0.5, margin: '0 0 2rem' }}>
+      <p className="text-sm" style={{ opacity: 0.5, margin: `0 0 ${space[8]}` }}>
         {plan.updated
           ? `updated ${relativeDate(plan.updated)}`
           : `created ${relativeDate(plan.created)}`}
@@ -153,9 +142,9 @@ export const FocusPage = () => {
         <p
           className="text-base"
           style={{
-            fontFamily: '"Cormorant Garamond", Georgia, serif',
+            fontFamily: fontFamily.body,
             lineHeight: 1.55,
-            margin: '0 0 2.5rem',
+            margin: `0 0 ${space[10]}`,
             opacity: 0.85,
           }}
         >
@@ -164,13 +153,13 @@ export const FocusPage = () => {
       )}
 
       {progress !== null && (
-        <div style={{ marginBottom: '2rem' }}>
+        <div style={{ marginBottom: space[8] }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: '0.5rem',
+              marginBottom: space[2],
             }}
           >
             <span className="text-xs" style={{ opacity: 0.6, fontWeight: 600 }}>
@@ -185,7 +174,7 @@ export const FocusPage = () => {
       )}
 
       {plan.phases.length > 0 && (
-        <div style={{ marginBottom: '2.5rem' }}>
+        <div style={{ marginBottom: space[10] }}>
           <h3
             className="text-xs"
             style={{
@@ -193,12 +182,12 @@ export const FocusPage = () => {
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
               opacity: 0.4,
-              margin: '0 0 0.75rem',
+              margin: `0 0 ${space[3]}`,
             }}
           >
             Phases
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: space[1] }}>
             {plan.phases.map((phase, index) => (
               <FocusPhaseItem
                 key={`${phase.text}-${index}`}

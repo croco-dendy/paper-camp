@@ -1,17 +1,14 @@
 import { AddIdeaModal } from '@/app/components/add-idea-modal';
-import { fetchIconDataUri } from '@/app/services/icon-api';
-import { fetchPackageName } from '@/app/services/package-api';
+import { useProjectIdentity } from '@/app/hooks';
 import { createPlan, deletePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
+import { fontFamily, fontSize, layout, space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { FolderIcon, Icon, IconButton, ListItem } from '@dendelion/paper-ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { PlanNavItem } from './plan-nav-item';
 import { SidebarSection } from './sidebar-section';
-
-const kebabToTitle = (s: string) =>
-  s.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 export const PlansSidebar = () => {
   const navigate = useNavigate();
@@ -26,15 +23,7 @@ export const PlansSidebar = () => {
     ideaEntries,
   } = useAppStore();
   const [addingIdea, setAddingIdea] = useState(false);
-  const [projectName, setProjectName] = useState<string | null>(null);
-  const [iconDataUri, setIconDataUri] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchPackageName().then((name) => {
-      if (name) setProjectName(kebabToTitle(name));
-    });
-    fetchIconDataUri().then(setIconDataUri);
-  }, []);
+  const { projectName, iconDataUri } = useProjectIdentity();
 
   const active = plans?.entries.filter((p) => p.status === 'in-progress') ?? [];
   const planned = plans?.entries.filter((p) => p.status === 'planned') ?? [];
@@ -66,14 +55,14 @@ export const PlansSidebar = () => {
   };
 
   const divider = (
-    <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: '0.75rem 0.75rem' }} />
+    <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: `${space[3]} ${space[3]}` }} />
   );
 
   return (
     <>
       <aside
         style={{
-          width: 220,
+          width: layout.sidebarWidth,
           flexShrink: 0,
           height: '100%',
           position: 'sticky',
@@ -85,8 +74,8 @@ export const PlansSidebar = () => {
         }}
       >
         {/* Logo / project name */}
-        <div style={{ padding: '1.25rem 0.75rem 1rem', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ padding: `${space[5]} ${space[3]} ${space[4]}`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
             {iconDataUri ? (
               <img
                 src={iconDataUri}
@@ -98,9 +87,9 @@ export const PlansSidebar = () => {
             )}
             <span
               style={{
-                fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+                fontFamily: fontFamily.serif,
                 fontWeight: 600,
-                fontSize: '1.25rem',
+                fontSize: fontSize.md,
               }}
             >
               {projectName ?? 'Paper Camp'}
@@ -111,7 +100,7 @@ export const PlansSidebar = () => {
         {divider}
 
         {/* Scrollable plan list */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingTop: '0.25rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto', paddingTop: space[1] }}>
           {active.length > 0 && (
             <SidebarSection label="In progress">
               {active.map((p) => (
@@ -190,7 +179,7 @@ export const PlansSidebar = () => {
                 className="text-sm"
                 style={{
                   display: 'block',
-                  padding: '0.25rem 0.75rem',
+                  padding: `${space[1]} ${space[3]}`,
                   opacity: 0.35,
                   fontStyle: 'italic',
                 }}

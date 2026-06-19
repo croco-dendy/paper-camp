@@ -1,3 +1,4 @@
+import { fontFamily } from '@/app/styles/tokens';
 import { Card, Icon, LightbulbIcon } from '@dendelion/paper-ui';
 
 interface IdeaCardProps {
@@ -21,7 +22,7 @@ export const IdeaCard = ({ title, onClick }: IdeaCardProps) => {
           <Icon icon={<LightbulbIcon />} size="small" />
           <span
             style={{
-              fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+              fontFamily: fontFamily.serif,
               fontWeight: 600,
               fontSize: '0.9rem',
               color: '#1C1B18',

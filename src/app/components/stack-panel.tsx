@@ -1,16 +1,26 @@
+import {
+  color,
+  fontFamily,
+  fontSize,
+  layout,
+  lineHeight,
+  space,
+  transition,
+} from '@/app/styles/tokens';
+import { Card, IconButton } from '@dendelion/paper-ui';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Card } from '@dendelion/paper-ui';
-import type { PlanEntry } from '@/types/index';
+import { findFocusPlan } from '../features/plans/helpers';
 import { useAppStore } from '../stores/app-store';
 
 const CHALKBOARD_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.28 0 0 0 0 0.20 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='1'/%3E%3C/svg%3E")`;
 
-const deskBg = '#1e3a2d';
-const deskLight = '#264a3a';
-const deskText = '#e8e4d9';
-const deskTextMuted = '#a8b5a0';
-const deskBorder = 'rgba(200, 210, 195, 0.15)';
-const deskChalk = '#d4e8cb';
+const deskBg = color.deskBg;
+const deskLight = color.deskLight;
+const deskText = color.deskText;
+const deskTextMuted = color.deskTextMuted;
+const deskBorder = color.deskBorder;
+const deskChalk = color.deskChalk;
 
 interface StackPanelProps {
   open: boolean;
@@ -23,24 +33,11 @@ interface SseEvent {
 }
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
-  fontSize: '1.1rem',
+  fontFamily: fontFamily.serif,
+  fontSize: fontSize['md-alt'],
   fontWeight: 600,
   color: deskTextMuted,
-  marginBottom: '0.75rem',
-};
-
-const findFocusPlan = (
-  plans: PlanEntry[] | undefined,
-): PlanEntry | undefined => {
-  if (!plans) return undefined;
-  return plans.find((p) => p.status === 'in-progress');
-};
-
-const phaseProgress = (plan: PlanEntry) => {
-  if (plan.phases.length === 0) return null;
-  const done = plan.phases.filter((p) => p.done).length;
-  return { done, total: plan.phases.length, pct: Math.round((done / plan.phases.length) * 100) };
+  marginBottom: space[3],
 };
 
 export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
@@ -49,6 +46,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const loadProgress = useAppStore((s) => s.loadProgress);
   const loadPlans = useAppStore((s) => s.loadPlans);
   const [liveEvents, setLiveEvents] = useState<SseEvent[]>([]);
+  const shouldReduceMotion = useReducedMotion();
   const refreshRef = useRef({ loadProgress, loadPlans });
   refreshRef.current = { loadProgress, loadPlans };
 
@@ -74,7 +72,10 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
     es.onerror = () => {
       setLiveEvents((prev) => {
         if (prev.length === 0 || prev[0].message !== 'Connection lost, retrying…') {
-          return [{ message: 'Connection lost, retrying…', timestamp: new Date().toISOString() }, ...prev];
+          return [
+            { message: 'Connection lost, retrying…', timestamp: new Date().toISOString() },
+            ...prev,
+          ];
         }
         return prev;
       });
@@ -83,57 +84,55 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   }, []);
 
   const activePlan = useMemo(() => findFocusPlan(plans?.entries), [plans?.entries]);
-  const pct = activePlan ? phaseProgress(activePlan) : null;
 
   const sorted = [...progress].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <>
-      {!open && (
-        <button
-          onClick={onToggle}
-          type="button"
-          aria-label="Open stack panel"
-          style={{
-            position: 'fixed',
-            right: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 100,
-            width: 28,
-            height: 64,
-            border: 'none',
-            borderRight: 'none',
-            borderRadius: '6px 0 0 6px',
-            background: deskBg,
-            backgroundImage: `${CHALKBOARD_TEXTURE}, linear-gradient(135deg, ${deskLight} 0%, ${deskBg} 60%)`,
-            backgroundRepeat: 'repeat, no-repeat',
-            backgroundSize: '200px 200px, auto',
-            color: deskChalk,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
-            fontSize: '0.75rem',
-            lineHeight: 1,
-            padding: 0,
-            transition: 'background 150ms ease',
-            boxShadow: '-2px 0 8px rgba(0,0,0,0.15)',
-          }}
-        >
-          S
-        </button>
-      )}
-      <div
+      <AnimatePresence>
+        {!open && (
+          <motion.div
+            initial={shouldReduceMotion ? undefined : { opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={shouldReduceMotion ? undefined : { opacity: 0, x: 20 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+            style={{
+              position: 'fixed',
+              right: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 100,
+              borderRadius: '6px 0 0 6px',
+              background: deskBg,
+              backgroundImage: `${CHALKBOARD_TEXTURE}, linear-gradient(135deg, ${deskLight} 0%, ${deskBg} 60%)`,
+              backgroundRepeat: 'repeat, no-repeat',
+              backgroundSize: '200px 200px, auto',
+              boxShadow: '-2px 0 8px rgba(0,0,0,0.15)',
+            }}
+          >
+            <IconButton
+              icon={<span style={{ fontSize: fontSize['2xs'] }}>S</span>}
+              variant="chalkboard"
+              size="small"
+              label="Open stack panel"
+              onClick={onToggle}
+              style={{ width: 28, height: 64, borderRadius: '6px 0 0 6px' }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.div
+        animate={{ x: open ? 0 : '100%' }}
+        transition={{
+          duration: shouldReduceMotion ? 0 : 0.3,
+          ease: [0.4, 0, 0.2, 1],
+        }}
         style={{
           position: 'fixed',
           top: 0,
           right: 0,
           bottom: 0,
-          width: 480,
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+          width: layout.stackPanelWidth,
           borderLeft: '4px solid rgba(61, 53, 43, 0.12)',
           backgroundColor: deskBg,
           backgroundImage: `${CHALKBOARD_TEXTURE}, linear-gradient(135deg, ${deskLight} 0%, ${deskBg} 60%)`,
@@ -149,7 +148,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
         <div
           style={{
             height: 80,
-            padding: '0 1.5rem',
+            padding: `0 ${space[6]}`,
             borderBottom: `1px solid ${deskBorder}`,
             display: 'flex',
             alignItems: 'center',
@@ -159,59 +158,45 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
         >
           <span
             style={{
-              fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
-              fontSize: '1.15rem',
+              fontFamily: fontFamily.serif,
+              fontSize: fontSize['md-alt'],
               fontWeight: 700,
               color: deskChalk,
             }}
           >
             Stack
           </span>
-          <button
+          <IconButton
+            icon={<span style={{ fontSize: fontSize.sm, lineHeight: 1 }}>&times;</span>}
+            variant="chalkboard"
+            size="small"
+            label="Close stack panel"
             onClick={onToggle}
-            type="button"
-            aria-label="Close stack panel"
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 6,
-              border: `1px solid ${deskBorder}`,
-              background: 'rgba(255, 255, 255, 0.05)',
-              color: deskTextMuted,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1rem',
-              lineHeight: 1,
-              transition: 'background 150ms ease, color 150ms ease',
-            }}
-          >
-            &times;
-          </button>
+            style={{ width: 28, height: 28, border: `1px solid ${deskBorder}` }}
+          />
         </div>
         <div
           style={{
             flex: 1,
-            padding: '1.5rem',
+            padding: space[6],
             overflowY: 'auto',
-            fontFamily: '"Cormorant Garamond", Georgia, serif',
+            fontFamily: fontFamily.body,
             scrollbarWidth: 'thin',
             scrollbarColor: 'rgba(200, 210, 195, 0.3) transparent',
           }}
         >
-          <div style={{ marginBottom: '2rem' }}>
+          <div style={{ marginBottom: space[8] }}>
             <div style={sectionLabelStyle}>Active</div>
             {activePlan ? (
               <Card variant="chalkboard" size="small">
                 <h3
                   style={{
-                    fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+                    fontFamily: fontFamily.serif,
                     fontWeight: 600,
-                    fontSize: '1rem',
+                    fontSize: fontSize.sm,
                     color: deskChalk,
                     margin: 0,
-                    lineHeight: 1.3,
+                    lineHeight: lineHeight.snug,
                   }}
                 >
                   {activePlan.title}
@@ -224,11 +209,11 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.5rem',
-                        fontFamily: "'Caveat', cursive",
-                        fontSize: '1.2rem',
+                        gap: space[2],
+                        fontFamily: fontFamily.handwritten,
+                        fontSize: fontSize.lg,
                         fontWeight: 400,
-                        lineHeight: 1.2,
+                        lineHeight: lineHeight.tight,
                         color: deskText,
                         opacity: 0.9,
                       }}
@@ -240,34 +225,41 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                 })()}
               </Card>
             ) : (
-              <p style={{ opacity: 0.5, fontSize: '0.875rem' }}>No active plan.</p>
+              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No active plan.</p>
             )}
           </div>
 
           {liveEvents.length > 0 && (
-            <div style={{ marginBottom: '2rem' }}>
+            <div style={{ marginBottom: space[8] }}>
               <div style={sectionLabelStyle}>Live</div>
               <Card variant="chalkboard" size="small">
                 <div
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.75rem',
+                    gap: space[3],
                   }}
                 >
                   {liveEvents.map((ev, i) => (
-                    <div
+                    <motion.div
                       key={`${ev.timestamp}-${i}`}
+                      initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: shouldReduceMotion ? 0 : 0.2,
+                        ease: 'easeOut',
+                        delay: shouldReduceMotion ? 0 : i * 0.03,
+                      }}
                       style={{
-                        fontFamily: "'Caveat', cursive",
-                        fontSize: '1.2rem',
+                        fontFamily: fontFamily.handwritten,
+                        fontSize: fontSize.lg,
                         fontWeight: 400,
-                        lineHeight: 1.2,
+                        lineHeight: lineHeight.tight,
                         color: deskChalk,
                       }}
                     >
                       {ev.message}
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </Card>
@@ -276,18 +268,25 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
 
           <div style={sectionLabelStyle}>Activity</div>
           {sorted.length === 0 ? (
-            <p style={{ opacity: 0.5, fontSize: '0.875rem' }}>No activity yet.</p>
+            <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No activity yet.</p>
           ) : (
             sorted.map((entry, i) => (
-              <div key={entry.date} style={{ marginBottom: '2rem', paddingBottom: '1rem', borderBottom: i < sorted.length - 1 ? `1px solid ${deskBorder}` : undefined }}>
+              <div
+                key={entry.date}
+                style={{
+                  marginBottom: space[8],
+                  paddingBottom: space[4],
+                  borderBottom: i < sorted.length - 1 ? `1px solid ${deskBorder}` : undefined,
+                }}
+              >
                 <div
                   style={{
-                    fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+                    fontFamily: fontFamily.serif,
                     fontWeight: 600,
-                    fontSize: '0.95rem',
+                    fontSize: fontSize['base-alt'],
                     color: deskChalk,
-                    margin: '0 0 0.75rem',
-                    lineHeight: 1.2,
+                    margin: `0 0 ${space[3]}`,
+                    lineHeight: lineHeight.tight,
                   }}
                 >
                   {entry.date}
@@ -299,19 +298,19 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                     margin: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.75rem',
+                    gap: space[3],
                   }}
                 >
                   {entry.items.map((item, i) => (
                     <li
                       key={`${entry.date}-${i}`}
                       style={{
-                        fontFamily: "'Caveat', cursive",
-                        fontSize: '1.2rem',
+                        fontFamily: fontFamily.handwritten,
+                        fontSize: fontSize.lg,
                         fontWeight: 400,
-                        lineHeight: 1.2,
+                        lineHeight: lineHeight.tight,
                         color: deskText,
-                        paddingLeft: '0.75rem',
+                        paddingLeft: space[3],
                         borderLeft: `2px solid ${deskBorder}`,
                         opacity: 0.9,
                       }}
@@ -324,7 +323,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
             ))
           )}
         </div>
-      </div>
+      </motion.div>
     </>
   );
 };

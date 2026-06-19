@@ -1,3 +1,4 @@
+import { fontFamily, fontSize, layout, space, transition } from '@/app/styles/tokens';
 import { Button, FolderIcon, Icon, Input, Island, Layout, Page } from '@dendelion/paper-ui';
 import {
   Outlet,
@@ -7,18 +8,15 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { StackPanel } from './components/stack-panel';
 import { DocsPage, DocsSidebar } from './features/docs/index';
 import { FocusPage } from './features/focus/index';
 import { PlansPage, PlansSidebar } from './features/plans/index';
 import { SettingsPage, SettingsSidebar } from './features/settings/index';
-import { StackPanel } from './components/stack-panel';
-import { fetchIconDataUri } from './services/icon-api';
-import { fetchPackageName } from './services/package-api';
+import { useProjectIdentity } from './hooks';
 import { useAppStore } from './stores/app-store';
-
-const kebabToTitle = (s: string) =>
-  s.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const navItems = [
   { id: 'plans', label: 'Plans', path: '/' },
@@ -36,16 +34,12 @@ const RootLayout = () => {
   const docSearchQuery = useAppStore((s) => s.docSearchQuery);
   const setDocSearchQuery = useAppStore((s) => s.setDocSearchQuery);
   const [stackOpen, setStackOpen] = useState(true);
-  const [projectName, setProjectName] = useState<string | null>(null);
-  const [iconDataUri, setIconDataUri] = useState<string | null>(null);
+  const { projectName, iconDataUri } = useProjectIdentity();
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     loadPlans();
     loadIdeas();
-    fetchPackageName().then((name) => {
-      if (name) setProjectName(kebabToTitle(name));
-    });
-    fetchIconDataUri().then(setIconDataUri);
   }, [loadPlans, loadIdeas]);
 
   return (
@@ -57,33 +51,47 @@ const RootLayout = () => {
     >
       <div
         className="flex h-full min-h-0 justify-center items-stretch box-border overflow-hidden"
-        style={{ paddingRight: stackOpen ? 480 : 0 }}
+        style={{ paddingRight: stackOpen ? layout.stackPanelWidth : 0 }}
       >
-        <div className="flex h-full min-h-0 w-full max-w-layout gap-6">
+        <div className="flex h-full min-h-0 w-full max-w-layout" style={{ gap: layout.contentGap }}>
           {pathname === '/' && <PlansSidebar />}
           {pathname === '/docs' && <DocsSidebar />}
           {pathname === '/settings' && <SettingsSidebar />}
           <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
-            <div className="flex-1 min-h-0 pb-24">
+            <div className="flex-1 min-h-0" style={{ paddingBottom: layout.pagePaddingBottom }}>
               <Page texture={{ texture: 'parchment' }}>
-                <Outlet />
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={pathname}
+                    initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    style={{ height: '100%' }}
+                  >
+                    <Outlet />
+                  </motion.div>
+                </AnimatePresence>
               </Page>
             </div>
           </div>
         </div>
       </div>
       <StackPanel open={stackOpen} onToggle={() => setStackOpen((o) => !o)} />
-      <nav
+      <motion.nav
         aria-label="Navigation island"
         style={{
           position: 'fixed',
-          bottom: '1.5rem',
+          bottom: layout.navIslandBottom,
           left: '50%',
-          transform: stackOpen
-            ? 'translateX(calc(-50% - 240px))'
-            : 'translateX(-50%)',
-          transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
           zIndex: 110,
+        }}
+        animate={{
+          x: stackOpen ? `calc(-50% - ${layout.stackPanelWidth / 2}px)` : '-50%',
+        }}
+        transition={{
+          duration: shouldReduceMotion ? 0 : 0.3,
+          ease: [0.4, 0, 0.2, 1],
         }}
       >
         <Island>
@@ -99,9 +107,9 @@ const RootLayout = () => {
             )}
             <span
               style={{
-                fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+                fontFamily: fontFamily.serif,
                 fontWeight: 600,
-                fontSize: '1rem',
+                fontSize: fontSize.sm,
                 whiteSpace: 'nowrap',
               }}
             >
@@ -135,7 +143,7 @@ const RootLayout = () => {
             ))}
           </div>
         </Island>
-      </nav>
+      </motion.nav>
     </Layout>
   );
 };

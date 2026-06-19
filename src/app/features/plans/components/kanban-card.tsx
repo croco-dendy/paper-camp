@@ -1,6 +1,7 @@
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { Stamp } from '@dendelion/paper-ui';
-import { STATUS_BAR_COLOR } from '../constants';
+import { STATUS_COLOR } from '../constants';
 import { phaseProgress } from '../helpers';
 import { ProgressBar } from './progress-bar';
 
@@ -16,7 +17,7 @@ export const KanbanCard = ({ plan }: KanbanCardProps) => {
         background: 'rgba(255,255,255,0.6)',
         border: '1px solid rgba(0,0,0,0.1)',
         borderRadius: 6,
-        padding: '0.65rem 0.75rem',
+        padding: `0.65rem ${space[3]}`,
         cursor: 'default',
       }}
     >
@@ -24,7 +25,7 @@ export const KanbanCard = ({ plan }: KanbanCardProps) => {
         {plan.title}
       </div>
       {plan.tags.length > 0 && (
-        <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+        <div style={{ display: 'flex', gap: space[1], flexWrap: 'wrap', marginBottom: '0.4rem' }}>
           {plan.tags.map((t) => (
             <Stamp key={t} size="small" fillColor="rgba(0,0,0,0.06)">
               {t}
@@ -34,7 +35,7 @@ export const KanbanCard = ({ plan }: KanbanCardProps) => {
       )}
       {progress !== null && (
         <div>
-          <ProgressBar pct={progress.pct} color={STATUS_BAR_COLOR[plan.status]} height={4} />
+          <ProgressBar pct={progress.pct} color={STATUS_COLOR[plan.status]} height={4} />
           <span
             className="text-xs"
             style={{ opacity: 0.45, marginTop: '0.2rem', display: 'block' }}

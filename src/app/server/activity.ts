@@ -19,8 +19,7 @@ interface Snapshot {
 
 const campFile = (root: string, name: string) => join(root, 'papercamp', name);
 
-const readMaybe = (path: string): Promise<string> =>
-  readFile(path, 'utf-8').catch(() => '');
+const readMaybe = (path: string): Promise<string> => readFile(path, 'utf-8').catch(() => '');
 
 async function takeSnapshot(root: string): Promise<Snapshot> {
   const [plansRaw, decisionsRaw, questionsRaw, progressRaw] = await Promise.all([
@@ -147,7 +146,10 @@ export function createActivityManager(root: string) {
   return {
     subscribe(res: ServerResponse) {
       clients.add(res);
-      const connected = JSON.stringify({ message: 'Watching for changes…', timestamp: new Date().toISOString() });
+      const connected = JSON.stringify({
+        message: 'Watching for changes…',
+        timestamp: new Date().toISOString(),
+      });
       res.write(`data: ${connected}\n\n`);
       res.on('close', () => clients.delete(res));
     },

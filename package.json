@@ -41,6 +41,7 @@
     "@tanstack/react-router": "^1.58.3",
     "clsx": "^2.1.1",
     "commander": "^12.0.0",
+    "framer-motion": "^12.40.0",
     "react-markdown": "^10.1.0",
     "zod": "^4.4.3",
     "zustand": "^4.5.0"

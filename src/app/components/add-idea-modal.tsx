@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import { Button, Input, Modal, Textarea } from '@dendelion/paper-ui';
 import { useEffect, useState } from 'react';
 
@@ -36,7 +37,7 @@ export const AddIdeaModal = ({ open, onClose, onAdd }: AddIdeaModalProps) => {
     <Modal open={open} onClose={onClose} title="Add to backlog" size="small">
       <form
         onSubmit={handleSubmit}
-        style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
       >
         <Input
           label="Title"
@@ -55,7 +56,7 @@ export const AddIdeaModal = ({ open, onClose, onAdd }: AddIdeaModalProps) => {
           disabled={loading}
           rows={4}
         />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: space[2] }}>
           <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
             Cancel
           </Button>

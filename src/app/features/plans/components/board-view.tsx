@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { KANBAN_COLUMNS } from '../constants';
 import { KanbanColumn } from './kanban-column';
@@ -11,9 +12,9 @@ export const BoardView = ({ plans }: BoardViewProps) => {
     <div
       style={{
         display: 'flex',
-        gap: '0.75rem',
+        gap: space[3],
         overflowX: 'auto',
-        paddingBottom: '1rem',
+        paddingBottom: space[4],
         alignItems: 'flex-start',
       }}
     >

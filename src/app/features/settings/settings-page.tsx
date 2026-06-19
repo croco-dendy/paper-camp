@@ -1,8 +1,10 @@
 import { PageTitle } from '@/app/components/page-title';
+import { useProjectIdentity } from '@/app/hooks';
 import { fetchConfig } from '@/app/services/config-api';
 import { fetchConfigFile } from '@/app/services/configs-api';
-import { fetchIconDataUri, uploadIcon } from '@/app/services/icon-api';
+import { uploadIcon } from '@/app/services/icon-api';
 import { useAppStore } from '@/app/stores/app-store';
+import { color, space } from '@/app/styles/tokens';
 import type { PaperCampConfig } from '@/types/index';
 import { Alert, Button, Card, CodeBlock, Stamp } from '@dendelion/paper-ui';
 import { useEffect, useRef, useState } from 'react';
@@ -10,13 +12,14 @@ import { useEffect, useRef, useState } from 'react';
 const GeneralSection = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [config, setConfig] = useState<PaperCampConfig | null | undefined>(undefined);
-  const [iconDataUri, setIconDataUri] = useState<string | null | undefined>(undefined);
+  const { iconDataUri: fetchedIconDataUri } = useProjectIdentity();
+  const [uploadedIconDataUri, setUploadedIconDataUri] = useState<string | null>(null);
+  const iconDataUri = uploadedIconDataUri ?? fetchedIconDataUri;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetchConfig().then(setConfig);
-    fetchIconDataUri().then(setIconDataUri);
   }, []);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,7 +33,7 @@ const GeneralSection = () => {
       setSaving(false);
       if (ok) {
         setSaved(true);
-        setIconDataUri(dataUri);
+        setUploadedIconDataUri(dataUri);
         setTimeout(() => setSaved(false), 2000);
       }
     };
@@ -39,7 +42,7 @@ const GeneralSection = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: space[6] }}>
         <h2 style={{ margin: 0 }}>Project Info</h2>
       </div>
       {config === undefined && <p>Loading…</p>}
@@ -50,9 +53,13 @@ const GeneralSection = () => {
       )}
       {config && (
         <Card accent accentColor="slate">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
             <h2 style={{ margin: 0 }}>{config.projectName}</h2>
-            <Stamp size="small" fillColor="rgba(143, 185, 150, 0.25)" textColor="#5E8A66">
+            <Stamp
+              size="small"
+              fillColor="rgba(143, 185, 150, 0.25)"
+              textColor={color.accentGreenDark}
+            >
               v{config.version}
             </Stamp>
           </div>
@@ -62,8 +69,8 @@ const GeneralSection = () => {
         </Card>
       )}
 
-      <div style={{ marginTop: '2rem' }}>
-        <h3 style={{ marginBottom: '0.75rem' }}>Project Icon</h3>
+      <div style={{ marginTop: space[8] }}>
+        <h3 style={{ marginBottom: space[3] }}>Project Icon</h3>
         <Card>
           <div className="flex items-center gap-4">
             {iconDataUri && (
@@ -90,12 +97,12 @@ const GeneralSection = () => {
                 {saving ? 'Uploading…' : 'Choose File'}
               </Button>
               {saved && (
-                <span className="text-sm" style={{ opacity: 0.6, marginLeft: '0.5rem' }}>
+                <span className="text-sm" style={{ opacity: 0.6, marginLeft: space[2] }}>
                   Saved
                 </span>
               )}
               {!iconDataUri && !saving && (
-                <p className="text-sm" style={{ opacity: 0.45, margin: '0.25rem 0 0' }}>
+                <p className="text-sm" style={{ opacity: 0.45, margin: `${space[1]} 0 0` }}>
                   No icon set. Upload an SVG, PNG, or JPG.
                 </p>
               )}
@@ -135,7 +142,7 @@ const ConfigEditorSection = ({ fileName }: { fileName: string }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '1rem',
+          marginBottom: space[4],
         }}
       >
         <h2 style={{ margin: 0 }}>{fileName}</h2>

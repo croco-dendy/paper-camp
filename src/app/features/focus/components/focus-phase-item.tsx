@@ -1,5 +1,6 @@
+import { color, fontFamily, lineHeight } from '@/app/styles/tokens';
 import type { PhaseItem } from '@/types/index';
-import { Checkbox } from '@dendelion/paper-ui';
+import { CheckIcon, Checkbox, CloseIcon, CopyIcon, IconButton } from '@dendelion/paper-ui';
 import { useState } from 'react';
 
 interface FocusPhaseItemProps {
@@ -56,73 +57,39 @@ export const FocusPhaseItem = ({ phase, planTitle, phaseIndex, onToggle }: Focus
       <span
         className={`text-base flex-1 ${phase.done ? 'line-through' : ''}`}
         style={{
-          fontFamily: '"Cormorant Garamond", Georgia, serif',
-          lineHeight: 1.35,
+          fontFamily: fontFamily.body,
+          lineHeight: lineHeight.snug,
           opacity: phase.done ? 0.55 : 1,
         }}
       >
         {phase.text}
       </span>
-      <button
-        type="button"
+      <IconButton
+        icon={
+          status === 'copied' ? (
+            <CheckIcon size={16} />
+          ) : status === 'failed' ? (
+            <CloseIcon size={16} />
+          ) : (
+            <CopyIcon size={16} />
+          )
+        }
+        variant="ghost"
+        size="small"
+        label={
+          status === 'copied'
+            ? 'Copied'
+            : status === 'failed'
+              ? 'Copy failed — select and copy manually'
+              : 'Copy phase prompt'
+        }
         onClick={handleCopy}
         className={`transition-opacity ${status === 'idle' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
         style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '4px',
-          color: status === 'copied' ? '#6A9B72' : status === 'failed' ? '#A06060' : '#68635C',
-          flexShrink: 0,
+          color:
+            status === 'copied' ? '#6A9B72' : status === 'failed' ? '#A06060' : color.textSecondary,
         }}
-      >
-        {status === 'copied' ? (
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Copied</title>
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : status === 'failed' ? (
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Copy failed — select and copy manually</title>
-            <circle cx="12" cy="12" r="10" />
-            <line x1="15" y1="9" x2="9" y2="15" />
-            <line x1="9" y1="9" x2="15" y2="15" />
-          </svg>
-        ) : (
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Copy phase prompt</title>
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        )}
-      </button>
+      />
     </div>
   );
 };

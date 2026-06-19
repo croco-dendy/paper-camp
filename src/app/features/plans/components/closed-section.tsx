@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { Button } from '@dendelion/paper-ui';
 import { useState } from 'react';
@@ -11,7 +12,7 @@ export const ClosedSection = ({ plans }: ClosedSectionProps) => {
   const [open, setOpen] = useState(false);
   if (plans.length === 0) return null;
   return (
-    <div style={{ marginTop: '2rem' }}>
+    <div style={{ marginTop: space[8] }}>
       <Button
         type="button"
         variant="ghost"

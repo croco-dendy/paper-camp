@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { useEffect, useRef } from 'react';
 import { ClosedSection } from './closed-section';
@@ -44,9 +45,9 @@ export const ListView = ({
   return (
     <div>
       {active.length > 0 && (
-        <section style={{ marginBottom: '2rem' }}>
+        <section style={{ marginBottom: space[8] }}>
           <SectionHeading label="In progress" count={active.length} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
             {active.map((p) => (
               <div key={p.title} ref={wrapRef(p.title)}>
                 <PlanCard plan={p} highlighted={activePlanTitle === p.title} onOpen={onOpenPlan} />
@@ -57,9 +58,9 @@ export const ListView = ({
       )}
 
       {backlog.length > 0 && (
-        <section style={{ marginBottom: '2rem' }}>
+        <section style={{ marginBottom: space[8] }}>
           <SectionHeading label="Backlog" count={backlog.length} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
             {backlog.map((p) => (
               <div key={p.title} ref={wrapRef(p.title)}>
                 <PlanCard plan={p} highlighted={activePlanTitle === p.title} onOpen={onOpenPlan} />
@@ -70,13 +71,13 @@ export const ListView = ({
       )}
 
       {ideaEntries && ideaEntries.length > 0 && (
-        <section style={{ marginBottom: '2rem' }}>
+        <section style={{ marginBottom: space[8] }}>
           <SectionHeading label="Ideas" count={ideaEntries.length} />
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '0.75rem',
+              gap: space[3],
             }}
           >
             {ideaEntries.map((e) => (

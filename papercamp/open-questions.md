@@ -36,6 +36,19 @@ e.g. stop giving plans an `idea` status and treat all loose ideas as `ideas.md` 
 until someone promotes one to a real plan. Until decided, the current behavior stays as
 documented in `about.md`'s Plans page section.
 
+## Should paper-ui add a file-input component?
+
+**Status:** open
+**Raised:** 2026-06-19
+
+The Settings page's project-icon upload uses a raw hidden `<input type="file">` triggered
+by a paper-ui `Button`. There is no paper-ui equivalent for file selection, so the input
+stays raw with an inline comment noting the gap. Two options: (a) add a `FileInput` or
+`FileUpload` component to paper-ui that wraps the native input and provides the project's
+blob/button styling, or (b) continue using the native input when only a single file is
+needed and document the gap. Until decided, the raw input remains in
+`settings-page.tsx`.
+
 ## How should `paper-camp dev` serve the dashboard to an installed consumer?
 
 **Status:** resolved

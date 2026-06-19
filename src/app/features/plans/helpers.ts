@@ -22,3 +22,15 @@ export const phasePercentage = (plan: PlanEntry): number | null => {
   if (plan.phases.length === 0) return null;
   return Math.round((plan.phases.filter((p) => p.done).length / plan.phases.length) * 100);
 };
+
+export const findFocusPlan = (
+  plans: PlanEntry[] | undefined,
+  activePlanTitle?: string | null,
+): PlanEntry | undefined => {
+  if (!plans) return undefined;
+  if (activePlanTitle) {
+    const selected = plans.find((p) => p.title === activePlanTitle);
+    if (selected) return selected;
+  }
+  return plans.find((p) => p.status === 'in-progress');
+};

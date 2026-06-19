@@ -1,6 +1,7 @@
 import { Markdown } from '@/app/components/markdown';
 import { PageTitle } from '@/app/components/page-title';
 import { useAppStore } from '@/app/stores/app-store';
+import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
 import { Alert, Button } from '@dendelion/paper-ui';
 import { BoardView } from './components/board-view';
 import { ListView } from './components/list-view';
@@ -63,7 +64,7 @@ export const PlansPage = () => {
   if (activePlan) {
     return (
       <div>
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: space[4] }}>
           <Button variant="ghost" size="small" onClick={handleBack}>
             &larr; All plans
           </Button>
@@ -76,26 +77,26 @@ export const PlansPage = () => {
   if (activeIdea) {
     return (
       <div>
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: space[4] }}>
           <Button variant="ghost" size="small" onClick={handleBack}>
             &larr; All plans
           </Button>
         </div>
         <div
           style={{
-            fontFamily: '"Cormorant Garamond", Georgia, serif',
-            fontSize: '1.125rem',
-            lineHeight: 1.65,
+            fontFamily: fontFamily.body,
+            fontSize: fontSize.base,
+            lineHeight: lineHeight.relaxed,
             color: '#1C1B18',
           }}
         >
           <h2
             style={{
-              fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+              fontFamily: fontFamily.serif,
               fontWeight: 600,
               fontSize: '1.75rem',
-              margin: '0 0 1rem',
-              lineHeight: 1.2,
+              margin: `0 0 ${space[4]}`,
+              lineHeight: lineHeight.tight,
             }}
           >
             {activeIdea.title}
@@ -118,7 +119,7 @@ export const PlansPage = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '1.75rem',
+          marginBottom: space[7],
         }}
       >
         <PageTitle>Plans</PageTitle>

@@ -35,14 +35,6 @@ export const STATUS_STAMP: Record<PlanEntry['status'], { fill: string; text: str
   dropped: { fill: 'rgba(201, 139, 139, 0.25)', text: '#6E3A3A' },
 };
 
-export const STATUS_BAR_COLOR: Record<PlanEntry['status'], string> = {
-  'in-progress': '#C89A5A',
-  planned: '#6A9B72',
-  idea: '#8A9BAA',
-  done: '#8A7A8A',
-  dropped: '#A06060',
-};
-
 export const KANBAN_COLUMNS: { status: PlanStatus; label: string; accent: string }[] = [
   { status: 'in-progress', label: 'In Progress', accent: '#C89A5A' },
   { status: 'planned', label: 'Planned', accent: '#6A9B72' },

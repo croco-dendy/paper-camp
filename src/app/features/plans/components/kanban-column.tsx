@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry, PlanStatus } from '@/types/index';
 import { KanbanCard } from './kanban-card';
 
@@ -24,7 +25,7 @@ export const KanbanColumn = ({ status, label, accent, plans }: KanbanColumnProps
       {/* Column header */}
       <div
         style={{
-          padding: '0.65rem 0.75rem',
+          padding: `0.65rem ${space[3]}`,
           borderBottom: '2px solid',
           borderBottomColor: accent,
           display: 'flex',
@@ -68,7 +69,7 @@ export const KanbanColumn = ({ status, label, accent, plans }: KanbanColumnProps
           padding: '0.65rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.5rem',
+          gap: space[2],
           minHeight: 120,
         }}
       >
@@ -78,7 +79,7 @@ export const KanbanColumn = ({ status, label, accent, plans }: KanbanColumnProps
             style={{
               textAlign: 'center',
               opacity: 0.25,
-              marginTop: '0.5rem',
+              marginTop: space[2],
               fontStyle: 'italic',
             }}
           >

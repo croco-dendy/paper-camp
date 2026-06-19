@@ -1,4 +1,6 @@
 import { useAppStore } from '@/app/stores/app-store';
+import { fontFamily, space } from '@/app/styles/tokens';
+import { Button } from '@dendelion/paper-ui';
 
 interface SearchMatch {
   section: 'decisions' | 'questions' | 'progress' | 'repo-docs';
@@ -103,11 +105,11 @@ export const DocsSearch = ({ query }: DocsSearchProps) => {
 
   return (
     <div>
-      <p className="text-sm" style={{ opacity: 0.5, marginBottom: '0.75rem' }}>
+      <p className="text-sm" style={{ opacity: 0.5, marginBottom: space[3] }}>
         {results.length} result{results.length === 1 ? '' : 's'} for "{query}"
       </p>
       {Object.entries(grouped).map(([section, matches]) => (
-        <div key={section} style={{ marginBottom: '1.5rem' }}>
+        <div key={section} style={{ marginBottom: space[6] }}>
           <h3
             className="text-xs"
             style={{
@@ -115,45 +117,38 @@ export const DocsSearch = ({ query }: DocsSearchProps) => {
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
               opacity: 0.4,
-              margin: '0 0 0.5rem',
+              margin: `0 0 ${space[2]}`,
             }}
           >
             {matches[0].sectionLabel}
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: space[1] }}>
             {matches.map((m) => (
-              <button
+              <Button
                 key={`${m.section}-${m.title}`}
-                type="button"
+                variant="ghost"
+                size="small"
+                fullWidth
                 onClick={() => handleSelect(m.section, m.title)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  background: 'rgba(255,255,255,0.6)',
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  borderRadius: 6,
-                  padding: '0.5rem 0.75rem',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontSize: 'inherit',
-                }}
+                style={{ justifyContent: 'flex-start', padding: `${space[2]} ${space[3]}` }}
               >
-                <span
-                  style={{
-                    fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
-                    fontWeight: 600,
-                    fontSize: '0.95rem',
-                    display: 'block',
-                    marginBottom: '0.2rem',
-                  }}
-                >
-                  {m.title}
+                <span style={{ textAlign: 'left' }}>
+                  <span
+                    style={{
+                      fontFamily: fontFamily.serif,
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      display: 'block',
+                      marginBottom: '0.2rem',
+                    }}
+                  >
+                    {m.title}
+                  </span>
+                  <span className="text-sm" style={{ opacity: 0.6 }}>
+                    {m.snippet}
+                  </span>
                 </span>
-                <span className="text-sm" style={{ opacity: 0.6 }}>
-                  {m.snippet}
-                </span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

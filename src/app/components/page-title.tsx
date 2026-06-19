@@ -1,3 +1,4 @@
+import { color, fontFamily, space } from '@/app/styles/tokens';
 import type { ReactNode } from 'react';
 
 interface PageTitleProps {
@@ -13,10 +14,10 @@ export const PageTitle = ({ children }: PageTitleProps) => {
     <h1
       className="text-4xl"
       style={{
-        fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+        fontFamily: fontFamily.serif,
         fontWeight: 600,
-        color: '#1A1917',
-        margin: '0 0 1.5rem',
+        color: color.textPrimary,
+        margin: `0 0 ${space[6]}`,
         lineHeight: 1.1,
       }}
     >

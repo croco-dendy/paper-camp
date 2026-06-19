@@ -1,5 +1,6 @@
 import { Markdown } from '@/app/components/markdown';
 import { useAppStore } from '@/app/stores/app-store';
+import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
 
 export const ProgressTimeline = () => {
   const progress = useAppStore((s) => s.progress);
@@ -16,14 +17,14 @@ export const ProgressTimeline = () => {
   return (
     <div>
       {sorted.map((entry) => (
-        <div key={entry.date} style={{ marginBottom: '2rem' }}>
+        <div key={entry.date} style={{ marginBottom: space[8] }}>
           <h3
             style={{
-              fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+              fontFamily: fontFamily.serif,
               fontWeight: 600,
-              fontSize: '1.25rem',
-              margin: '0 0 0.75rem',
-              lineHeight: 1.2,
+              fontSize: fontSize.md,
+              margin: `0 0 ${space[3]}`,
+              lineHeight: lineHeight.tight,
               opacity: 0.8,
             }}
           >
@@ -36,18 +37,18 @@ export const ProgressTimeline = () => {
               margin: 0,
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.5rem',
+              gap: space[2],
             }}
           >
             {entry.items.map((item, i) => (
               <li
-                key={item}
+                key={`${entry.date}-${i}`}
                 style={{
-                  fontFamily: '"Cormorant Garamond", Georgia, serif',
-                  fontSize: '1rem',
+                  fontFamily: fontFamily.body,
+                  fontSize: fontSize.sm,
                   lineHeight: 1.55,
                   color: '#1C1B18',
-                  paddingLeft: '1rem',
+                  paddingLeft: space[4],
                   borderLeft: '2px solid rgba(0,0,0,0.08)',
                 }}
               >

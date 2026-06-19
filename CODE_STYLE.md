@@ -1,0 +1,143 @@
+# paper-camp UI code style guide
+
+This document is the source of truth for how UI code in `src/app` is written. It
+captures the rules the project already follows implicitly and the ones this
+cleanup pass is bringing into line.
+
+## 1. Use paper-ui components by default
+
+The dashboard is built on top of `@dendelion/paper-ui`. Reach for a paper-ui
+component before writing raw HTML.
+
+- Buttons → `Button` or `IconButton`
+- Inputs → `Input`, `Textarea`, `Checkbox`
+- Layout surfaces → `Card`, `Layout`, `Page`, `Island`
+- Status → `Stamp`, `Progress`
+- Lists → `ListItem`
+- Overlays → `Modal`, `Alert`
+- Code → `CodeBlock`
+
+If paper-ui has no equivalent for what you need, use raw HTML and add an inline
+comment explaining the gap. Do not build a workaround component locally unless the
+gap is approved as a real paper-ui addition.
+
+Known gaps that are intentionally raw:
+
+- `<input type="file">` hidden trigger in `settings-page.tsx` — paper-ui has no
+  file-input abstraction.
+
+## 2. Design tokens, not literals
+
+paper-ui owns the design tokens. Do not hand-type font stacks, spacing values,
+colors, or transitions in `src/app`.
+
+### Fonts
+
+Use the paper-ui font families exactly:
+
+- Serif/title: `'Luminari', 'Cormorant Garamond', Georgia, serif`
+- Body: `'Cormorant Garamond', Georgia, serif`
+- Handwritten: `'Caveat', cursive`
+- Mono: `'JetBrains Mono', monospace`
+
+Do not omit `Luminari` in some places and not others. Do not invent new stacks.
+
+### Spacing
+
+paper-ui's spacing scale is the source of truth:
+
+```
+$space-1:  0.25rem
+$space-2:  0.5rem
+$space-3:  0.75rem
+$space-4:  1rem
+$space-5:  1.25rem
+$space-6:  1.5rem
+$space-7:  1.75rem
+$space-8:  2rem
+$space-10: 2.5rem
+$space-12: 3rem
+$space-14: 3.5rem
+$space-16: 4rem
+```
+
+Because paper-ui does not expose the full token set as CSS custom properties,
+`src/app` mirrors the tokens in one local constants file (`src/app/styles/tokens.ts`).
+Import from there; do not duplicate the values inline.
+
+### Colors and transitions
+
+Use paper-ui tokens where exposed (`--pui-bg-base`, `--pui-bg-surface`,
+`--pui-text-primary`, `--pui-text-secondary`). For other colors, mirror the
+paper-ui `_tokens.scss` values in `src/app/styles/tokens.ts` rather than copying
+hex codes. Transitions should use the paper-ui timing values (`150ms`, `200ms`,
+`300ms`) with `ease-out` / `cubic-bezier(0.4, 0, 0.2, 1)`.
+
+## 3. Three copies means extract
+
+This project avoids premature abstraction, but repetition is not free. If the
+same logic, style object, or fetch pattern appears three times, extract it.
+
+Examples already in flight:
+
+- `useProjectIdentity()` — consolidates the icon + project-name fetch that was
+  copied in five places.
+- `LinkButton` — consolidates the inline "link button" style repeated in
+  decision/question detail views.
+
+## 4. Feature folders and service layer
+
+Organize code like this:
+
+```
+src/app/
+  components/        # Cross-cutting UI pieces (Markdown, PageTitle, StackPanel)
+  features/          # One folder per route-level feature
+    plans/
+      components/    # Feature-local components
+      constants.ts   # Feature-local constants
+      helpers.ts     # Pure helper functions
+      index.ts       # Public exports
+    docs/
+    focus/
+    settings/
+  server/            # Dev-server middleware / SSE
+  services/          # Client-side API callers
+  stores/            # Zustand stores
+  styles/            # Tailwind entry + token mirror
+```
+
+Rules:
+
+- `features/` owns route-level screens and their local components.
+- `services/` owns all `fetch()` calls to `/api/*`. Components do not call
+  `fetch()` directly.
+- `components/` is only for pieces used by more than one feature.
+- Each feature and each of `components/`, `services/`, and `stores/` has an
+  `index.ts` barrel file.
+
+## 5. Naming and formatting
+
+- Biome is the formatter/linter. Run `pnpm lint` and `pnpm lint:write`.
+- Components: PascalCase, named export, props interface named `{Component}Props`.
+- Services: `{domain}-api.ts`, async named exports.
+- Helpers: camelCase, pure where possible.
+- Event handlers: `handleXxx` (e.g., `handleSubmit`, `handleTogglePhase`).
+- Imports: use `@/` aliases; do not reach through `../../` more than one level.
+
+## 6. Motion
+
+Motion should be restrained and purposeful. Use `framer-motion` for:
+
+- Route-level page transitions.
+- List/feed items animating in (especially live activity feeds).
+- Panel slide transitions (replacing hand-rolled `translateX` + CSS transition).
+
+Avoid motion for motion's sake. Respect reduced motion via the user's system
+preference.
+
+## 7. Comments
+
+Prefer self-describing names over comments. When paper-ui has a real gap, note
+it inline. When a workaround exists for an environment quirk (e.g., clipboard
+over non-secure origins), document the "why" in a short block comment.
