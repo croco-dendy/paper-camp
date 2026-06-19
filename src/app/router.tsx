@@ -12,6 +12,7 @@ import { DocsPage, DocsSidebar } from './features/docs/index';
 import { FocusPage } from './features/focus/index';
 import { PlansPage, PlansSidebar } from './features/plans/index';
 import { SettingsPage, SettingsSidebar } from './features/settings/index';
+import { StackPanel } from './components/stack-panel';
 import { fetchIconDataUri } from './services/icon-api';
 import { fetchPackageName } from './services/package-api';
 import { useAppStore } from './stores/app-store';
@@ -34,6 +35,7 @@ const RootLayout = () => {
   const activeId = navItems.find((item) => item.path === pathname)?.id;
   const docSearchQuery = useAppStore((s) => s.docSearchQuery);
   const setDocSearchQuery = useAppStore((s) => s.setDocSearchQuery);
+  const [stackOpen, setStackOpen] = useState(true);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [iconDataUri, setIconDataUri] = useState<string | null>(null);
 
@@ -52,60 +54,11 @@ const RootLayout = () => {
       showHeader={false}
       showSidebar={false}
       showPage={false}
-      navigationIsland={
-        <nav aria-label="Navigation island">
-          <Island>
-            <div className="flex items-center gap-4">
-              {iconDataUri ? (
-                <img
-                  src={iconDataUri}
-                  alt=""
-                  style={{ width: 20, height: 20, objectFit: 'contain' }}
-                />
-              ) : (
-                <Icon icon={<FolderIcon />} size="small" />
-              )}
-              <span
-                style={{
-                  fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                }}
-              >
-                {projectName ?? 'Paper Camp'}
-              </span>
-            </div>
-            <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
-            {pathname === '/docs' && (
-              <div style={{ width: 180 }}>
-                <Input
-                  size="small"
-                  placeholder="Search docs…"
-                  value={docSearchQuery}
-                  onChange={(e) => setDocSearchQuery(e.target.value)}
-                />
-              </div>
-            )}
-            <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
-            <div className="flex items-center gap-1">
-              {navItems.map((item) => (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  size="small"
-                  isActive={item.id === activeId}
-                  onClick={() => navigate({ to: item.path })}
-                  aria-current={item.id === activeId ? 'page' : undefined}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </div>
-          </Island>
-        </nav>
-      }
     >
-      <div className="flex h-full min-h-0 justify-center items-stretch box-border overflow-hidden">
+      <div
+        className="flex h-full min-h-0 justify-center items-stretch box-border overflow-hidden"
+        style={{ paddingRight: stackOpen ? 480 : 0 }}
+      >
         <div className="flex h-full min-h-0 w-full max-w-layout gap-6">
           {pathname === '/' && <PlansSidebar />}
           {pathname === '/docs' && <DocsSidebar />}
@@ -119,6 +72,70 @@ const RootLayout = () => {
           </div>
         </div>
       </div>
+      <StackPanel open={stackOpen} onToggle={() => setStackOpen((o) => !o)} />
+      <nav
+        aria-label="Navigation island"
+        style={{
+          position: 'fixed',
+          bottom: '1.5rem',
+          left: '50%',
+          transform: stackOpen
+            ? 'translateX(calc(-50% - 240px))'
+            : 'translateX(-50%)',
+          transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+          zIndex: 110,
+        }}
+      >
+        <Island>
+          <div className="flex items-center gap-4">
+            {iconDataUri ? (
+              <img
+                src={iconDataUri}
+                alt=""
+                style={{ width: 20, height: 20, objectFit: 'contain' }}
+              />
+            ) : (
+              <Icon icon={<FolderIcon />} size="small" />
+            )}
+            <span
+              style={{
+                fontFamily: 'Luminari, "Cormorant Garamond", Georgia, serif',
+                fontWeight: 600,
+                fontSize: '1rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {projectName ?? 'Paper Camp'}
+            </span>
+          </div>
+          <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
+          {pathname === '/docs' && (
+            <div style={{ width: 180 }}>
+              <Input
+                size="small"
+                placeholder="Search docs…"
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
+          <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
+          <div className="flex items-center gap-1">
+            {navItems.map((item) => (
+              <Button
+                key={item.id}
+                variant="ghost"
+                size="small"
+                isActive={item.id === activeId}
+                onClick={() => navigate({ to: item.path })}
+                aria-current={item.id === activeId ? 'page' : undefined}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </Island>
+      </nav>
     </Layout>
   );
 };

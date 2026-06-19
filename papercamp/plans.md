@@ -114,21 +114,27 @@ generic config list.
 
 ## Build the Stack — right-side status & history panel
 
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-06-19
 **Updated:** 2026-06-19
 **Tags:** app, stack
 
 A persistent right-docked, full-height panel present across every page, showing the
 active plan and a feed of recent project activity. Default open, toggleable closed,
-styled after paper-ui's showcase `DetailSidebar` (chalkboard texture, Luminari header,
-Caveat section labels). See ideas.md's "The Stack — right-side status & history panel"
-for the full feature rationale — entirely buildable from data/patterns already in the
-codebase, no new concept of "an agent" required.
+styled after paper-ui's showcase `DetailSidebar` (chalkboard texture, desk-green
+gradient, Luminari header, Luminari section labels). See ideas.md's "The Stack —
+right-side status & history panel" for the full feature rationale — entirely buildable
+from data/patterns already in the codebase, no new concept of "an agent" required.
 
 ### Phases
-- [ ] Panel shell — fixed right-docked, full-height, `translateX` slide transition, chalkboard texture + desk-green gradient, `Luminari` header with a toggle control, default open; added to the root layout (`router.tsx`) alongside the bottom `NavigationIsland`
-- [ ] Idle state — activity history feed rendering `progress.md` via the existing `/api/progress`, reverse-chronological
-- [ ] Active state — surface the currently in-progress plan, reusing the existing `findFocusPlan` resolution logic from Focus, plus its phase progress
-- [ ] Live activity feed — a file watcher (`fs.watch` or `chokidar`) on the dev server, diffing each `papercamp/` file's previously-parsed entries against newly-parsed ones, synthesizing human-readable lines ("phase 2/5 checked off in 'X'", "plan 'Y' marked done", "new open question raised")
-- [ ] Delivery mechanism — a `GET /api/activity/stream` SSE endpoint pushing one event per detected change; panel subscribes and updates live without polling
+- [x] Panel shell — fixed right-docked, full-height, `translateX` slide transition, chalkboard texture + desk-green gradient, `Luminari` header with a toggle control, default open; added to the root layout (`router.tsx`) alongside the bottom `NavigationIsland`
+- [x] Idle state — activity history feed rendering `progress.md` via the existing `/api/progress`, reverse-chronological
+- [x] Active state — surface the currently in-progress plan, reusing the existing `findFocusPlan` resolution logic from Focus, plus its phase progress
+- [x] Live activity feed — a file watcher (`fs.watch` or `chokidar`) on the dev server, diffing each `papercamp/` file's previously-parsed entries against newly-parsed ones, synthesizing human-readable lines ("phase 2/5 checked off in 'X'", "plan 'Y' marked done", "new open question raised")
+- [x] Delivery mechanism — a `GET /api/activity/stream` SSE endpoint pushing one event per detected change; panel subscribes and updates live without polling
+- [x] Active section shows only the current (first incomplete) phase, not all phases
+- [x] Body font uses Cormorant Garamond; Luminari reserved for titles; section labels use Luminari (was Caveat), sentence case
+- [x] Chalkboard Card background darkened to `$color-chalkboard-bg` in paper-ui; used for Active, Live, and all event grouping
+- [x] Empty states for each section (Active, Activity, Live)
+- [x] Stamp and progress bar removed from Active section
+- [x] Load Cormorant Garamond via Google Fonts in index.html (was referenced by name but never fetched, silently falling back to Georgia/serif)

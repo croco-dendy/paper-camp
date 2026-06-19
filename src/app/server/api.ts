@@ -4,6 +4,7 @@ import { extname, join } from 'node:path';
 import { parseDecisions, parseOpenQuestions, parsePlans, parseProgress } from '../../core/parser';
 import { appendBlock, formatPlanEntry, formatPlans, todayDateString } from '../../core/serializer';
 import type { PhaseItem, PlanEntry, PlanStatus } from '../../types/index';
+import { createActivityManager } from './activity';
 
 async function readMaybe(path: string): Promise<string> {
   try {
@@ -123,6 +124,7 @@ const apiRoutes: ApiRoute[] = [
 ];
 
 export function createApiMiddleware(root: string) {
+  const activity = createActivityManager(root);
   return async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const pathname = (req.url ?? '').split('?')[0];
 
@@ -300,6 +302,17 @@ export function createApiMiddleware(root: string) {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ error: (error as Error).message }));
       }
+      return;
+    }
+
+    // GET /api/activity/stream — SSE endpoint for live activity events
+    if (req.method === 'GET' && pathname === '/api/activity/stream') {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+      activity.subscribe(res);
       return;
     }
 
