@@ -5,9 +5,7 @@ export const ProgressTimeline = () => {
   const progress = useAppStore((s) => s.progress);
   const activeDocTitle = useAppStore((s) => s.activeDocTitle);
 
-  const entries = activeDocTitle
-    ? progress.filter((p) => p.date === activeDocTitle)
-    : progress;
+  const entries = activeDocTitle ? progress.filter((p) => p.date === activeDocTitle) : progress;
 
   const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
 

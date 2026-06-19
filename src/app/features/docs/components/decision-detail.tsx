@@ -28,11 +28,19 @@ export const DecisionDetail = () => {
         {decision.title}
       </h2>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-        <span className="text-sm" style={{ opacity: 0.5 }}>{decision.date}</span>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}
+      >
+        <span className="text-sm" style={{ opacity: 0.5 }}>
+          {decision.date}
+        </span>
         <Stamp
           size="small"
-          fillColor={decision.status === 'decided' ? 'rgba(143, 185, 150, 0.25)' : 'rgba(201, 139, 139, 0.25)'}
+          fillColor={
+            decision.status === 'decided'
+              ? 'rgba(143, 185, 150, 0.25)'
+              : 'rgba(201, 139, 139, 0.25)'
+          }
           textColor={decision.status === 'decided' ? '#5E8A66' : '#6E3A3A'}
         >
           {decision.status}

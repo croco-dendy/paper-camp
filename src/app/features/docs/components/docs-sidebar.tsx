@@ -67,11 +67,7 @@ export const DocsSidebar = () => {
       <div style={{ padding: '1.25rem 0.75rem 1rem', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {iconDataUri ? (
-            <img
-              src={iconDataUri}
-              alt=""
-              style={{ width: 18, height: 18, objectFit: 'contain' }}
-            />
+            <img src={iconDataUri} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
           ) : (
             <Icon icon={<FolderIcon />} size="small" />
           )}
@@ -108,7 +104,12 @@ export const DocsSidebar = () => {
           ) : (
             <span
               className="text-sm"
-              style={{ display: 'block', padding: '0.25rem 0.75rem', opacity: 0.35, fontStyle: 'italic' }}
+              style={{
+                display: 'block',
+                padding: '0.25rem 0.75rem',
+                opacity: 0.35,
+                fontStyle: 'italic',
+              }}
             >
               No repo docs found
             </span>
@@ -130,7 +131,12 @@ export const DocsSidebar = () => {
           ) : (
             <span
               className="text-sm"
-              style={{ display: 'block', padding: '0.25rem 0.75rem', opacity: 0.35, fontStyle: 'italic' }}
+              style={{
+                display: 'block',
+                padding: '0.25rem 0.75rem',
+                opacity: 0.35,
+                fontStyle: 'italic',
+              }}
             >
               No decisions yet
             </span>
@@ -155,7 +161,12 @@ export const DocsSidebar = () => {
           ) : (
             <span
               className="text-sm"
-              style={{ display: 'block', padding: '0.25rem 0.75rem', opacity: 0.35, fontStyle: 'italic' }}
+              style={{
+                display: 'block',
+                padding: '0.25rem 0.75rem',
+                opacity: 0.35,
+                fontStyle: 'italic',
+              }}
             >
               No open questions
             </span>
@@ -180,13 +191,17 @@ export const DocsSidebar = () => {
           ) : (
             <span
               className="text-sm"
-              style={{ display: 'block', padding: '0.25rem 0.75rem', opacity: 0.35, fontStyle: 'italic' }}
+              style={{
+                display: 'block',
+                padding: '0.25rem 0.75rem',
+                opacity: 0.35,
+                fontStyle: 'italic',
+              }}
             >
               No progress entries
             </span>
           )}
         </SidebarSection>
-
       </div>
     </aside>
   );

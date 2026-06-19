@@ -1,6 +1,17 @@
-import type { DecisionEntry, OpenQuestionEntry, ParseResult, PlanEntry, ProgressEntry } from '@/types/index';
+import type {
+  DecisionEntry,
+  OpenQuestionEntry,
+  ParseResult,
+  PlanEntry,
+  ProgressEntry,
+} from '@/types/index';
 import { create } from 'zustand';
-import { fetchDecisions, fetchOpenQuestions, fetchProgress, fetchRepoDocs } from '../services/docs-api';
+import {
+  fetchDecisions,
+  fetchOpenQuestions,
+  fetchProgress,
+  fetchRepoDocs,
+} from '../services/docs-api';
 import { fetchIdeas } from '../services/ideas-api';
 import { fetchPlans } from '../services/plans-api';
 
@@ -56,13 +67,21 @@ type AppStore = {
   loadRepoDocs: () => Promise<void>;
 
   activeDocSection: 'decisions' | 'questions' | 'progress' | 'repo-docs' | null;
-  setActiveDocSection: (section: 'decisions' | 'questions' | 'progress' | 'repo-docs' | null) => void;
+  setActiveDocSection: (
+    section: 'decisions' | 'questions' | 'progress' | 'repo-docs' | null,
+  ) => void;
 
   activeDocTitle: string | null;
   setActiveDocTitle: (title: string | null) => void;
 
   docSearchQuery: string;
   setDocSearchQuery: (query: string) => void;
+
+  activeSettingsSection: string;
+  setActiveSettingsSection: (section: string) => void;
+
+  settingsConfigFiles: string[];
+  setSettingsConfigFiles: (files: string[]) => void;
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -155,4 +174,10 @@ export const useAppStore = create<AppStore>((set) => ({
 
   docSearchQuery: '',
   setDocSearchQuery: (query) => set({ docSearchQuery: query }),
+
+  activeSettingsSection: 'general',
+  setActiveSettingsSection: (section) => set({ activeSettingsSection: section }),
+
+  settingsConfigFiles: [],
+  setSettingsConfigFiles: (files) => set({ settingsConfigFiles: files }),
 }));

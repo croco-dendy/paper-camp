@@ -32,6 +32,16 @@ interface ApiRoute {
 
 const campFile = (root: string, name: string) => join(root, 'papercamp', name);
 
+const CONFIG_ALLOWLIST = [
+  'biome.json',
+  'tsconfig.json',
+  'tailwind.config.ts',
+  'vite.config.ts',
+  'vite.app.config.ts',
+  'postcss.config.js',
+  'package.json',
+];
+
 const apiRoutes: ApiRoute[] = [
   {
     path: '/api/package-name',
@@ -86,6 +96,26 @@ const apiRoutes: ApiRoute[] = [
       for (const name of docNames) {
         const content = await readMaybe(join(root, name));
         if (content) files.push({ name, content });
+      }
+      return { files };
+    },
+  },
+  {
+    path: '/api/configs',
+    handler: async (root) => {
+      const configNames = [
+        'biome.json',
+        'tsconfig.json',
+        'tailwind.config.ts',
+        'vite.config.ts',
+        'vite.app.config.ts',
+        'postcss.config.js',
+        'package.json',
+      ];
+      const files: string[] = [];
+      for (const name of configNames) {
+        const content = await readMaybe(join(root, name));
+        if (content) files.push(name);
       }
       return { files };
     },
@@ -271,6 +301,39 @@ export function createApiMiddleware(root: string) {
         res.end(JSON.stringify({ error: (error as Error).message }));
       }
       return;
+    }
+
+    // GET /api/configs?name=... — read a specific config file's content
+    if (req.method === 'GET' && pathname === '/api/configs') {
+      const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`);
+      const name = url.searchParams.get('name');
+      if (name) {
+        try {
+          if (!CONFIG_ALLOWLIST.includes(name)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'invalid config file name' }));
+            return;
+          }
+          const content = await readMaybe(join(root, name));
+          if (!content) {
+            res.statusCode = 404;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'config file not found' }));
+            return;
+          }
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ name, content }));
+          return;
+        } catch (error) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: (error as Error).message }));
+          return;
+        }
+      }
+      // No name param: fall through to the generic route handler for listing
     }
 
     const route = apiRoutes.find((r) => r.path === pathname);

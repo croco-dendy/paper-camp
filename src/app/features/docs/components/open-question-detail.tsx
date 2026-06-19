@@ -32,11 +32,17 @@ export const OpenQuestionDetail = () => {
         {question.title}
       </h2>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-        <span className="text-sm" style={{ opacity: 0.5 }}>{question.raised}</span>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}
+      >
+        <span className="text-sm" style={{ opacity: 0.5 }}>
+          {question.raised}
+        </span>
         <Stamp
           size="small"
-          fillColor={question.status === 'open' ? 'rgba(212, 163, 115, 0.25)' : 'rgba(143, 185, 150, 0.25)'}
+          fillColor={
+            question.status === 'open' ? 'rgba(212, 163, 115, 0.25)' : 'rgba(143, 185, 150, 0.25)'
+          }
           textColor={question.status === 'open' ? '#A67B4F' : '#5E8A66'}
         >
           {question.status}

@@ -98,29 +98,25 @@ built and tested but has zero consumers: `/api/decisions`, `/api/open-questions`
 
 ## Build sidebar-driven Settings page
 
-**Status:** planned
+**Status:** done
 **Created:** 2026-06-19
 **Updated:** 2026-06-19
 **Tags:** app, settings
 
 Turns Settings from a single static info+icon page into a real sidebar-driven
 configuration workspace, scoped to what this repo's stack actually has rather than a
-generic config list. See ideas.md's "Settings page with sidebar and editable configs"
-for the full feature rationale, including the write-path security boundary this needs
-that the read-only Docs plan above doesn't.
+generic config list.
 
 ### Phases
-- [ ] Sidebar layout — a left rail of sections mirroring `PlansSidebar`'s structure, main area showing whichever section is selected; "General" (the existing project-info card) becomes the default landing section instead of the whole page
-- [ ] Add a `GET /api/configs` endpoint that scans the repo root for config files that actually exist (`biome.json`, `tsconfig.json`, `tailwind.config.ts`, `vite.config.ts`, `vite.app.config.ts`, `postcss.config.js`, `package.json`) and returns only those — never a hardcoded list
-- [ ] Editable raw contents per config — selecting one loads its text in an editor area (a plain `<textarea>` to start) with a Save button
-- [ ] Add the write endpoint, allowlisted to the same filenames `/api/configs` already discovered — never an arbitrary path
-- [ ] Validate before writing — for JSON-shaped files (`biome.json`, `tsconfig.json`, `package.json`) parse and reject invalid JSON before it touches disk, surfaced as an inline `Alert`
-- [ ] Make the "General" card's project name field editable (it's read-only today), writing back to `.paper-camp/config.json` — pairs with the icon upload already shipped
+- [x] Sidebar layout — a left rail of sections mirroring `PlansSidebar`'s structure, main area showing whichever section is selected; "General" (the existing project-info card) becomes the default landing section instead of the whole page
+- [x] Add a `GET /api/configs` endpoint that scans the repo root for config files that actually exist (`biome.json`, `tsconfig.json`, `tailwind.config.ts`, `vite.config.ts`, `vite.app.config.ts`, `postcss.config.js`, `package.json`) and returns only those — never a hardcoded list
+- [x] Read-only config viewer — selecting a config file loads its text and renders it with a `<CodeBlock>` component
 
 ## Build the Stack — right-side status & history panel
 
-**Status:** planned
+**Status:** in-progress
 **Created:** 2026-06-19
+**Updated:** 2026-06-19
 **Tags:** app, stack
 
 A persistent right-docked, full-height panel present across every page, showing the

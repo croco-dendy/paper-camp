@@ -1,11 +1,13 @@
 import { PageTitle } from '@/app/components/page-title';
 import { fetchConfig } from '@/app/services/config-api';
+import { fetchConfigFile } from '@/app/services/configs-api';
 import { fetchIconDataUri, uploadIcon } from '@/app/services/icon-api';
+import { useAppStore } from '@/app/stores/app-store';
 import type { PaperCampConfig } from '@/types/index';
-import { Alert, Button, Card, Stamp } from '@dendelion/paper-ui';
+import { Alert, Button, Card, CodeBlock, Stamp } from '@dendelion/paper-ui';
 import { useEffect, useRef, useState } from 'react';
 
-export const SettingsPage = () => {
+const GeneralSection = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [config, setConfig] = useState<PaperCampConfig | null | undefined>(undefined);
   const [iconDataUri, setIconDataUri] = useState<string | null | undefined>(undefined);
@@ -37,9 +39,9 @@ export const SettingsPage = () => {
 
   return (
     <div>
-      <PageTitle>Settings</PageTitle>
-
-      {/* Project info card */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h2 style={{ margin: 0 }}>Project Info</h2>
+      </div>
       {config === undefined && <p>Loading…</p>}
       {config === null && (
         <Alert variant="warning" title="No .paper-camp/config.json found">
@@ -60,7 +62,6 @@ export const SettingsPage = () => {
         </Card>
       )}
 
-      {/* Icon section */}
       <div style={{ marginTop: '2rem' }}>
         <h3 style={{ marginBottom: '0.75rem' }}>Project Icon</h3>
         <Card>
@@ -102,6 +103,58 @@ export const SettingsPage = () => {
           </div>
         </Card>
       </div>
+    </div>
+  );
+};
+
+const ConfigEditorSection = ({ fileName }: { fileName: string }) => {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchConfigFile(fileName).then((c) => {
+      setContent(c);
+      setLoading(false);
+    });
+  }, [fileName]);
+
+  if (loading) return <p>Loading…</p>;
+  if (content === null) {
+    return (
+      <Alert variant="warning" title="Could not load file">
+        {fileName} not found.
+      </Alert>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1rem',
+        }}
+      >
+        <h2 style={{ margin: 0 }}>{fileName}</h2>
+      </div>
+      <CodeBlock code={content} filename={fileName} />
+    </div>
+  );
+};
+
+export const SettingsPage = () => {
+  const activeSection = useAppStore((s) => s.activeSettingsSection);
+
+  return (
+    <div>
+      <PageTitle>Settings</PageTitle>
+      {activeSection === 'general' && <GeneralSection />}
+      {activeSection.startsWith('config:') && (
+        <ConfigEditorSection fileName={activeSection.slice('config:'.length)} />
+      )}
     </div>
   );
 };

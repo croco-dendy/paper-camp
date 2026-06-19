@@ -2,12 +2,18 @@ import type { DecisionEntry, OpenQuestionEntry, ProgressEntry } from '@/types/in
 
 export const fetchDecisions = async () => {
   const res = await fetch('/api/decisions');
-  return res.json() as Promise<{ entries: DecisionEntry[]; warnings: { title: string; message: string }[] }>;
+  return res.json() as Promise<{
+    entries: DecisionEntry[];
+    warnings: { title: string; message: string }[];
+  }>;
 };
 
 export const fetchOpenQuestions = async () => {
   const res = await fetch('/api/open-questions');
-  return res.json() as Promise<{ entries: OpenQuestionEntry[]; warnings: { title: string; message: string }[] }>;
+  return res.json() as Promise<{
+    entries: OpenQuestionEntry[];
+    warnings: { title: string; message: string }[];
+  }>;
 };
 
 export const fetchProgress = async () => {

@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { DocsPage, DocsSidebar } from './features/docs/index';
 import { FocusPage } from './features/focus/index';
 import { PlansPage, PlansSidebar } from './features/plans/index';
-import { SettingsPage } from './features/settings/index';
+import { SettingsPage, SettingsSidebar } from './features/settings/index';
 import { fetchIconDataUri } from './services/icon-api';
 import { fetchPackageName } from './services/package-api';
 import { useAppStore } from './stores/app-store';
@@ -109,6 +109,7 @@ const RootLayout = () => {
         <div className="flex h-full min-h-0 w-full max-w-layout gap-6">
           {pathname === '/' && <PlansSidebar />}
           {pathname === '/docs' && <DocsSidebar />}
+          {pathname === '/settings' && <SettingsSidebar />}
           <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
             <div className="flex-1 min-h-0 pb-24">
               <Page texture={{ texture: 'parchment' }}>
