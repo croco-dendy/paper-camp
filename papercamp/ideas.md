@@ -23,7 +23,7 @@ Built for makers who work alone, think in systems, and use AI as a creative part
 
 ---
 
-### Project docs browser
+### IDEA-1: Project docs browser
 
 A Docs page that aggregates all project documentation into a browsable, searchable view inside the dashboard, so the project's full narrative — structure, conventions, decisions — is one click away instead of scattered across the terminal and editor. The papercamp/ folder is the living memory; the Docs page is the reference library built on top of it.
 
@@ -43,7 +43,7 @@ Why this one first: the backend is already done and tested. This is UI work on t
 
 ---
 
-### Settings page with sidebar and editable configs
+### IDEA-2: Settings page with sidebar and editable configs
 
 Turn Settings from a single static info+icon page into a real sidebar-driven configuration workspace — but scoped honestly to what *this* repo's stack actually has, not a generic eslint/prettier list. The existing project-info card (name, version, icon — already built) becomes the sidebar's default "General" section rather than the whole page.
 
@@ -60,7 +60,7 @@ Why this one second: it needs a new write path (with real validation/security th
 
 ---
 
-### The Stack — right-side status & history panel
+### IDEA-3: The Stack — right-side status & history panel
 
 A persistent right-hand panel, present across every page (not a route — more like the `NavigationIsland`, but docked right and full-height), showing the active plan and a feed of recent project activity. Default open, toggleable closed.
 
@@ -77,7 +77,7 @@ This whole idea is buildable from data and patterns that already exist in the co
 
 ---
 
-### Agent orchestration — launch, watch, and steer tasks from the dashboard
+### IDEA-4: Agent orchestration — launch, watch, and steer tasks from the dashboard
 
 A more concrete shape for what started as "agent observability." Clicking a plan/task in the dashboard launches a real agent session scoped to that task, streams a simplified view of its progress into the status panel ("The Stack" idea above), and lets you send follow-up input into the same session without leaving the browser. This turns Paper Camp from a passive viewer of `papercamp/` into an active layer between you and the agent — but the persisted record stays exactly where it already lives, in `plans.md`/`progress.md`, written by the agent itself as part of doing the work, not in some new log format.
 
@@ -103,13 +103,13 @@ Built for more than one agent from the start — Claude Code for most work, some
 
 ---
 
-### Repo health status — live lint/format/test results in The Stack
+### IDEA-5: Repo health status — live lint/format/test results in The Stack
 
 A third section in the already-built Stack panel (`src/app/components/stack-panel.tsx`), next to "Active" and "Live", showing whether the repo is actually green right now — lint, format, and tests — without opening a terminal. This is the concrete version of a promise the original pitch already made ("analog gauges display project health and momentum") rather than a new concept: three small status pills wired to checks the project already runs by hand.
 
 No new tooling — it wraps the scripts already in `package.json`: `biome check .` (covers both lint and format in one pass, since this repo uses Biome instead of separate ESLint/Prettier) and `vitest run` for tests.
 
-**Look:** a "Status" section using the panel's existing `sectionLabelStyle`, placed above "Active" so it's the first thing visible — it's the most "at a glance" of the three sections. Three `Stamp` pills (`variant="chalkboard"`, same component already used elsewhere in the panel/showcase), labeled "Lint", "Format", "Tests", each in one of four states: `pass` (green), `fail` (red), `running` (amber, pulsing), `stale`/`unknown` (gray — shown before the first check has ever run). Clicking a `fail` pill expands a `CodeBlock` (`variant="chalkboard"`) inline beneath it with the raw error output — biome's own error list for lint/format, vitest's failed-test summary for tests — so the failure detail lives in the same panel, no tab-switching to a terminal.
+**Look:** a "Status" section using the panel's existing `sectionLabelStyle`, placed at the very top of the panel, above "Active" — it's the most "at a glance" of the panel's sections. (The "Commit section in The Stack" idea below adds a second top-of-panel section; final top-to-bottom order ends up Status → Commit → Active → Live.) Three `Stamp` pills (`variant="chalkboard"`, same component already used elsewhere in the panel/showcase), labeled "Lint", "Format", "Tests", each in one of four states: `pass` (green), `fail` (red), `running` (amber, pulsing), `stale`/`unknown` (gray — shown before the first check has ever run). Clicking a `fail` pill expands a `CodeBlock` (`variant="chalkboard"`) inline beneath it with the raw error output — biome's own error list for lint/format, vitest's failed-test summary for tests — so the failure detail lives in the same panel, no tab-switching to a terminal.
 
 **Feature ideas, roughly in build order:**
 
@@ -124,14 +124,14 @@ Why this is a natural next step rather than a new subsystem: it's the same SSE p
 
 ---
 
-### Plan & phase IDs — short titles, numbered phases, and a paper-ui accordion for full detail
+### IDEA-6: Plan & phase IDs — short titles, numbered phases, and a paper-ui accordion for full detail
 
 Right now a `PlanEntry`'s `title` (`src/types/index.ts`) doubles as both the identifier and the full description — entries like "Build core library: parser, schemas, scaffold, CLI" or "Add board view, plan CRUD, and project branding" are sentence-length, and every place that lists plans (`plan-card.tsx`, `plan-nav-item.tsx`, `kanban-card.tsx`, `plans-sidebar.tsx`) renders that whole sentence. Same problem one level down: a `PhaseItem` (`src/types/index.ts`) is just `{ done, text }`, and `text` is itself a full sentence ("Add AI focus handoff — one-line copy-prompt per phase with plan title and phase number") rendered inline in `plan-detail.tsx` with no way to collapse it. This idea gives both plans and phases a short, scannable identity, with the long version still available but tucked behind a click.
 
 **ID scheme:**
 
-- Every plan gets a permanent ID of the form `<TYPE>-<N>` — `FEAT-2`, `FIX-9`, `CHORE-3` — assigned once at creation and never reused, even if the plan is later deleted. `TYPE` comes from a new `Kind` field on the plan entry (`feature | fix | chore | docs | refactor`, the same vocabulary Conventional Commits/commitlint already use, on purpose — see below).
-- **Numbering must be a persistent counter, not "scan plans.md and take the highest + 1."** Plans get deleted (there's already a `DELETE /api/plans` route), and a scan-based scheme would silently reassign a freed number to a new, unrelated plan — which breaks the entire point of an ID meant to be searchable in git history. Store `nextId: { feature: number, fix: number, ... }` in `.paper-camp/config.json` (the same file that already holds the icon and project name) and increment it server-side on every plan creation, never derive it from the current file contents.
+- Every plan gets a permanent ID of the form `<TYPE>-<N>` — `FEAT-2`, `FIX-9`, `CHORE-3` — assigned once at creation and never reused, even if the plan is later deleted. `TYPE` is the uppercased `Kind` field on the plan entry, and `Kind`'s values are spelled exactly like Conventional Commits' own type strings (`feat | fix | chore | docs | refactor`, not "feature") — on purpose, so the ID prefix, the `Kind` field, and the commit `type:` that closes it out are the same word in three places, not three near-matching spellings.
+- **Numbering must be a persistent counter, not "scan plans.md and take the highest + 1."** Plans get deleted (there's already a `DELETE /api/plans` route), and a scan-based scheme would silently reassign a freed number to a new, unrelated plan — which breaks the entire point of an ID meant to be searchable in git history. Store `nextId: { feat: number, fix: number, ... }` in `.paper-camp/config.json` (the same file that already holds the icon and project name) and increment it server-side on every plan creation, never derive it from the current file contents.
 - Ideas get the same treatment, one level up: `IDEA-N`, assigned in the order they're written into `ideas.md`, rendered as a heading prefix (`### IDEA-9: Plan & phase IDs — ...`, this very entry would be the next number). This is what makes a plan → idea backlink (next point) possible — without a stable idea ID, "this plan came from that idea" has nothing durable to point at.
 - A plan entry gains an optional `**Idea:** IDEA-9` field (same pattern as the existing optional `Tags`/`Updated` fields in `src/core/parser.ts`/`serializer.ts`), rendered in the UI as a small clickable badge next to the plan's ID that jumps to the originating section of the Docs page's ideas view (see the "Project docs browser" idea above) or `ideas.md` itself. Not every plan needs one — plenty of past entries here (e.g. "Refresh about.md technical reference") were never an idea first.
 
@@ -162,3 +162,78 @@ Right now a `PlanEntry`'s `title` (`src/types/index.ts`) doubles as both the ide
 - **IDs are permanent — deleting a plan retires its number, it does not free it.** This is the one correctness property the whole scheme depends on; get the counter-storage decision above wrong and IDs stop being trustworthy as a history-search key.
 - **`Kind` is optional during migration.** Existing `papercamp/plans.md` entries have no `Kind`/ID today; they should render with no ID badge rather than forcing a backfill pass before this can ship. New plans get a `Kind` going forward (prompted at creation, alongside the existing `Status`/`Tags`).
 - **Where `Kind` is set:** at creation time only (the "Add idea" modal / `POST /api/plans`), same lifecycle moment as the ID assignment — not editable after the fact, since changing a plan's type after its ID was already referenced in commit history would make that history lie.
+
+---
+
+### IDEA-7: Commit section in The Stack — stage, write, and commit without leaving the dashboard
+
+A second top-of-panel section in the Stack panel (`src/app/components/stack-panel.tsx`), sitting right below "Status" (see the "Repo health status" idea above — final order ends up Status → Commit → Active → Live). Shows the live working-tree diff — how many files changed and which ones — plus a small form to write a commit title/message and fire it off, so a commit doesn't require switching to a terminal.
+
+This pairs naturally with two ideas already in this file: it's fed by the same file-watcher/SSE plumbing "Status" needs, and it's the natural place to cash in the `Kind`/ID scheme from "Plan & phase IDs" — pre-filling the commit's conventional-commit type from whatever plan is currently in focus.
+
+**Look:** a changed-files count (`"7 files changed"`) as the section's headline, expanding via the same paper-ui `Accordion` the phase-description idea above needs to be built anyway — each row showing a path and its git status letter (`M`/`A`/`D`/`??`) with a checkbox to include/exclude it from the commit. Below that, a title `Input` and a message `Textarea`, then a `Button` labeled "Commit", disabled whenever zero files are checked or the title is empty.
+
+**Feature ideas, roughly in build order:**
+
+- **`GET /api/git/status`** — new route in `src/app/server/api.ts` that runs `git status --porcelain=v1` from the repo root and parses it into `{ path: string, status: string }[]`. Pushed over the existing `/api/activity/stream` SSE channel on the same debounced file-watcher trigger the "Status" idea already needs — "files changed" is exactly the signal that watcher is already positioned to recompute.
+- **`POST /api/git/commit`** — body `{ files: string[], title: string, message?: string }`. Runs `git add -- <files>` against *only* the explicit paths in the request (never a blanket `git add -A`/`-u`) — same "write path only accepts an allowlisted/explicit set, never an arbitrary blob" principle the Settings idea's config-save endpoint already follows — then `git commit -m "<title>" -m "<message>"`.
+- **Real git hooks fire for free** — since the commit happens as an actual `git commit` subprocess (not a reimplementation), a `commit-msg` hook from commitlint+husky (once the previous idea's commitlint piece lands) rejects a malformed message exactly as it would from the terminal — surfaced back to the UI as an inline `Alert` with the hook's own error text, no client-side validation logic to keep in sync with it.
+- **Smart pre-fill from the active plan** — if `findFocusPlan` resolves a single in-progress plan, pre-fill the title field with that plan's `Kind` as a conventional-commit prefix (`feat: `, `fix: `) and offer a one-click "add `Refs: FEAT-2`" footer — turning the ID scheme from the previous idea into something that actually shows up in `git log`, not just in `plans.md`.
+
+**Decisions worth making explicit:**
+
+- **Commit only — no Push button, on purpose.** Committing is local and reversible; pushing touches shared/remote state and shouldn't be one click away in a panel that's open by default on every page. If push ever gets added, it should be its own deliberate, separately-confirmed action, not a checkbox on this form.
+- **Don't hard-block commits when "Status" is red.** Failing tests/lint shouldn't disable the Commit button outright — plenty of legitimate commits are WIP or a deliberate checkpoint mid-fix. Show a non-blocking `Alert` next to the button when Status is failing (same spirit as GitHub showing a failing-check badge without blocking the merge button by default), rather than this panel unilaterally deciding what counts as "clean enough to commit."
+- **Same localhost/repo-root boundary as every other child-process-spawning idea in this panel** — `git status`/`git add`/`git commit` always run against the fixed project root the dev server already knows, never a path from the request.
+
+---
+
+### IDEA-8: Ideas board — Planned/Done columns, priority order, short titles, and idea↔plan links
+
+Today every `ideas.md` section renders flat in a single "Ideas" grid (`list-view.tsx`'s `ideaEntries.map(...)` → `IdeaCard`), as a long, un-prioritized, un-titled blob of prose per card. Nothing distinguishes a brand-new idea from one that shipped months ago, nothing says which one matters more, and the card title is whatever the first line of prose happens to be — for several of the entries already in this file, that's a full sentence. This replaces the flat grid with a real two-column board: **Planned** and **Done**.
+
+**Idea entries need real structure, the same way plans/decisions/open-questions already have it.** Right now `ideas.md` is parsed client-side by a one-off `parseIdeas` in `src/app/stores/app-store.ts`, splitting on `---` and grabbing the first heading line as `title` — it's the only one of the four `papercamp/` files not going through the shared `src/core/parser.ts`/`src/types/index.ts` layer. This is the moment to fix that: give ideas a real `IdeaEntry` type (`id`, `title`, `body`) and a `parseIdeas` in `core/parser.ts` alongside `parseDecisions`/`parseOpenQuestions`, parsing a heading shaped `### IDEA-7: Short title` (the `IDEA-N` prefix from the "Plan & phase IDs" idea above, now load-bearing rather than decorative).
+
+**Short titles, same rule as plans:** the heading becomes a true short title (3–6 words), not the current sentence-length headings — several already in this file need a rewrite pass once this lands (e.g. "Repo health status — live lint/format/test results in The Stack" → "Repo health status"). Whatever context that's lost from the long heading already lives in the body prose below it; nothing new needs writing, just trimming the heading.
+
+**Priority is positional, not a stored number.** No `**Priority:** 3` field gets added — that would be one more piece of state to keep in sync by hand. Priority *is* the order ideas appear in `ideas.md`, top to bottom; reordering priority means reordering the sections in the file. The board shows ideas within each column in that same source order (highest priority first), optionally with a small rank number for readability, but the number is read off position, never set independently of it. A "move up"/"move down" control (swapping two adjacent sections' order in the file via a small write endpoint) is a fine v2 — v1 can ship fully read-only, since reordering by hand-editing the file works today and isn't blocked on any UI.
+
+**Planned vs. Done, derived exactly as the previous version of this idea specified:** an idea is "Done" only when *every* plan linking to it (via the plan's `**Idea:** IDEA-7` field) has `Status: done` or `dropped` — checking all linked plans, not just one, so a partially-realized idea stays in "Planned." Everything else (including ideas with zero linked plans yet) is "Planned." Still nothing stored on the idea side for this — same "derive, don't duplicate" reasoning as before.
+
+**Idea ↔ plan linking is asymmetric, matching how the data actually works:** a plan has exactly one `Idea` field (a plan grows out of at most one idea), but an idea can have many plans pointing at it (one idea, several plans built against it over time) — this is already the natural shape once the plan side stores the link and the idea side only ever derives its plans by scanning for matches, no change needed to make the cardinality work, just confirming it. Each idea row, when expanded, lists every plan that links to it as a clickable `Stamp` per plan ID (`FEAT-2`, `FIX-9`, ...) — the same plan→idea link already proposed, just rendered from the other direction.
+
+**Look:** two columns side by side, reusing `kanban-column.tsx`'s column shell from the existing Board view (`board-view.tsx`) rather than inventing new column chrome — header + count, vertical list of rows. Each row: a small icon (the existing `LightbulbIcon` for "Planned", a checkmark icon for "Done"), the short title, and — on expand/click — the list of linked plan `Stamp`s described above. This sits where the current "Ideas" grid section lives in `list-view.tsx`, or could reasonably become its own small view if the two-column layout doesn't fit naturally inside the existing list/board toggle.
+
+**Decisions worth making explicit:**
+
+- **Hard dependency on the Idea-ID backlink field** from "Plan & phase IDs" above — none of Planned/Done, priority order, or the plan-link list work without it; don't start this before that field exists.
+- **Migrating existing ideas.md entries** — the file's five current entries (as of this session) need a one-time pass to add `IDEA-N:` prefixes and shorten their headings; not a blocking schema migration (old unprefixed headings can render with no ID badge), but worth doing in the same pass so the board doesn't launch with half its cards missing IDs.
+- **Read-only priority for v1** — explicitly deferring drag-to-reorder/up-down controls until the simpler "priority = file order" version proves the column layout itself is right.
+
+---
+
+### IDEA-9: Review status — a manual gate before "done," a fixed Closed section, and a per-plan Log
+
+Two real gaps found while reading `plan-detail.tsx` and `closed-section.tsx` just now, both pointing at the same underlying problem: once a plan is marked complete, you lose visibility into it.
+
+- `plan-detail.tsx`'s `handleMarkDone` jumps straight from "all phases checked" to `Status: done` — there's no human checkpoint in between. The "Mark complete" button fires the instant `allDone` is true.
+- `closed-section.tsx` renders closed/dropped plans with `<PlanCard plan={p} />` and **no `onOpen` prop** — `PlanCard` only renders its "Open" button `if (onOpen)`, and the card's outer `div` has no click handler either (unlike `IdeaCard`, which does). So a closed plan in list view is genuinely unopenable today — confirmed by reading the component, not a guess.
+
+**A new `review` status closes the first gap:** `PlanStatus` gains `review`, sitting between `in-progress` and `done`. The transition into it is automatic, not a button: `handleTogglePhase` already recomputes `allDone` on every toggle — when checking a phase makes it true, the same call sets `status: 'review'` instead of leaving it `in-progress`, no separate "Submit for review" click required. The "Mark complete" button disappears entirely; completing the last phase *is* the submission. A plan in `review` gets two manual outcomes: **"Approve & close"** (`status: 'done'`) or **"Needs changes"** (`status: 'in-progress'`, sent back — and since phases are already all checked at that point, reopening one of them is what naturally drops `allDone` back to `false`, so there's no separate "uncheck everything" step). Phase checkmarks otherwise survive every transition untouched — whatever's wrong belongs in the Log (below), not in mass-unchecking boxes.
+
+**Where it lives in the layout — no new route.** `review` is just another `PlanStatus`, so it slots into the views that already exist rather than needing a dedicated page: one more column in the Board view (`KANBAN_COLUMNS` in `plans/constants.ts` already drives columns from a plain array — inserting `review` between `in-progress` and `done` is a one-line change) and one more section in List view (between "In progress" and "Backlog"). The plan's own detail view — already the single place phases/body/progress render — becomes the review screen simply by virtue of being opened while `status === 'review'`, enhanced with the Log section below. This avoids a second page that has to stay in sync with the same plan data it would just be filtering. If a cross-plan "waiting on my review" queue turns out to be genuinely wanted later, that's a thin filtered view addable on top of this without restructuring anything — a reasonable fallback, not the starting design.
+
+**Fix `closed-section.tsx`:** pass the same `onOpen` prop `list-view.tsx` already wires up for the active/backlog `PlanCard`s. This alone restores the ability to open a closed or dropped plan and read what's in it — independent of everything else in this idea, and worth doing regardless.
+
+**A per-plan Log, available on every plan, not just ones in review:** a new `### Log` sub-section in the plan's markdown block, parsed the same way `### Phases` already is — extending `src/core/parser.ts`'s existing heading-block extraction rather than writing a second one-off parser for it — formatted as dated bullets that deliberately mirror `progress.md`'s own `## YYYY-MM-DD` / `- item` shape, just scoped to one plan instead of the whole project:
+```
+### IDEA-10: Log
+- 2026-06-21: Implemented the persistent ID counter in `.paper-camp/config.json`.
+- 2026-06-22: Review — counter logic looks solid; one missing migration note, fixed.
+```
+Rendered in `plan-detail.tsx` below the phases list, with a small `Textarea` + "Add entry" button appending a new dated line via a `PATCH /api/plans` extension. No second write target needed for the Stack panel's "Live" feed either — it already narrates diffs between the previous and current parsed `plans.md`, so a new Log line shows up there automatically the same way a checked-off phase already does, with zero new plumbing.
+
+**Decisions worth making explicit:**
+
+- **Phase checkmarks survive "Needs changes."** Reopening a plan doesn't reset progress — what needs fixing gets written as a new Log entry, not represented by un-ticking a box that was honestly completed.
+- **Log entries are manual-only for v1.** An AI agent appending its own checkpoints there instead of (or alongside) `progress.md` is a natural extension once the "Agent orchestration" idea's "write checkpoints as you go" convention exists, but isn't required to ship this.

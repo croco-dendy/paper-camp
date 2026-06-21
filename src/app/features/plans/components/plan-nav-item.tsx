@@ -1,3 +1,4 @@
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { ListItem } from '@dendelion/paper-ui';
 import type { ReactNode } from 'react';
@@ -33,7 +34,7 @@ export const PlanNavItem = ({ plan, active, onClick, action }: PlanNavItemProps)
         </>
       }
     >
-      {plan.title}
+      <span style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>{plan.title}</span>
     </ListItem>
   );
 };

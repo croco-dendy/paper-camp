@@ -9,6 +9,9 @@ export function todayDateString(): string {
 interface NewPlanInput {
   title: string;
   status: string;
+  kind?: string;
+  id?: string;
+  idea?: string;
   created: string;
   updated?: string;
   tags?: string[];
@@ -17,12 +20,11 @@ interface NewPlanInput {
 }
 
 export function formatPlanEntry(input: NewPlanInput): string {
-  const lines = [
-    `## ${input.title}`,
-    '',
-    `**Status:** ${input.status}`,
-    `**Created:** ${input.created}`,
-  ];
+  const lines = [`## ${input.title}`, '', `**Status:** ${input.status}`];
+  if (input.kind) lines.push(`**Kind:** ${input.kind}`);
+  if (input.id) lines.push(`**Id:** ${input.id}`);
+  if (input.idea) lines.push(`**Idea:** ${input.idea}`);
+  lines.push(`**Created:** ${input.created}`);
   if (input.updated) lines.push(`**Updated:** ${input.updated}`);
   if (input.tags && input.tags.length > 0) lines.push(`**Tags:** ${input.tags.join(', ')}`);
   lines.push('');
@@ -31,6 +33,11 @@ export function formatPlanEntry(input: NewPlanInput): string {
     lines.push('### Phases');
     for (const phase of input.phases) {
       lines.push(`- [${phase.done ? 'x' : ' '}] ${phase.text}`);
+      if (phase.description) {
+        for (const paragraphLine of phase.description.split('\n')) {
+          lines.push(`      ${paragraphLine}`);
+        }
+      }
     }
   }
   return lines.join('\n').trimEnd();

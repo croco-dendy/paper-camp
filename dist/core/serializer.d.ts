@@ -3,6 +3,9 @@ export declare function todayDateString(): string;
 interface NewPlanInput {
     title: string;
     status: string;
+    kind?: string;
+    id?: string;
+    idea?: string;
     created: string;
     updated?: string;
     tags?: string[];

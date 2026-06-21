@@ -44,6 +44,7 @@ export async function initProject(targetDir: string, options: InitOptions): Prom
     version: PAPER_CAMP_VERSION,
     projectName: options.projectName,
     initializedAt: new Date().toISOString(),
+    nextId: { feat: 1, fix: 1, chore: 1, docs: 1, refactor: 1 },
   };
   paperCampConfigSchema.parse(config);
 

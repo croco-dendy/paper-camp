@@ -2,7 +2,7 @@ import { Markdown } from '@/app/components/markdown';
 import { PageTitle } from '@/app/components/page-title';
 import { useAppStore } from '@/app/stores/app-store';
 import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
-import { Alert, Button } from '@dendelion/paper-ui';
+import { Alert, Button, Stamp } from '@dendelion/paper-ui';
 import { BoardView } from './components/board-view';
 import { ListView } from './components/list-view';
 import { PlanDetail } from './components/plan-detail';
@@ -97,8 +97,16 @@ export const PlansPage = () => {
               fontSize: '1.75rem',
               margin: `0 0 ${space[4]}`,
               lineHeight: lineHeight.tight,
+              display: 'flex',
+              alignItems: 'center',
+              gap: space[3],
             }}
           >
+            {activeIdea.id && (
+              <Stamp size="small" fillColor="rgba(0,0,0,0.08)">
+                {activeIdea.id}
+              </Stamp>
+            )}
             {activeIdea.title}
           </h2>
           <Markdown>

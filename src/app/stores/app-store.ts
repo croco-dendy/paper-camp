@@ -16,18 +16,24 @@ import { fetchIdeas } from '../services/ideas-api';
 import { fetchPlans } from '../services/plans-api';
 
 interface IdeaEntry {
+  id: string | null;
   title: string;
   body: string;
 }
+
+const IDEA_ID_RE = /^(IDEA-\d+):\s*/;
 
 const parseIdeas = (content: string): IdeaEntry[] => {
   const sections = content.split(/\n---+\n/).filter(Boolean);
   return sections.map((section) => {
     const headingMatch = section.match(/^#{1,3}\s+(.+)/m);
-    const title = headingMatch
+    const rawTitle = headingMatch
       ? headingMatch[1].trim()
       : (section.trim().split('\n')[0]?.trim() ?? 'Untitled');
-    return { title, body: section.trim() };
+    const idMatch = rawTitle.match(IDEA_ID_RE);
+    const id = idMatch?.[1] ?? null;
+    const title = id ? rawTitle.slice(idMatch![0].length) : rawTitle;
+    return { id, title, body: section.trim() };
   });
 };
 

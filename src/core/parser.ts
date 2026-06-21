@@ -31,10 +31,32 @@ function extractPhases(body: string): { body: string; phases: PhaseItem[] } {
   }
 
   const phases: PhaseItem[] = [];
-  for (const line of lines.slice(phasesStart + 1, phasesEnd)) {
-    const match = line.match(CHECKBOX_RE);
+  let i = phasesStart + 1;
+  while (i < phasesEnd) {
+    const match = lines[i].match(CHECKBOX_RE);
     if (match) {
-      phases.push({ done: match[1].toLowerCase() === 'x', text: match[2].trim() });
+      const text = match[2].trim();
+      const done = match[1].toLowerCase() === 'x';
+      const descriptionLines: string[] = [];
+      i++;
+      while (i < phasesEnd) {
+        const next = lines[i];
+        if (next.trim() === '') break;
+        if (CHECKBOX_RE.test(next) || SUB_HEADING_RE.test(next)) break;
+        if (/^\s/.test(next)) {
+          descriptionLines.push(next.trimStart());
+          i++;
+        } else {
+          break;
+        }
+      }
+      phases.push({
+        done,
+        text,
+        description: descriptionLines.length > 0 ? descriptionLines.join('\n') : undefined,
+      });
+    } else {
+      i++;
     }
   }
 
@@ -102,6 +124,9 @@ export function parsePlans(markdown: string): ParseResult<PlanEntry> {
     entries.push({
       title: raw.title,
       status: fields.status,
+      kind: fields.kind,
+      id: fields.id,
+      idea: fields.idea,
       created: fields.created,
       updated: fields.updated,
       tags: fields.tags

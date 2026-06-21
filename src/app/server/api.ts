@@ -165,23 +165,50 @@ export function createApiMiddleware(root: string) {
     if (req.method === 'POST' && pathname === '/api/plans') {
       try {
         const body = await readBody(req);
-        const { title, content } = JSON.parse(body) as { title: string; content?: string };
+        const { title, content, kind } = JSON.parse(body) as {
+          title: string;
+          content?: string;
+          kind?: string;
+        };
         if (!title?.trim()) {
           res.statusCode = 400;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ error: 'title is required' }));
           return;
         }
+        const planKind =
+          kind && ['feat', 'fix', 'chore', 'docs', 'refactor'].includes(kind) ? kind : 'feat';
+
+        const configPath = join(root, '.paper-camp', 'config.json');
+        let config: { nextId?: Record<string, number> } | null = null;
+        try {
+          config = JSON.parse(await readFile(configPath, 'utf-8')) as {
+            nextId?: Record<string, number>;
+          };
+        } catch {
+          // no config; create without ID
+        }
+
+        let id: string | undefined;
+        if (config?.nextId) {
+          const next = config.nextId[planKind] ?? 1;
+          id = `${planKind.toUpperCase()}-${next}`;
+          config.nextId[planKind] = next + 1;
+          await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+        }
+
         const entry = formatPlanEntry({
           title: title.trim(),
           status: 'idea',
+          kind: planKind,
+          id,
           created: todayDateString(),
           body: content?.trim(),
         });
         await appendBlock(campFile(root, 'plans.md'), entry);
         res.statusCode = 201;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true }));
+        res.end(JSON.stringify({ ok: true, id }));
       } catch (error) {
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');

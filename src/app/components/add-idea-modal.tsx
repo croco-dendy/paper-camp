@@ -1,22 +1,27 @@
 import { space } from '@/app/styles/tokens';
-import { Button, Input, Modal, Textarea } from '@dendelion/paper-ui';
+import { PLAN_KINDS } from '@/types/index';
+import { Button, Input, Modal, Select, Textarea } from '@dendelion/paper-ui';
 import { useEffect, useState } from 'react';
 
 interface AddIdeaModalProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (idea: { title: string; content?: string }) => Promise<void>;
+  onAdd: (idea: { title: string; content?: string; kind: string }) => Promise<void>;
 }
+
+const kindOptions = PLAN_KINDS.map((k) => ({ value: k, label: k }));
 
 export const AddIdeaModal = ({ open, onClose, onAdd }: AddIdeaModalProps) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [kind, setKind] = useState('feat');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle('');
       setContent('');
+      setKind('feat');
       setLoading(false);
     }
   }, [open]);
@@ -28,6 +33,7 @@ export const AddIdeaModal = ({ open, onClose, onAdd }: AddIdeaModalProps) => {
     await onAdd({
       title: title.trim(),
       content: content.trim() || undefined,
+      kind,
     });
     setLoading(false);
     onClose();
@@ -47,6 +53,13 @@ export const AddIdeaModal = ({ open, onClose, onAdd }: AddIdeaModalProps) => {
           disabled={loading}
           autoFocus
           required
+        />
+        <Select
+          label="Kind"
+          value={kind}
+          onChange={(value) => setKind(value)}
+          options={kindOptions}
+          disabled={loading}
         />
         <Textarea
           label="Description"

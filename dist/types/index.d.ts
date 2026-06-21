@@ -1,9 +1,12 @@
 export type PlanStatus = 'idea' | 'planned' | 'in-progress' | 'done' | 'dropped';
+export type PlanKind = 'feat' | 'fix' | 'chore' | 'docs' | 'refactor';
+export declare const PLAN_KINDS: PlanKind[];
 export type DecisionStatus = 'decided' | 'superseded';
 export type QuestionStatus = 'open' | 'resolved';
 export interface PhaseItem {
     done: boolean;
     text: string;
+    description?: string;
 }
 /** Raw shape produced by the generic heading-block parser, before per-file validation. */
 export interface RawEntry {
@@ -23,6 +26,9 @@ export interface ParseResult<T> {
 export interface PlanEntry {
     title: string;
     status: PlanStatus;
+    kind?: PlanKind;
+    id?: string;
+    idea?: string;
     created: string;
     updated?: string;
     tags: string[];
@@ -51,5 +57,6 @@ export interface PaperCampConfig {
     version: string;
     projectName: string;
     initializedAt: string;
+    nextId?: Record<PlanKind, number>;
 }
 //# sourceMappingURL=index.d.ts.map

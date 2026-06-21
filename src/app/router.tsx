@@ -1,5 +1,4 @@
-import { layout } from '@/app/styles/tokens';
-import { Button, Input, Island, Layout, Page } from '@dendelion/paper-ui';
+import { Button, Input, Island, Layout, Page, layoutConfig, space } from '@dendelion/paper-ui';
 import {
   Outlet,
   createRootRoute,
@@ -8,7 +7,6 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { ProjectIdentityHeader, SidebarShell, StackPanel } from './components';
 import { DocsPage, DocsSidebar } from './features/docs/index';
@@ -31,7 +29,6 @@ const RootLayout = () => {
   const docSearchQuery = useAppStore((s) => s.docSearchQuery);
   const setDocSearchQuery = useAppStore((s) => s.setDocSearchQuery);
   const [stackOpen, setStackOpen] = useState(true);
-  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     loadPlans();
@@ -44,84 +41,73 @@ const RootLayout = () => {
       showHeader={false}
       showSidebar={false}
       showPage={false}
+      bleedBottom
+      routeKey={pathname}
+      stackOpen={stackOpen}
+      navigationIsland={
+        <nav aria-label="Navigation island">
+          <Island>
+            <ProjectIdentityHeader size="sm" />
+            <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
+            {pathname === '/docs' && (
+              <div style={{ width: 180 }}>
+                <Input
+                  size="small"
+                  placeholder="Search docs…"
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+            <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
+            <div className="flex items-center gap-1">
+              {navItems.map((item) => (
+                <Button
+                  key={item.id}
+                  variant="ghost"
+                  size="small"
+                  isActive={item.id === activeId}
+                  onClick={() => navigate({ to: item.path })}
+                  aria-current={item.id === activeId ? 'page' : undefined}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </div>
+          </Island>
+        </nav>
+      }
     >
       <div
         className="flex h-full min-h-0 justify-center items-stretch box-border overflow-hidden"
-        style={{ paddingRight: stackOpen ? layout.stackPanelWidth : 0 }}
+        style={{ paddingRight: stackOpen ? layoutConfig.stackPanelWidth : 0 }}
       >
-        <div className="flex h-full min-h-0 w-full max-w-layout" style={{ gap: layout.contentGap }}>
+        <div
+          className="flex h-full min-h-0 w-full max-w-layout"
+          style={{ gap: layoutConfig.contentGap }}
+        >
           <SidebarShell routeKey={pathname}>
             {pathname === '/' && <PlansSidebar />}
             {pathname === '/docs' && <DocsSidebar />}
             {pathname === '/settings' && <SettingsSidebar />}
           </SidebarShell>
           <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
-            <div className="flex-1 min-h-0" style={{ paddingBottom: layout.pagePaddingBottom }}>
-              <Page texture={{ texture: 'parchment' }}>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={pathname}
-                    initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    style={{ height: '100%' }}
-                  >
-                    <Outlet />
-                  </motion.div>
-                </AnimatePresence>
+            <div className="flex-1 min-h-0">
+              <Page
+                texture={{ texture: 'parchment' }}
+                className="h-full"
+                style={{
+                  minHeight: '100%',
+                  paddingBottom: `calc(${layoutConfig.navIslandBottom} + ${layoutConfig.navIslandHeight} + ${space[4]})`,
+                }}
+              >
+                <Outlet />
               </Page>
             </div>
           </div>
         </div>
       </div>
       <StackPanel open={stackOpen} onToggle={() => setStackOpen((o) => !o)} />
-      <motion.nav
-        aria-label="Navigation island"
-        style={{
-          position: 'fixed',
-          bottom: layout.navIslandBottom,
-          left: '50%',
-          zIndex: 110,
-        }}
-        animate={{
-          x: stackOpen ? `calc(-50% - ${layout.stackPanelWidth / 2}px)` : '-50%',
-        }}
-        transition={{
-          duration: shouldReduceMotion ? 0 : 0.3,
-          ease: [0.4, 0, 0.2, 1],
-        }}
-      >
-        <Island>
-          <ProjectIdentityHeader size="sm" />
-          <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
-          {pathname === '/docs' && (
-            <div style={{ width: 180 }}>
-              <Input
-                size="small"
-                placeholder="Search docs…"
-                value={docSearchQuery}
-                onChange={(e) => setDocSearchQuery(e.target.value)}
-              />
-            </div>
-          )}
-          <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
-          <div className="flex items-center gap-1">
-            {navItems.map((item) => (
-              <Button
-                key={item.id}
-                variant="ghost"
-                size="small"
-                isActive={item.id === activeId}
-                onClick={() => navigate({ to: item.path })}
-                aria-current={item.id === activeId ? 'page' : undefined}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-        </Island>
-      </motion.nav>
     </Layout>
   );
 };

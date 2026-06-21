@@ -2,11 +2,12 @@ import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
 import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
 import type { PhaseItem, PlanEntry } from '@/types/index';
-import { Button, Stamp } from '@dendelion/paper-ui';
+import { Button, Checkbox, Stamp, Table } from '@dendelion/paper-ui';
 import { useState } from 'react';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
-import { FocusPhaseItem } from './focus-phase-item';
+import { PhaseCopyButton } from './phase-copy-button';
+import { PlanIdStamp } from './plan-id-stamp';
 import { ProgressBar } from './progress-bar';
 
 interface PlanDetailProps {
@@ -69,8 +70,12 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
             fontSize: '1.75rem',
             margin: 0,
             lineHeight: lineHeight.tight,
+            display: 'flex',
+            alignItems: 'center',
+            gap: space[3],
           }}
         >
+          <PlanIdStamp id={plan.id} />
           {plan.title}
         </h2>
         <Button
@@ -135,7 +140,7 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
       )}
 
       {plan.phases.length > 0 && (
-        <div style={{ marginBottom: space[5] }}>
+        <div style={{ marginBottom: space[8] }}>
           <h3
             style={{
               fontFamily: fontFamily.serif,
@@ -147,27 +152,45 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
           >
             Phases
           </h3>
-          <ul
-            style={{
-              margin: 0,
-              padding: 0,
-              listStyle: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: space[1],
+          <Table
+            data={plan.phases}
+            columns={[
+              {
+                key: 'checkbox',
+                header: 'Status',
+                cell: (phase: PhaseItem, index: number) => (
+                  <Checkbox checked={phase.done} onChange={() => handleTogglePhase(index)} />
+                ),
+                width: 2,
+              },
+              {
+                key: 'title',
+                header: 'Title',
+                cell: (phase: PhaseItem) => (
+                  <span
+                    style={{
+                      textDecoration: phase.done ? 'line-through' : 'none',
+                      opacity: phase.done ? 0.45 : 1,
+                    }}
+                  >
+                    {phase.text}
+                  </span>
+                ),
+              },
+              {
+                key: 'actions',
+                header: 'Copy Prompt',
+                cell: (__phase: PhaseItem, index: number) => (
+                  <PhaseCopyButton planTitle={plan.title} phaseIndex={index} />
+                ),
+                width: 5,
+              },
+            ]}
+            expandable={{
+              render: (phase: PhaseItem) => phase.description ?? null,
             }}
-          >
-            {plan.phases.map((phase, index) => (
-              <li key={`${phase.text}-${index}`}>
-                <FocusPhaseItem
-                  phase={phase}
-                  planTitle={plan.title}
-                  phaseIndex={index}
-                  onToggle={() => handleTogglePhase(index)}
-                />
-              </li>
-            ))}
-          </ul>
+            showExpandColumn={false}
+          />
         </div>
       )}
 

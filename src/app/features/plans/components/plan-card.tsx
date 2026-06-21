@@ -6,6 +6,7 @@ import { Button, Card, Stamp } from '@dendelion/paper-ui';
 import { useState } from 'react';
 import { STATUS_ACCENT, STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
+import { PlanIdStamp } from './plan-id-stamp';
 import { ProgressBar } from './progress-bar';
 
 interface PlanCardProps {
@@ -57,7 +58,17 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
             gap: space[3],
           }}
         >
-          <h2 className="text-lg" style={{ margin: 0, lineHeight: 1.3 }}>
+          <h2
+            className="text-lg"
+            style={{
+              margin: 0,
+              lineHeight: 1.3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: space[2],
+            }}
+          >
+            <PlanIdStamp id={plan.id} />
             {plan.title}
           </h2>
           <Stamp

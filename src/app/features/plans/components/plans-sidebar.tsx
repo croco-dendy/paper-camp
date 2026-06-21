@@ -27,7 +27,7 @@ export const PlansSidebar = () => {
   const planned = plans?.entries.filter((p) => p.status === 'planned') ?? [];
   const ideas = plans?.entries.filter((p) => p.status === 'idea') ?? [];
 
-  const handleAddIdea = async (idea: { title: string; content?: string }) => {
+  const handleAddIdea = async (idea: { title: string; content?: string; kind: string }) => {
     await createPlan(idea);
     await loadPlans();
     setAddingIdea(false);

@@ -1,13 +1,12 @@
-import { fontFamily } from '@/app/styles/tokens';
-import { Card, Icon, LightbulbIcon } from '@dendelion/paper-ui';
+import { Card, Icon, LightbulbIcon, Stamp } from '@dendelion/paper-ui';
 
 interface IdeaCardProps {
+  id?: string | null;
   title: string;
   onClick?: () => void;
 }
 
-export const IdeaCard = ({ title, onClick }: IdeaCardProps) => {
-  return (
+export const IdeaCard = ({ id, title, onClick }: IdeaCardProps) => (
     <div
       onClick={onClick}
       onKeyDown={(e) => {
@@ -20,9 +19,14 @@ export const IdeaCard = ({ title, onClick }: IdeaCardProps) => {
       <Card texture="white" size="small" className="h-full">
         <div className="flex items-center gap-2">
           <Icon icon={<LightbulbIcon />} size="small" />
+          {id && (
+            <Stamp size="small" fillColor="rgba(0,0,0,0.08)">
+              {id}
+            </Stamp>
+          )}
           <span
             style={{
-              fontFamily: fontFamily.serif,
+              fontFamily: "'Cormorant Garamond', 'Georgia', serif",
               fontWeight: 600,
               fontSize: '0.9rem',
               color: '#1C1B18',
@@ -34,4 +38,3 @@ export const IdeaCard = ({ title, onClick }: IdeaCardProps) => {
       </Card>
     </div>
   );
-};

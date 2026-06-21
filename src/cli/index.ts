@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import { readFile, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { Command } from 'commander';
 import { AlreadyInitializedError, PAPER_CAMP_VERSION, initProject } from '../core/scaffold';
 import { appendBlock, formatPlanEntry, todayDateString } from '../core/serializer';
+import type { PaperCampConfig } from '../types/index';
 import { startDevServer } from './dev-server';
 
 const program = new Command();
@@ -65,10 +67,33 @@ program
       return;
     }
 
+    const configPath = resolve(process.cwd(), '.paper-camp', 'config.json');
+    let config: PaperCampConfig | undefined;
+    try {
+      config = JSON.parse(await readFile(configPath, 'utf-8')) as PaperCampConfig;
+    } catch {
+      // no config; create without ID
+    }
+
+    const kind = 'feat';
+    let id: string | undefined;
+    if (config?.nextId) {
+      const next = config.nextId[kind] ?? 1;
+      id = `${kind.toUpperCase()}-${next}`;
+      config.nextId[kind] = next + 1;
+      await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    }
+
     const filePath = resolve(process.cwd(), 'papercamp', 'plans.md');
-    const block = formatPlanEntry({ title: name, status: 'idea', created: todayDateString() });
+    const block = formatPlanEntry({
+      title: name,
+      status: 'idea',
+      kind,
+      id,
+      created: todayDateString(),
+    });
     await appendBlock(filePath, block);
-    console.log(`Added plan "${name}" to papercamp/plans.md`);
+    console.log(`Added plan "${name}"${id ? ` (${id})` : ''} to papercamp/plans.md`);
   });
 
 program.parseAsync(process.argv);

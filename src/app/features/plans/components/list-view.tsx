@@ -7,6 +7,7 @@ import { PlanCard } from './plan-card';
 import { SectionHeading } from './section-heading';
 
 interface IdeaEntry {
+  id: string | null;
   title: string;
   body: string;
 }
@@ -81,7 +82,7 @@ export const ListView = ({
             }}
           >
             {ideaEntries.map((e) => (
-              <IdeaCard key={e.title} title={e.title} onClick={() => onOpenIdea?.(e.title)} />
+              <IdeaCard key={e.title} id={e.id} title={e.title} onClick={() => onOpenIdea?.(e.title)} />
             ))}
           </div>
         </section>

@@ -92,6 +92,74 @@ Body.
     const { entries } = parsePlans(md);
     expect(entries[0].tags).toEqual([]);
   });
+
+  it('parses optional kind and id fields', () => {
+    const md = `## Short title
+
+**Status:** idea
+**Kind:** feat
+**Id:** FEAT-3
+**Created:** 2026-06-18
+
+Body.
+`;
+    const { entries, warnings } = parsePlans(md);
+    expect(warnings).toEqual([]);
+    expect(entries[0]).toMatchObject({
+      title: 'Short title',
+      status: 'idea',
+      kind: 'feat',
+      id: 'FEAT-3',
+    });
+  });
+
+  it('parses optional idea backlink field', () => {
+    const md = `## Short title
+
+**Status:** idea
+**Kind:** feat
+**Id:** FEAT-4
+**Idea:** IDEA-2
+**Created:** 2026-06-18
+
+Body.
+`;
+    const { entries, warnings } = parsePlans(md);
+    expect(warnings).toEqual([]);
+    expect(entries[0]).toMatchObject({
+      title: 'Short title',
+      idea: 'IDEA-2',
+    });
+  });
+
+  it('parses phase descriptions from indented continuation lines', () => {
+    const md = `## Short title
+
+**Status:** idea
+**Created:** 2026-06-18
+
+Body.
+
+### Phases
+- [x] Decide on storage format
+- [ ] Write zod schemas
+      Handles malformed \`### Phases\` blocks without throwing — collects a ParseWarning
+      instead, so one bad entry doesn't take down parsing for the whole file.
+- [ ] Build parser
+`;
+    const { entries, warnings } = parsePlans(md);
+    expect(warnings).toEqual([]);
+    expect(entries[0].phases).toEqual([
+      { done: true, text: 'Decide on storage format' },
+      {
+        done: false,
+        text: 'Write zod schemas',
+        description:
+          "Handles malformed `### Phases` blocks without throwing — collects a ParseWarning\ninstead, so one bad entry doesn't take down parsing for the whole file.",
+      },
+      { done: false, text: 'Build parser' },
+    ]);
+  });
 });
 
 describe('parseDecisions', () => {

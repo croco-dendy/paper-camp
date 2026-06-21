@@ -21,7 +21,17 @@ export const KanbanCard = ({ plan }: KanbanCardProps) => {
         cursor: 'default',
       }}
     >
-      <div className="text-sm" style={{ fontWeight: 500, lineHeight: 1.3, marginBottom: '0.4rem' }}>
+      <div
+        className="text-sm"
+        style={{
+          fontWeight: 500,
+          lineHeight: 1.3,
+          marginBottom: '0.4rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: space[1],
+        }}
+      >
         {plan.title}
       </div>
       {plan.tags.length > 0 && (

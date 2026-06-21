@@ -86,7 +86,5 @@ export const layout = {
   stackPanelWidth: 480,
   navIslandBottom: space[6],
   navIslandHeight,
-  // Clear the island's footprint (bottom offset + height) plus a small safety gap.
-  pagePaddingBottom: `calc(${space[6]} + ${navIslandHeight} + ${space[4]})`,
   contentGap: space[6],
 } as const;

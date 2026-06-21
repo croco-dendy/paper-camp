@@ -1,53 +1,53 @@
 #!/usr/bin/env node
-import { join as f, dirname as D, extname as R, basename as I, resolve as L } from "node:path";
-import { Command as U } from "commander";
-import { l as x, j as k, h as E, k as T, e as J, c as M, t as O, a as A, P as F, i as G, A as Q } from "../chunks/serializer.D8LSvRYD.js";
-import { readFile as S, writeFile as v, mkdir as z, stat as B } from "node:fs/promises";
+import { readFile as j, writeFile as S, mkdir as D, stat as R } from "node:fs/promises";
+import { join as u, dirname as U, extname as L, basename as F, resolve as H } from "node:path";
+import { Command as G } from "commander";
+import { l as k, j as E, h as I, k as v, e as J, c as M, t as T, a as A, P as Q, i as z, A as B } from "../chunks/serializer.2hjOGt3f.js";
 import { createServer as _ } from "node:http";
 import { fileURLToPath as W } from "node:url";
-import { watch as V } from "node:fs";
-const j = (e, s) => f(e, "papercamp", s), P = (e) => S(e, "utf-8").catch(() => "");
-async function $(e) {
+import { watch as K } from "node:fs";
+const N = (e, s) => u(e, "papercamp", s), P = (e) => j(e, "utf-8").catch(() => "");
+async function b(e) {
   const [s, n, t, p] = await Promise.all([
-    P(j(e, "plans.md")),
-    P(j(e, "decisions.md")),
-    P(j(e, "open-questions.md")),
-    P(j(e, "progress.md"))
+    P(N(e, "plans.md")),
+    P(N(e, "decisions.md")),
+    P(N(e, "open-questions.md")),
+    P(N(e, "progress.md"))
   ]);
   return {
-    plans: T(s).entries,
-    decisions: E(n).entries,
-    openQuestions: k(t).entries,
-    progress: x(p)
+    plans: v(s).entries,
+    decisions: I(n).entries,
+    openQuestions: E(t).entries,
+    progress: k(p)
   };
 }
-function K(e, s) {
+function V(e, s) {
   const n = [], t = (/* @__PURE__ */ new Date()).toISOString(), p = new Map(e.plans.map((a) => [a.title, a])), l = new Map(s.plans.map((a) => [a.title, a]));
-  for (const [a, u] of l) {
-    const C = p.get(a);
-    if (!C)
+  for (const [a, d] of l) {
+    const y = p.get(a);
+    if (!y)
       n.push({ message: `New plan added: ${a}`, timestamp: t });
-    else if (C.status !== u.status)
-      n.push({ message: `Plan "${a}" marked ${u.status}`, timestamp: t });
+    else if (y.status !== d.status)
+      n.push({ message: `Plan "${a}" marked ${d.status}`, timestamp: t });
     else
-      for (let h = 0; h < u.phases.length; h++) {
-        const y = C.phases[h], b = u.phases[h];
-        y && y.done !== b.done && n.push({
-          message: b.done ? `Phase ${h + 1}/${u.phases.length} checked off in "${a}"` : `Phase ${h + 1}/${u.phases.length} unchecked in "${a}"`,
+      for (let w = 0; w < d.phases.length; w++) {
+        const g = y.phases[w], x = d.phases[w];
+        g && g.done !== x.done && n.push({
+          message: x.done ? `Phase ${w + 1}/${d.phases.length} checked off in "${a}"` : `Phase ${w + 1}/${d.phases.length} unchecked in "${a}"`,
           timestamp: t
         });
       }
   }
   for (const [a] of p)
     l.has(a) || n.push({ message: `Plan removed: ${a}`, timestamp: t });
-  const d = new Map(e.decisions.map((a) => [a.title, a])), r = new Map(s.decisions.map((a) => [a.title, a]));
+  const m = new Map(e.decisions.map((a) => [a.title, a])), r = new Map(s.decisions.map((a) => [a.title, a]));
   for (const [a] of r)
-    d.has(a) || n.push({ message: `New decision: ${a}`, timestamp: t });
+    m.has(a) || n.push({ message: `New decision: ${a}`, timestamp: t });
   const o = new Map(e.openQuestions.map((a) => [a.title, a])), i = new Map(s.openQuestions.map((a) => [a.title, a]));
   for (const [a] of i)
     o.has(a) || n.push({ message: `New open question: ${a}`, timestamp: t });
-  const c = new Map(e.progress.map((a) => [a.date, a])), m = new Map(s.progress.map((a) => [a.date, a]));
-  for (const [a] of m)
+  const c = new Map(e.progress.map((a) => [a.date, a])), f = new Map(s.progress.map((a) => [a.date, a]));
+  for (const [a] of f)
     c.has(a) || n.push({ message: `Progress logged: ${a}`, timestamp: t });
   return n;
 }
@@ -57,9 +57,9 @@ function X(e) {
   const p = ["plans.md", "decisions.md", "open-questions.md", "progress.md"];
   async function l() {
     try {
-      const d = await $(e);
+      const m = await b(e);
       if (n) {
-        const r = K(n, d);
+        const r = V(n, m);
         for (const o of r) {
           const i = `data: ${JSON.stringify(o)}
 
@@ -72,43 +72,43 @@ function X(e) {
             }
         }
       }
-      n = d;
+      n = m;
     } catch {
     }
   }
-  for (const d of p) {
-    const r = j(e, d);
+  for (const m of p) {
+    const r = N(e, m);
     try {
-      V(r, () => {
+      K(r, () => {
         t && clearTimeout(t), t = setTimeout(l, 300);
       });
     } catch {
     }
   }
-  return $(e).then((d) => {
-    n = d;
+  return b(e).then((m) => {
+    n = m;
   }), {
-    subscribe(d) {
-      s.add(d);
+    subscribe(m) {
+      s.add(m);
       const r = JSON.stringify({
         message: "Watching for changes…",
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
-      d.write(`data: ${r}
+      m.write(`data: ${r}
 
-`), d.on("close", () => s.delete(d));
+`), m.on("close", () => s.delete(m));
     }
   };
 }
-async function g(e) {
+async function h(e) {
   try {
-    return await S(e, "utf-8");
+    return await j(e, "utf-8");
   } catch (s) {
     if (s.code === "ENOENT") return "";
     throw s;
   }
 }
-async function H(e) {
+async function $(e) {
   return new Promise((s, n) => {
     let t = "";
     e.on("data", (p) => {
@@ -116,7 +116,7 @@ async function H(e) {
     }), e.on("end", () => s(t)), e.on("error", n);
   });
 }
-const w = (e, s) => f(e, "papercamp", s), Y = [
+const C = (e, s) => u(e, "papercamp", s), Y = [
   "biome.json",
   "tsconfig.json",
   "tailwind.config.ts",
@@ -128,7 +128,7 @@ const w = (e, s) => f(e, "papercamp", s), Y = [
   {
     path: "/api/package-name",
     handler: async (e) => {
-      const s = await g(f(e, "package.json"));
+      const s = await h(u(e, "package.json"));
       if (!s) return null;
       try {
         return JSON.parse(s).name ?? null;
@@ -139,32 +139,32 @@ const w = (e, s) => f(e, "papercamp", s), Y = [
   },
   {
     path: "/api/plans",
-    handler: async (e) => T(await g(w(e, "plans.md")))
+    handler: async (e) => v(await h(C(e, "plans.md")))
   },
   {
     path: "/api/progress",
     handler: async (e) => ({
-      entries: x(await g(w(e, "progress.md")))
+      entries: k(await h(C(e, "progress.md")))
     })
   },
   {
     path: "/api/decisions",
-    handler: async (e) => E(await g(w(e, "decisions.md")))
+    handler: async (e) => I(await h(C(e, "decisions.md")))
   },
   {
     path: "/api/open-questions",
-    handler: async (e) => k(await g(w(e, "open-questions.md")))
+    handler: async (e) => E(await h(C(e, "open-questions.md")))
   },
   {
     path: "/api/ideas",
     handler: async (e) => ({
-      content: await g(w(e, "ideas.md"))
+      content: await h(C(e, "ideas.md"))
     })
   },
   {
     path: "/api/config",
     handler: async (e) => {
-      const s = await g(f(e, ".paper-camp", "config.json"));
+      const s = await h(u(e, ".paper-camp", "config.json"));
       return s ? JSON.parse(s) : null;
     }
   },
@@ -173,7 +173,7 @@ const w = (e, s) => f(e, "papercamp", s), Y = [
     handler: async (e) => {
       const s = ["README.md", "CHANGELOG.md", "LICENSE"], n = [];
       for (const t of s) {
-        const p = await g(f(e, t));
+        const p = await h(u(e, t));
         p && n.push({ name: t, content: p });
       }
       return { files: n };
@@ -192,7 +192,7 @@ const w = (e, s) => f(e, "papercamp", s), Y = [
         "package.json"
       ], n = [];
       for (const t of s)
-        await g(f(e, t)) && n.push(t);
+        await h(u(e, t)) && n.push(t);
       return { files: n };
     }
   }
@@ -208,12 +208,12 @@ function q(e) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const i = w(e, "plans.md"), c = T(await g(i)), m = o.trim(), a = c.entries.filter((u) => u.title !== m);
+        const i = C(e, "plans.md"), c = v(await h(i)), f = o.trim(), a = c.entries.filter((d) => d.title !== f);
         if (a.length === c.entries.length) {
           t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
           return;
         }
-        await v(i, J(a)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        await S(i, J(a)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (r) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: r.message }));
       }
@@ -221,18 +221,32 @@ function q(e) {
     }
     if (n.method === "POST" && l === "/api/plans") {
       try {
-        const r = await H(n), { title: o, content: i } = JSON.parse(r);
+        const r = await $(n), { title: o, content: i, kind: c } = JSON.parse(r);
         if (!(o != null && o.trim())) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const c = M({
+        const f = c && ["feat", "fix", "chore", "docs", "refactor"].includes(c) ? c : "feat", a = u(e, ".paper-camp", "config.json");
+        let d = null;
+        try {
+          d = JSON.parse(await j(a, "utf-8"));
+        } catch {
+        }
+        let y;
+        if (d != null && d.nextId) {
+          const g = d.nextId[f] ?? 1;
+          y = `${f.toUpperCase()}-${g}`, d.nextId[f] = g + 1, await S(a, `${JSON.stringify(d, null, 2)}
+`);
+        }
+        const w = M({
           title: o.trim(),
           status: "idea",
-          created: O(),
+          kind: f,
+          id: y,
+          created: T(),
           body: i == null ? void 0 : i.trim()
         });
-        await A(w(e, "plans.md"), c), t.statusCode = 201, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        await A(C(e, "plans.md"), w), t.statusCode = 201, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0, id: y }));
       } catch (r) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: r.message }));
       }
@@ -245,26 +259,26 @@ function q(e) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const i = await H(n), c = JSON.parse(i), m = w(e, "plans.md"), a = T(await g(m)), u = o.trim();
-        let C = !1;
-        const h = a.entries.map((y) => y.title === u ? (C = !0, {
-          ...y,
+        const i = await $(n), c = JSON.parse(i), f = C(e, "plans.md"), a = v(await h(f)), d = o.trim();
+        let y = !1;
+        const w = a.entries.map((g) => g.title === d ? (y = !0, {
+          ...g,
           ...c.status !== void 0 && { status: c.status },
           ...c.phases !== void 0 && { phases: c.phases },
-          updated: O()
-        }) : c.status === "in-progress" && y.status === "in-progress" ? { ...y, status: "planned", updated: O() } : y);
-        if (!C) {
+          updated: T()
+        }) : c.status === "in-progress" && g.status === "in-progress" ? { ...g, status: "planned", updated: T() } : g);
+        if (!y) {
           t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
           return;
         }
-        await v(m, J(h)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        await S(f, J(w)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (r) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: r.message }));
       }
       return;
     }
     if (n.method === "GET" && l === "/api/icon") {
-      const r = f(e, ".paper-camp", "assets"), o = {
+      const r = u(e, ".paper-camp", "assets"), o = {
         svg: "image/svg+xml",
         png: "image/png",
         jpg: "image/jpeg",
@@ -274,8 +288,8 @@ function q(e) {
       };
       for (const [i, c] of Object.entries(o))
         try {
-          const m = await S(f(r, `icon.${i}`));
-          t.statusCode = 200, t.setHeader("Content-Type", c), t.setHeader("Cache-Control", "no-cache"), t.end(m);
+          const f = await j(u(r, `icon.${i}`));
+          t.statusCode = 200, t.setHeader("Content-Type", c), t.setHeader("Cache-Control", "no-cache"), t.end(f);
           return;
         } catch {
         }
@@ -284,7 +298,7 @@ function q(e) {
     }
     if (n.method === "POST" && l === "/api/icon") {
       try {
-        const r = await H(n), { dataUri: o } = JSON.parse(r);
+        const r = await $(n), { dataUri: o } = JSON.parse(r);
         if (!o) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "dataUri is required" }));
           return;
@@ -294,8 +308,8 @@ function q(e) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "invalid data URI" }));
           return;
         }
-        const c = i[1], m = c === "image/svg+xml" ? "svg" : c.split("/")[1], a = Buffer.from(i[2], "base64"), u = f(e, ".paper-camp", "assets");
-        await z(u, { recursive: !0 }), await v(f(u, `icon.${m}`), a), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        const c = i[1], f = c === "image/svg+xml" ? "svg" : c.split("/")[1], a = Buffer.from(i[2], "base64"), d = u(e, ".paper-camp", "assets");
+        await D(d, { recursive: !0 }), await S(u(d, `icon.${f}`), a), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (r) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: r.message }));
       }
@@ -313,7 +327,7 @@ function q(e) {
             t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "invalid config file name" }));
             return;
           }
-          const i = await g(f(e, o));
+          const i = await h(u(e, o));
           if (!i) {
             t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "config file not found" }));
             return;
@@ -325,13 +339,13 @@ function q(e) {
           return;
         }
     }
-    const d = Z.find((r) => r.path === l);
-    if (!d) {
+    const m = Z.find((r) => r.path === l);
+    if (!m) {
       p();
       return;
     }
     try {
-      const r = await d.handler(e);
+      const r = await m.handler(e);
       t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify(r));
     } catch (r) {
       t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: r.message }));
@@ -352,20 +366,20 @@ const tt = {
   ".woff2": "font/woff2"
 };
 function et() {
-  return f(D(W(import.meta.url)), "..", "app");
+  return u(U(W(import.meta.url)), "..", "app");
 }
 async function nt({ root: e, port: s }) {
-  const n = et(), t = f(n, "index.html"), p = await S(t, "utf-8").catch(() => null);
+  const n = et(), t = u(n, "index.html"), p = await j(t, "utf-8").catch(() => null);
   if (p === null)
     throw new Error(
       `Dashboard assets not found at ${n}. Run \`pnpm build\` (or reinstall the package) so dist/app exists.`
     );
   const l = q(e);
-  async function d(o, i) {
-    const c = decodeURIComponent((o.url ?? "/").split("?")[0]), m = f(n, c === "/" ? "index.html" : c);
+  async function m(o, i) {
+    const c = decodeURIComponent((o.url ?? "/").split("?")[0]), f = u(n, c === "/" ? "index.html" : c);
     try {
-      if ((await B(m)).isFile()) {
-        i.statusCode = 200, i.setHeader("Content-Type", tt[R(m)] ?? "application/octet-stream"), i.end(await S(m));
+      if ((await R(f)).isFile()) {
+        i.statusCode = 200, i.setHeader("Content-Type", tt[L(f)] ?? "application/octet-stream"), i.end(await j(f));
         return;
       }
     } catch {
@@ -374,28 +388,28 @@ async function nt({ root: e, port: s }) {
   }
   const r = _((o, i) => {
     l(o, i, () => {
-      d(o, i).catch((c) => {
+      m(o, i).catch((c) => {
         i.statusCode = 500, i.end(String(c));
       });
     });
   });
   await new Promise((o) => r.listen(s, o));
 }
-const N = new U();
-N.name("paper-camp").description("Local-first, AI-native project companion.").version(F);
-N.command("init [project-name]").description("Initialize Paper Camp in the current directory").option("-i, --intent <text>", "one-line description of what you are building").action(async (e, s) => {
-  const n = process.cwd(), t = e ?? I(n);
+const O = new G();
+O.name("paper-camp").description("Local-first, AI-native project companion.").version(Q);
+O.command("init [project-name]").description("Initialize Paper Camp in the current directory").option("-i, --intent <text>", "one-line description of what you are building").action(async (e, s) => {
+  const n = process.cwd(), t = e ?? F(n);
   try {
-    await G(n, { projectName: t, intent: s.intent }), console.log(`Initialized Paper Camp in ${n}`), console.log("  .paper-camp/config.json"), console.log("  papercamp/ideas.md, plans.md, progress.md, decisions.md, open-questions.md");
+    await z(n, { projectName: t, intent: s.intent }), console.log(`Initialized Paper Camp in ${n}`), console.log("  .paper-camp/config.json"), console.log("  papercamp/ideas.md, plans.md, progress.md, decisions.md, open-questions.md");
   } catch (p) {
-    if (p instanceof Q) {
+    if (p instanceof B) {
       console.error(p.message), process.exitCode = 1;
       return;
     }
     throw p;
   }
 });
-N.command("dev").description("Start the local dashboard").option("-p, --port <number>", "port to listen on", "3333").action(async (e) => {
+O.command("dev").description("Start the local dashboard").option("-p, --port <number>", "port to listen on", "3333").action(async (e) => {
   const s = Number(e.port), n = process.cwd();
   try {
     await nt({ root: n, port: s }), console.log(`Paper Camp dashboard running at http://localhost:${s}`);
@@ -403,7 +417,7 @@ N.command("dev").description("Start the local dashboard").option("-p, --port <nu
     console.error(t.message), process.exitCode = 1;
   }
 });
-N.command("add <type> [name]").description("Add a new entry (currently supports: plan)").action(async (e, s) => {
+O.command("add <type> [name]").description("Add a new entry (currently supports: plan)").action(async (e, s) => {
   if (e !== "plan") {
     console.error(`Unknown type "${e}". Supported types: plan`), process.exitCode = 1;
     return;
@@ -412,8 +426,27 @@ N.command("add <type> [name]").description("Add a new entry (currently supports:
     console.error("Usage: paper-camp add plan <name>"), process.exitCode = 1;
     return;
   }
-  const n = L(process.cwd(), "papercamp", "plans.md"), t = M({ title: s, status: "idea", created: O() });
-  await A(n, t), console.log(`Added plan "${s}" to papercamp/plans.md`);
+  const n = H(process.cwd(), ".paper-camp", "config.json");
+  let t;
+  try {
+    t = JSON.parse(await j(n, "utf-8"));
+  } catch {
+  }
+  const p = "feat";
+  let l;
+  if (t != null && t.nextId) {
+    const o = t.nextId[p] ?? 1;
+    l = `${p.toUpperCase()}-${o}`, t.nextId[p] = o + 1, await S(n, `${JSON.stringify(t, null, 2)}
+`);
+  }
+  const m = H(process.cwd(), "papercamp", "plans.md"), r = M({
+    title: s,
+    status: "idea",
+    kind: p,
+    id: l,
+    created: T()
+  });
+  await A(m, r), console.log(`Added plan "${s}"${l ? ` (${l})` : ""} to papercamp/plans.md`);
 });
-N.parseAsync(process.argv);
+O.parseAsync(process.argv);
 //# sourceMappingURL=index.js.map
