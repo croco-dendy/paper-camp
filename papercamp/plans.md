@@ -180,3 +180,51 @@ not others). This is the root cause of the layout spacing inconsistencies.
 - [x] Adopt paper-ui's font-family and spacing tokens project-wide, replacing the ad-hoc literals — either consume paper-ui's CSS custom properties directly if exposed, or mirror them exactly in one local constants file to kill the drift
 - [x] Layout spacing pass over the root layout (`router.tsx`'s sidebar/content/stack-panel grid, page padding, nav island positioning) using the now-established scale — fix the specific spacing issues already visible, not a redesign
 - [x] Add `framer-motion` and use it for simple, restrained motion: route-level transition, list/feed items animating in (especially the Stack panel's live activity feed), and replacing the hand-rolled `translateX`/`transition` CSS in `router.tsx`/`stack-panel.tsx` with its declarative equivalents
+
+## UI cleanup follow-up: fix loading-state flashes, nav-island clearance, dead code
+
+**Status:** done
+**Created:** 2026-06-19
+**Updated:** 2026-06-21
+**Tags:** app, ui, refactor
+
+Findings from testing the "UI cleanup" plan's implementation live in the browser plus a
+source-level pass over the same files. Two are real, user-visible bugs; the rest are loose
+ends the cleanup pass introduced or left behind while fixing the things it set out to fix.
+
+### Phases
+- [x] Fix content bleeding into the bottom nav island: on long markdown bodies (e.g. the "Paper Camp" idea detail), scrolled-to-bottom text renders in the same vertical band as the fixed nav island. `router.tsx`'s `layout.pagePaddingBottom` (3rem/48px) doesn't clear the nav island's actual footprint (`navIslandBottom` offset + the island's own height, ~88-112px) — increase the clearance or derive it from the island's real height instead of a flat token
+- [x] Fix the Docs page's "Repo Docs" section flashing "No repo docs found" before the fetch resolves, then correctly populating — indistinguishable from genuinely-empty during the flash. Settings already does this right (shows "Loading…" for Project Info); match that pattern for Decisions/Open Questions/Progress/Repo Docs too
+- [x] Wire up the `loading` flag `useProjectIdentity()` already returns — none of its 5 call sites (`router.tsx`, `docs-sidebar.tsx`, `plans-sidebar.tsx`, `settings-sidebar.tsx`, `settings-page.tsx`) destructure it, so the hook can't prevent the flash-of-empty-state class of bug it was built to help with. Same dead-flag pattern as the unused `*Loading` fields already in `app-store.ts` — fix both in the same pass
+- [x] Normalize `tokens.ts`'s `fontSize` scale: collapse the 4 near-duplicate `-alt` entries (`xs-alt`/`sm-alt`/`base-alt`/`md-alt`, each within 0.025–0.1rem of a canonical sibling) into the single clean scale `CODE_STYLE.md` calls for, updating call sites to the nearest canonical value
+- [x] Add the inline comment `CODE_STYLE.md` itself requires next to the raw `<input type="file">` in `settings-page.tsx` — the style guide documents this as a known gap but the code doesn't carry the comment it mandates
+- [x] Remove the dead `.btn-blue`/`.btn-red` rules in `utilities.css` — no `.tsx` file references either class; only `.btn-green`/`.btn-orange`/`.btn-violet` are ever used
+- [x] Add an `AGENTS.md` rule requiring assistants to complete only the explicitly requested phase of a plan at a time, so future agents don't over-implement across phase boundaries
+
+## Drop the Focus page, unify the sidebar, fix route-transition jump
+
+**Status:** planned
+**Created:** 2026-06-19
+**Tags:** app, plans, ui
+
+Focus mode's only real value over the Plans page's `PlanDetail` view is that its phase
+checklist is interactive (toggleable) while `PlanDetail`'s is read-only (`disabled`
+checkboxes), plus the per-phase AI copy-prompt and "Mark complete" button. None of that
+requires a separate distraction-free route — folding it into `PlanDetail` removes a
+whole page or both for no real loss.
+
+Separately: the per-route sidebar swap is the cause of the layout jump noticed when
+switching pages. `router.tsx` conditionally mounts a completely different sidebar
+component per route (`{pathname === '/' && <PlansSidebar />}`, etc.), so navigating
+destroys and recreates the whole sidebar DOM tree instantly while the main content
+fades/slides via `framer-motion` — that mismatch is the jump. It's worst on `/focus`
+since that route has no sidebar at all, so the content width jumps too. A single
+persistent sidebar shell that swaps its items per route (instead of swapping components)
+fixes both the jump and the inconsistency in one move, and becomes moot for `/focus` once
+that route is gone.
+
+### Phases
+- [ ] Make `PlanDetail`'s phase checklist interactive: enable the checkboxes (currently `disabled`), wire them to the same `PATCH /api/plans` phase-toggle flow `FocusPage` uses, and add the per-phase `FocusPhaseItem` copy-prompt button and a "Mark complete" button (shown when all phases are done) directly in `PlanDetail`
+- [ ] Remove the `/focus` route entirely: drop `focusRoute` and the "Focus" nav item from `router.tsx`, delete `src/app/features/focus/`, and update `PlanCard`'s and `PlanDetail`'s "Start" handlers to stay on the Plans page (opening the plan's detail view) instead of navigating to `/focus`
+- [ ] Build one persistent sidebar shell mounted once in `router.tsx` (not per-route), with a per-route config (icon/title plus item list) driving what renders inside it — replacing the current `PlansSidebar`/`DocsSidebar`/`SettingsSidebar` conditional-mount pattern
+- [ ] Re-verify route transitions with the persistent sidebar in place: the sidebar's item list should swap (animated, not an instant cut) in sync with the main content's existing fade/slide, so nothing in the layout jumps when switching pages

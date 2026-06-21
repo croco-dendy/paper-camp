@@ -27,26 +27,6 @@
   fill: #e3ac74 !important;
 }
 
-.btn-red svg path:first-child {
-  fill: #e3b3b1 !important;
-}
-.btn-red:hover svg path:first-child {
-  fill: #dc9f9c !important;
-}
-.btn-red:active svg path:first-child {
-  fill: #d38b88 !important;
-}
-
-.btn-blue svg path:first-child {
-  fill: #aecbe0 !important;
-}
-.btn-blue:hover svg path:first-child {
-  fill: #98bcd5 !important;
-}
-.btn-blue:active svg path:first-child {
-  fill: #82aeca !important;
-}
-
 .btn-violet svg path:first-child {
   fill: #d2c0e0 !important;
 }
@@ -59,8 +39,6 @@
 
 .btn-green,
 .btn-orange,
-.btn-red,
-.btn-blue,
 .btn-violet {
   color: #1a1917 !important;
 }

@@ -40,7 +40,7 @@ export const RepoDocDetail = () => {
         <pre
           style={{
             fontFamily: fontFamily.mono,
-            fontSize: fontSize['sm-alt'],
+            fontSize: fontSize.xs,
             background: 'rgba(0,0,0,0.04)',
             borderRadius: 6,
             padding: space[4],

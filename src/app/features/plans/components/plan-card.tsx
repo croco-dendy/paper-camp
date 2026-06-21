@@ -116,7 +116,7 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
             <Button
               variant="primary"
               size="small"
-              className="btn-blue"
+              className="btn-violet"
               onClick={() => onOpen(plan.title)}
             >
               Open

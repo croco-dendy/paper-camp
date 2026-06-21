@@ -1,10 +1,9 @@
-import { AddIdeaModal } from '@/app/components/add-idea-modal';
-import { useProjectIdentity } from '@/app/hooks';
+import { AddIdeaModal, ProjectIdentityHeader } from '@/app/components';
 import { createPlan, deletePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
-import { fontFamily, fontSize, layout, space } from '@/app/styles/tokens';
+import { layout, space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
-import { FolderIcon, Icon, IconButton, ListItem } from '@dendelion/paper-ui';
+import { IconButton, ListItem } from '@dendelion/paper-ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 import { PlanNavItem } from './plan-nav-item';
@@ -23,7 +22,6 @@ export const PlansSidebar = () => {
     ideaEntries,
   } = useAppStore();
   const [addingIdea, setAddingIdea] = useState(false);
-  const { projectName, iconDataUri } = useProjectIdentity();
 
   const active = plans?.entries.filter((p) => p.status === 'in-progress') ?? [];
   const planned = plans?.entries.filter((p) => p.status === 'planned') ?? [];
@@ -75,26 +73,7 @@ export const PlansSidebar = () => {
       >
         {/* Logo / project name */}
         <div style={{ padding: `${space[5]} ${space[3]} ${space[4]}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
-            {iconDataUri ? (
-              <img
-                src={iconDataUri}
-                alt=""
-                style={{ width: 18, height: 18, objectFit: 'contain' }}
-              />
-            ) : (
-              <Icon icon={<FolderIcon />} size="small" />
-            )}
-            <span
-              style={{
-                fontFamily: fontFamily.serif,
-                fontWeight: 600,
-                fontSize: fontSize.md,
-              }}
-            >
-              {projectName ?? 'Paper Camp'}
-            </span>
-          </div>
+          <ProjectIdentityHeader />
         </div>
 
         {divider}

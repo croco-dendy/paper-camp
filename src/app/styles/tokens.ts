@@ -25,14 +25,10 @@ export const space = {
 
 export const fontSize = {
   '2xs': '0.75rem',
-  'xs-alt': '0.8rem',
   xs: '0.875rem',
-  'sm-alt': '0.85rem',
   sm: '1rem',
   base: '1.125rem',
-  'base-alt': '1.05rem',
   md: '1.25rem',
-  'md-alt': '1.15rem',
   lg: '1.5rem',
   xl: '1.875rem',
   '2xl': '2.5rem',
@@ -81,10 +77,16 @@ export const color = {
   deskChalk: '#d4e8cb',
 } as const;
 
+// Measured height of the fixed bottom nav island (<Island> padding + content row).
+// Keep in sync with the upstream Island/Input/Button small-size tokens.
+const navIslandHeight = '4.5rem';
+
 export const layout = {
   sidebarWidth: 220,
   stackPanelWidth: 480,
   navIslandBottom: space[6],
-  pagePaddingBottom: space[12],
+  navIslandHeight,
+  // Clear the island's footprint (bottom offset + height) plus a small safety gap.
+  pagePaddingBottom: `calc(${space[6]} + ${navIslandHeight} + ${space[4]})`,
   contentGap: space[6],
 } as const;

@@ -1,8 +1,8 @@
-import { useProjectIdentity } from '@/app/hooks';
+import { ProjectIdentityHeader } from '@/app/components';
 import { fetchConfigs } from '@/app/services/configs-api';
 import { useAppStore } from '@/app/stores/app-store';
-import { fontFamily, fontSize, layout, space } from '@/app/styles/tokens';
-import { FolderIcon, Icon, ListItem } from '@dendelion/paper-ui';
+import { layout, space } from '@/app/styles/tokens';
+import { ListItem } from '@dendelion/paper-ui';
 import { useEffect, useState } from 'react';
 import { SidebarSection } from '../../plans/components/sidebar-section';
 
@@ -11,8 +11,6 @@ export const SettingsSidebar = () => {
   const setActiveSection = useAppStore((s) => s.setActiveSettingsSection);
   const configFiles = useAppStore((s) => s.settingsConfigFiles);
   const setConfigFiles = useAppStore((s) => s.setSettingsConfigFiles);
-
-  const { projectName, iconDataUri } = useProjectIdentity();
 
   useEffect(() => {
     fetchConfigs().then(setConfigFiles);
@@ -37,22 +35,7 @@ export const SettingsSidebar = () => {
       }}
     >
       <div style={{ padding: `${space[5]} ${space[3]} ${space[4]}`, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
-          {iconDataUri ? (
-            <img src={iconDataUri} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-          ) : (
-            <Icon icon={<FolderIcon />} size="small" />
-          )}
-          <span
-            style={{
-              fontFamily: fontFamily.serif,
-              fontWeight: 600,
-              fontSize: fontSize.md,
-            }}
-          >
-            {projectName ?? 'Paper Camp'}
-          </span>
-        </div>
+        <ProjectIdentityHeader />
       </div>
 
       {divider}

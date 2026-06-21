@@ -1,5 +1,5 @@
-import { fontFamily, fontSize, layout, space, transition } from '@/app/styles/tokens';
-import { Button, FolderIcon, Icon, Input, Island, Layout, Page } from '@dendelion/paper-ui';
+import { layout } from '@/app/styles/tokens';
+import { Button, Input, Island, Layout, Page } from '@dendelion/paper-ui';
 import {
   Outlet,
   createRootRoute,
@@ -10,12 +10,11 @@ import {
 } from '@tanstack/react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { StackPanel } from './components/stack-panel';
+import { ProjectIdentityHeader, StackPanel } from './components';
 import { DocsPage, DocsSidebar } from './features/docs/index';
 import { FocusPage } from './features/focus/index';
 import { PlansPage, PlansSidebar } from './features/plans/index';
 import { SettingsPage, SettingsSidebar } from './features/settings/index';
-import { useProjectIdentity } from './hooks';
 import { useAppStore } from './stores/app-store';
 
 const navItems = [
@@ -34,7 +33,6 @@ const RootLayout = () => {
   const docSearchQuery = useAppStore((s) => s.docSearchQuery);
   const setDocSearchQuery = useAppStore((s) => s.setDocSearchQuery);
   const [stackOpen, setStackOpen] = useState(true);
-  const { projectName, iconDataUri } = useProjectIdentity();
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -95,27 +93,7 @@ const RootLayout = () => {
         }}
       >
         <Island>
-          <div className="flex items-center gap-4">
-            {iconDataUri ? (
-              <img
-                src={iconDataUri}
-                alt=""
-                style={{ width: 20, height: 20, objectFit: 'contain' }}
-              />
-            ) : (
-              <Icon icon={<FolderIcon />} size="small" />
-            )}
-            <span
-              style={{
-                fontFamily: fontFamily.serif,
-                fontWeight: 600,
-                fontSize: fontSize.sm,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {projectName ?? 'Paper Camp'}
-            </span>
-          </div>
+          <ProjectIdentityHeader size="sm" />
           <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.12)' }} />
           {pathname === '/docs' && (
             <div style={{ width: 180 }}>

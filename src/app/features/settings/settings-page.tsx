@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 const GeneralSection = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [config, setConfig] = useState<PaperCampConfig | null | undefined>(undefined);
-  const { iconDataUri: fetchedIconDataUri } = useProjectIdentity();
+  const { iconDataUri: fetchedIconDataUri, loading: identityLoading } = useProjectIdentity();
   const [uploadedIconDataUri, setUploadedIconDataUri] = useState<string | null>(null);
   const iconDataUri = uploadedIconDataUri ?? fetchedIconDataUri;
   const [saving, setSaving] = useState(false);
@@ -81,6 +81,7 @@ const GeneralSection = () => {
               />
             )}
             <div>
+              {/* paper-ui has no file-input component, so this raw input is intentional */}
               <input
                 ref={fileRef}
                 type="file"
@@ -101,7 +102,12 @@ const GeneralSection = () => {
                   Saved
                 </span>
               )}
-              {!iconDataUri && !saving && (
+              {identityLoading && (
+                <p className="text-sm" style={{ opacity: 0.5, margin: `${space[1]} 0 0` }}>
+                  Loading…
+                </p>
+              )}
+              {!identityLoading && !iconDataUri && !saving && (
                 <p className="text-sm" style={{ opacity: 0.45, margin: `${space[1]} 0 0` }}>
                   No icon set. Upload an SVG, PNG, or JPG.
                 </p>

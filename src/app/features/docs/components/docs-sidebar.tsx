@@ -1,12 +1,26 @@
-import { useProjectIdentity } from '@/app/hooks';
+import { ProjectIdentityHeader } from '@/app/components';
 import { useAppStore } from '@/app/stores/app-store';
-import { fontFamily, fontSize, layout, space } from '@/app/styles/tokens';
-import { FolderIcon, Icon, ListItem } from '@dendelion/paper-ui';
+import { layout, space } from '@/app/styles/tokens';
+import { ListItem } from '@dendelion/paper-ui';
 import { useEffect } from 'react';
 import { SidebarSection } from '../../plans/components/sidebar-section';
 
 const simplecaseLabel = (name: string) =>
   name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+
+const EmptyState = ({ children }: { children: React.ReactNode }) => (
+  <span
+    className="text-sm"
+    style={{
+      display: 'block',
+      padding: `${space[1]} ${space[3]}`,
+      opacity: 0.35,
+      fontStyle: 'italic',
+    }}
+  >
+    {children}
+  </span>
+);
 
 export const DocsSidebar = () => {
   const {
@@ -14,6 +28,10 @@ export const DocsSidebar = () => {
     openQuestions,
     progress,
     repoDocs,
+    decisionsLoading,
+    openQuestionsLoading,
+    progressLoading,
+    repoDocsLoading,
     loadDecisions,
     loadOpenQuestions,
     loadProgress,
@@ -23,8 +41,6 @@ export const DocsSidebar = () => {
     activeDocTitle,
     setActiveDocTitle,
   } = useAppStore();
-
-  const { projectName, iconDataUri } = useProjectIdentity();
 
   useEffect(() => {
     loadDecisions();
@@ -57,29 +73,16 @@ export const DocsSidebar = () => {
       }}
     >
       <div style={{ padding: `${space[5]} ${space[3]} ${space[4]}`, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
-          {iconDataUri ? (
-            <img src={iconDataUri} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-          ) : (
-            <Icon icon={<FolderIcon />} size="small" />
-          )}
-          <span
-            style={{
-              fontFamily: fontFamily.serif,
-              fontWeight: 600,
-              fontSize: fontSize.md,
-            }}
-          >
-            {projectName ?? 'Paper Camp'}
-          </span>
-        </div>
+        <ProjectIdentityHeader />
       </div>
 
       {divider}
 
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: space[1] }}>
         <SidebarSection label="Repo Docs">
-          {repoDocs.length > 0 ? (
+          {repoDocsLoading && repoDocs.length === 0 ? (
+            <EmptyState>Loading…</EmptyState>
+          ) : repoDocs.length > 0 ? (
             repoDocs.map((f) => (
               <ListItem
                 key={f.name}
@@ -94,22 +97,14 @@ export const DocsSidebar = () => {
               </ListItem>
             ))
           ) : (
-            <span
-              className="text-sm"
-              style={{
-                display: 'block',
-                padding: `${space[1]} ${space[3]}`,
-                opacity: 0.35,
-                fontStyle: 'italic',
-              }}
-            >
-              No repo docs found
-            </span>
+            <EmptyState>No repo docs found</EmptyState>
           )}
         </SidebarSection>
 
         <SidebarSection label="Decisions">
-          {decisions.length > 0 ? (
+          {decisionsLoading && decisions.length === 0 ? (
+            <EmptyState>Loading…</EmptyState>
+          ) : decisions.length > 0 ? (
             decisions.map((d) => (
               <ListItem
                 key={d.title}
@@ -121,22 +116,14 @@ export const DocsSidebar = () => {
               </ListItem>
             ))
           ) : (
-            <span
-              className="text-sm"
-              style={{
-                display: 'block',
-                padding: `${space[1]} ${space[3]}`,
-                opacity: 0.35,
-                fontStyle: 'italic',
-              }}
-            >
-              No decisions yet
-            </span>
+            <EmptyState>No decisions yet</EmptyState>
           )}
         </SidebarSection>
 
         <SidebarSection label="Open Questions">
-          {openQuestions.length > 0 ? (
+          {openQuestionsLoading && openQuestions.length === 0 ? (
+            <EmptyState>Loading…</EmptyState>
+          ) : openQuestions.length > 0 ? (
             openQuestions.map((q) => (
               <ListItem
                 key={q.title}
@@ -151,22 +138,14 @@ export const DocsSidebar = () => {
               </ListItem>
             ))
           ) : (
-            <span
-              className="text-sm"
-              style={{
-                display: 'block',
-                padding: `${space[1]} ${space[3]}`,
-                opacity: 0.35,
-                fontStyle: 'italic',
-              }}
-            >
-              No open questions
-            </span>
+            <EmptyState>No open questions</EmptyState>
           )}
         </SidebarSection>
 
         <SidebarSection label="Progress">
-          {progress.length > 0 ? (
+          {progressLoading && progress.length === 0 ? (
+            <EmptyState>Loading…</EmptyState>
+          ) : progress.length > 0 ? (
             progress.map((p) => (
               <ListItem
                 key={p.date}
@@ -181,17 +160,7 @@ export const DocsSidebar = () => {
               </ListItem>
             ))
           ) : (
-            <span
-              className="text-sm"
-              style={{
-                display: 'block',
-                padding: `${space[1]} ${space[3]}`,
-                opacity: 0.35,
-                fontStyle: 'italic',
-              }}
-            >
-              No progress entries
-            </span>
+            <EmptyState>No progress entries</EmptyState>
           )}
         </SidebarSection>
       </div>

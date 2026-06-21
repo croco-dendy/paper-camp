@@ -1,12 +1,4 @@
-import {
-  color,
-  fontFamily,
-  fontSize,
-  layout,
-  lineHeight,
-  space,
-  transition,
-} from '@/app/styles/tokens';
+import { color, fontFamily, fontSize, layout, lineHeight, space } from '@/app/styles/tokens';
 import { Card, IconButton } from '@dendelion/paper-ui';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -34,7 +26,7 @@ interface SseEvent {
 
 const sectionLabelStyle: React.CSSProperties = {
   fontFamily: fontFamily.serif,
-  fontSize: fontSize['md-alt'],
+  fontSize: fontSize.base,
   fontWeight: 600,
   color: deskTextMuted,
   marginBottom: space[3],
@@ -159,7 +151,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
           <span
             style={{
               fontFamily: fontFamily.serif,
-              fontSize: fontSize['md-alt'],
+              fontSize: fontSize.base,
               fontWeight: 700,
               color: deskChalk,
             }}
@@ -264,63 +256,6 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                 </div>
               </Card>
             </div>
-          )}
-
-          <div style={sectionLabelStyle}>Activity</div>
-          {sorted.length === 0 ? (
-            <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No activity yet.</p>
-          ) : (
-            sorted.map((entry, i) => (
-              <div
-                key={entry.date}
-                style={{
-                  marginBottom: space[8],
-                  paddingBottom: space[4],
-                  borderBottom: i < sorted.length - 1 ? `1px solid ${deskBorder}` : undefined,
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: fontFamily.serif,
-                    fontWeight: 600,
-                    fontSize: fontSize['base-alt'],
-                    color: deskChalk,
-                    margin: `0 0 ${space[3]}`,
-                    lineHeight: lineHeight.tight,
-                  }}
-                >
-                  {entry.date}
-                </div>
-                <ul
-                  style={{
-                    listStyle: 'none',
-                    padding: 0,
-                    margin: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[3],
-                  }}
-                >
-                  {entry.items.map((item, i) => (
-                    <li
-                      key={`${entry.date}-${i}`}
-                      style={{
-                        fontFamily: fontFamily.handwritten,
-                        fontSize: fontSize.lg,
-                        fontWeight: 400,
-                        lineHeight: lineHeight.tight,
-                        color: deskText,
-                        paddingLeft: space[3],
-                        borderLeft: `2px solid ${deskBorder}`,
-                        opacity: 0.9,
-                      }}
-                    >
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
           )}
         </div>
       </motion.div>

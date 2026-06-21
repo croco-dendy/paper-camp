@@ -119,7 +119,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setView: (v) => set({ view: v }),
 
   decisions: [],
-  decisionsLoading: false,
+  decisionsLoading: true,
   loadDecisions: async () => {
     set({ decisionsLoading: true });
     try {
@@ -131,7 +131,7 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 
   openQuestions: [],
-  openQuestionsLoading: false,
+  openQuestionsLoading: true,
   loadOpenQuestions: async () => {
     set({ openQuestionsLoading: true });
     try {
@@ -143,7 +143,7 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 
   progress: [],
-  progressLoading: false,
+  progressLoading: true,
   loadProgress: async () => {
     set({ progressLoading: true });
     try {
@@ -155,7 +155,7 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 
   repoDocs: [],
-  repoDocsLoading: false,
+  repoDocsLoading: true,
   loadRepoDocs: async () => {
     set({ repoDocsLoading: true });
     try {
