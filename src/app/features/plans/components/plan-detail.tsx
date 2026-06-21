@@ -1,12 +1,12 @@
 import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
 import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
-import type { PlanEntry } from '@/types/index';
-import { Button, Checkbox, Stamp } from '@dendelion/paper-ui';
-import { useNavigate } from '@tanstack/react-router';
+import type { PhaseItem, PlanEntry } from '@/types/index';
+import { Button, Stamp } from '@dendelion/paper-ui';
 import { useState } from 'react';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
+import { FocusPhaseItem } from './focus-phase-item';
 import { ProgressBar } from './progress-bar';
 
 interface PlanDetailProps {
@@ -14,23 +14,39 @@ interface PlanDetailProps {
 }
 
 export const PlanDetail = ({ plan }: PlanDetailProps) => {
-  const navigate = useNavigate();
   const loadPlans = useAppStore((s) => s.loadPlans);
   const [updating, setUpdating] = useState(false);
   const progress = phaseProgress(plan);
   const inProgress = plan.status === 'in-progress';
+  const allDone = progress !== null && progress.done === progress.total && progress.total > 0;
 
   const handleStart = async () => {
     setUpdating(true);
     await updatePlan(plan.title, { status: 'in-progress' });
     await loadPlans();
     setUpdating(false);
-    navigate({ to: '/focus' });
   };
 
   const handleStop = async () => {
     setUpdating(true);
     await updatePlan(plan.title, { status: 'planned' });
+    await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleTogglePhase = async (index: number) => {
+    const nextPhases: PhaseItem[] = plan.phases.map((phase, i) =>
+      i === index ? { ...phase, done: !phase.done } : phase,
+    );
+    setUpdating(true);
+    await updatePlan(plan.title, { phases: nextPhases });
+    await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleMarkDone = async () => {
+    setUpdating(true);
+    await updatePlan(plan.title, { status: 'done' });
     await loadPlans();
     setUpdating(false);
   };
@@ -119,34 +135,52 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
       )}
 
       {plan.phases.length > 0 && (
-        <ul
-          style={{
-            margin: 0,
-            padding: 0,
-            listStyle: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: space[1],
-          }}
+        <div style={{ marginBottom: space[5] }}>
+          <h3
+            style={{
+              fontFamily: fontFamily.serif,
+              fontSize: fontSize.sm,
+              fontWeight: 600,
+              margin: `0 0 ${space[3]}`,
+              opacity: 0.65,
+            }}
+          >
+            Phases
+          </h3>
+          <ul
+            style={{
+              margin: 0,
+              padding: 0,
+              listStyle: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: space[1],
+            }}
+          >
+            {plan.phases.map((phase, index) => (
+              <li key={`${phase.text}-${index}`}>
+                <FocusPhaseItem
+                  phase={phase}
+                  planTitle={plan.title}
+                  phaseIndex={index}
+                  onToggle={() => handleTogglePhase(index)}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {allDone && plan.status !== 'done' && (
+        <Button
+          variant="primary"
+          size="small"
+          className="btn-violet"
+          onClick={handleMarkDone}
+          disabled={updating}
         >
-          {plan.phases.map((phase, i) => (
-            <li key={`${phase.text}-${i}`}>
-              <div className="flex items-center gap-3">
-                <Checkbox checked={phase.done} disabled />
-                <span
-                  className={`text-base ${phase.done ? 'line-through' : ''}`}
-                  style={{
-                    fontFamily: fontFamily.body,
-                    lineHeight: 1.4,
-                    opacity: phase.done ? 0.65 : 1,
-                  }}
-                >
-                  {phase.text}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
+          Mark complete
+        </Button>
       )}
     </div>
   );

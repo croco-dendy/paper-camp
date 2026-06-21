@@ -3,7 +3,6 @@ import { useAppStore } from '@/app/stores/app-store';
 import { fontSize, lineHeight, space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { Button, Card, Stamp } from '@dendelion/paper-ui';
-import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { STATUS_ACCENT, STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
@@ -16,8 +15,9 @@ interface PlanCardProps {
 }
 
 export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
-  const navigate = useNavigate();
   const loadPlans = useAppStore((s) => s.loadPlans);
+  const setActivePlanTitle = useAppStore((s) => s.setActivePlanTitle);
+  const setActiveIdeaTitle = useAppStore((s) => s.setActiveIdeaTitle);
   const [updating, setUpdating] = useState(false);
   const progress = phaseProgress(plan);
   const inProgress = plan.status === 'in-progress';
@@ -27,8 +27,9 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
     setUpdating(true);
     await updatePlan(plan.title, { status: 'in-progress' });
     await loadPlans();
+    setActiveIdeaTitle(null);
+    setActivePlanTitle(plan.title);
     setUpdating(false);
-    navigate({ to: '/focus' });
   };
 
   const handleStop = async (e: React.MouseEvent) => {

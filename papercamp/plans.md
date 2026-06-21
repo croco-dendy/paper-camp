@@ -203,8 +203,9 @@ ends the cleanup pass introduced or left behind while fixing the things it set o
 
 ## Drop the Focus page, unify the sidebar, fix route-transition jump
 
-**Status:** planned
+**Status:** done
 **Created:** 2026-06-19
+**Updated:** 2026-06-21
 **Tags:** app, plans, ui
 
 Focus mode's only real value over the Plans page's `PlanDetail` view is that its phase
@@ -224,7 +225,54 @@ fixes both the jump and the inconsistency in one move, and becomes moot for `/fo
 that route is gone.
 
 ### Phases
-- [ ] Make `PlanDetail`'s phase checklist interactive: enable the checkboxes (currently `disabled`), wire them to the same `PATCH /api/plans` phase-toggle flow `FocusPage` uses, and add the per-phase `FocusPhaseItem` copy-prompt button and a "Mark complete" button (shown when all phases are done) directly in `PlanDetail`
-- [ ] Remove the `/focus` route entirely: drop `focusRoute` and the "Focus" nav item from `router.tsx`, delete `src/app/features/focus/`, and update `PlanCard`'s and `PlanDetail`'s "Start" handlers to stay on the Plans page (opening the plan's detail view) instead of navigating to `/focus`
-- [ ] Build one persistent sidebar shell mounted once in `router.tsx` (not per-route), with a per-route config (icon/title plus item list) driving what renders inside it — replacing the current `PlansSidebar`/`DocsSidebar`/`SettingsSidebar` conditional-mount pattern
-- [ ] Re-verify route transitions with the persistent sidebar in place: the sidebar's item list should swap (animated, not an instant cut) in sync with the main content's existing fade/slide, so nothing in the layout jumps when switching pages
+- [x] Make `PlanDetail`'s phase checklist interactive: enable the checkboxes (currently `disabled`), wire them to the same `PATCH /api/plans` phase-toggle flow `FocusPage` uses, and add the per-phase `FocusPhaseItem` copy-prompt button and a "Mark complete" button (shown when all phases are done) directly in `PlanDetail`
+- [x] Remove the `/focus` route entirely: drop `focusRoute` and the "Focus" nav item from `router.tsx`, delete `src/app/features/focus/`, and update `PlanCard`'s and `PlanDetail`'s "Start" handlers to stay on the Plans page (opening the plan's detail view) instead of navigating to `/focus`
+- [x] Build one persistent sidebar shell mounted once in `router.tsx` (not per-route), with a per-route config (icon/title plus item list) driving what renders inside it — replacing the current `PlansSidebar`/`DocsSidebar`/`SettingsSidebar` conditional-mount pattern
+- [x] Re-verify route transitions with the persistent sidebar in place: the sidebar's item list should swap (animated, not an instant cut) in sync with the main content's existing fade/slide, so nothing in the layout jumps when switching pages
+
+## Plan & phase IDs: Kind/ID scheme, short titles, idea links
+
+**Status:** in-progress
+**Created:** 2026-06-21
+**Updated:** 2026-06-21
+**Tags:** app, plans, core
+
+Gives plans a permanent `<KIND>-<N>` ID (e.g. `FEAT-2`, `FIX-9`), shortens plan titles
+to true headlines instead of sentence-length descriptions, splits each phase into a
+short title plus an optional collapsible long description, and adds a backlink from a
+plan to the idea it grew out of. See ideas.md's "Plan & phase IDs — short titles,
+numbered phases, and a paper-ui accordion for full detail" for the full rationale,
+including why the ID counter must be persistent rather than derived from a scan of
+`plans.md` (a scan-and-take-highest scheme would silently reassign a freed ID after a
+plan is deleted).
+
+### Phases
+- [ ] Add a `Kind` field (`feature | fix | chore | docs | refactor`) to `PlanEntry`, plus a persistent per-kind ID counter (`nextId: { feature: number, ... }`) in `.paper-camp/config.json`; assign `<KIND>-<N>` at plan-creation time only, never derived from existing file contents
+- [ ] Add an optional `**Idea:** IDEA-N` field to plan entries (parser + serializer), and prefix `ideas.md` headings with `IDEA-N:`, numbered in file order
+- [ ] Rewrite existing `plans.md` titles to short headlines (2–6 words), moving any lost context into each entry's existing `body` paragraph
+- [ ] Render `<Stamp>{id}</Stamp> {shortTitle}` everywhere a plan is listed — `plan-card.tsx`, `plan-nav-item.tsx`, `kanban-card.tsx`, `plans-sidebar.tsx`, and the `plan-detail.tsx` header
+- [ ] Split `PhaseItem` into its existing short `text` plus an optional `description`; update `extractPhases` in `src/core/parser.ts` to read an indented continuation paragraph as the description, fully backward-compatible with phases that have none
+- [ ] Build a paper-ui `Accordion` component (none exists yet — checked `~/dev/paper-ui/src/components`) and wire it into `plan-detail.tsx`'s phase list, showing the expand control only when a phase has a `description`
+- [ ] Add `@commitlint/cli` + `@commitlint/config-conventional`, using the same type vocabulary as `Kind` so a plan's ID prefix and its closing commit's type are the same word
+
+## Ideas board: Planned/Done columns, priority order, idea↔plan links
+
+**Status:** planned
+**Created:** 2026-06-21
+**Tags:** app, plans, ideas
+
+Replaces the flat "Ideas" grid in the Plans page with a two-column board (Planned /
+Done), gives ideas the same short-title treatment as plans, and surfaces every plan
+that implements a given idea. Depends on the previous plan's `Idea` backlink field and
+`IDEA-N` numbering — an idea's Planned/Done state and its linked-plans list are both
+derived from that field, not stored separately. See ideas.md's "Ideas board —
+Planned/Done columns, priority order, short titles, and idea↔plan links" for the full
+rationale.
+
+### Phases
+- [ ] Move idea parsing into `src/core/parser.ts`/`src/types/index.ts` as a real `IdeaEntry` type (`id`, `title`, `body`), replacing the ad-hoc client-side `parseIdeas` in `app-store.ts`
+- [ ] Rewrite existing `ideas.md` headings to short titles with their `IDEA-N:` prefix
+- [ ] Derive each idea's Planned/Done state: "Done" only when every plan whose `Idea` field references it is `done`/`dropped`; everything else (including ideas with zero linked plans) is "Planned"
+- [ ] Build the two-column board, reusing `kanban-column.tsx`'s existing column shell, replacing the flat grid in `list-view.tsx`
+- [ ] Each idea row shows an icon (lightbulb for Planned, checkmark for Done) and its short title; expanding it lists every linked plan as a clickable `Stamp` per plan ID
+- [ ] Order ideas within each column by their position in `ideas.md` (priority = file order); read-only for v1, no reorder controls yet

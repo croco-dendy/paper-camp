@@ -1,7 +1,7 @@
-import { AddIdeaModal, ProjectIdentityHeader } from '@/app/components';
+import { AddIdeaModal } from '@/app/components/add-idea-modal';
 import { createPlan, deletePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
-import { layout, space } from '@/app/styles/tokens';
+import { space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
 import { IconButton, ListItem } from '@dendelion/paper-ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
@@ -52,123 +52,95 @@ export const PlansSidebar = () => {
     navigate({ to: '/' });
   };
 
-  const divider = (
-    <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: `${space[3]} ${space[3]}` }} />
-  );
-
   return (
     <>
-      <aside
-        style={{
-          width: layout.sidebarWidth,
-          flexShrink: 0,
-          height: '100%',
-          position: 'sticky',
-          top: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'transparent',
-          overflow: 'hidden',
-        }}
+      {active.length > 0 && (
+        <SidebarSection label="In progress">
+          {active.map((p) => (
+            <PlanNavItem
+              key={p.title}
+              plan={p}
+              active={pathname === '/' && activePlanTitle === p.title}
+              onClick={() => handleSelectPlan(p)}
+            />
+          ))}
+        </SidebarSection>
+      )}
+
+      {planned.length > 0 && (
+        <SidebarSection label="Planned">
+          {planned.map((p) => (
+            <PlanNavItem
+              key={p.title}
+              plan={p}
+              active={pathname === '/' && activePlanTitle === p.title}
+              onClick={() => handleSelectPlan(p)}
+            />
+          ))}
+        </SidebarSection>
+      )}
+
+      {ideaEntries.length > 0 && (
+        <SidebarSection label="Ideas">
+          {ideaEntries.map((e) => (
+            <ListItem
+              key={e.title}
+              size="small"
+              active={activeIdeaTitle === e.title}
+              onClick={() => handleSelectIdea(e.title)}
+            >
+              {e.title}
+            </ListItem>
+          ))}
+        </SidebarSection>
+      )}
+
+      <SidebarSection
+        label="Backlog"
+        action={
+          <IconButton
+            icon={<span>+</span>}
+            variant="ghost"
+            size="small"
+            label="Add to backlog"
+            onClick={() => setAddingIdea(true)}
+          />
+        }
       >
-        {/* Logo / project name */}
-        <div style={{ padding: `${space[5]} ${space[3]} ${space[4]}`, flexShrink: 0 }}>
-          <ProjectIdentityHeader />
-        </div>
-
-        {divider}
-
-        {/* Scrollable plan list */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingTop: space[1] }}>
-          {active.length > 0 && (
-            <SidebarSection label="In progress">
-              {active.map((p) => (
-                <PlanNavItem
-                  key={p.title}
-                  plan={p}
-                  active={pathname === '/' && activePlanTitle === p.title}
-                  onClick={() => handleSelectPlan(p)}
-                />
-              ))}
-            </SidebarSection>
-          )}
-
-          {planned.length > 0 && (
-            <SidebarSection label="Planned">
-              {planned.map((p) => (
-                <PlanNavItem
-                  key={p.title}
-                  plan={p}
-                  active={pathname === '/' && activePlanTitle === p.title}
-                  onClick={() => handleSelectPlan(p)}
-                />
-              ))}
-            </SidebarSection>
-          )}
-
-          {ideaEntries.length > 0 && (
-            <SidebarSection label="Ideas">
-              {ideaEntries.map((e) => (
-                <ListItem
-                  key={e.title}
-                  size="small"
-                  active={activeIdeaTitle === e.title}
-                  onClick={() => handleSelectIdea(e.title)}
-                >
-                  {e.title}
-                </ListItem>
-              ))}
-            </SidebarSection>
-          )}
-
-          <SidebarSection
-            label="Backlog"
+        {ideas.map((p) => (
+          <PlanNavItem
+            key={p.title}
+            plan={p}
+            active={pathname === '/' && activePlanTitle === p.title}
+            onClick={() => handleSelectPlan(p)}
             action={
               <IconButton
-                icon={<span>+</span>}
+                icon={<span>×</span>}
                 variant="ghost"
                 size="small"
-                label="Add to backlog"
-                onClick={() => setAddingIdea(true)}
+                label="Delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteIdea(p.title);
+                }}
               />
             }
+          />
+        ))}
+        {ideas.length === 0 && (
+          <span
+            className="text-sm"
+            style={{
+              display: 'block',
+              padding: `${space[1]} ${space[3]}`,
+              opacity: 0.35,
+              fontStyle: 'italic',
+            }}
           >
-            {ideas.map((p) => (
-              <PlanNavItem
-                key={p.title}
-                plan={p}
-                active={pathname === '/' && activePlanTitle === p.title}
-                onClick={() => handleSelectPlan(p)}
-                action={
-                  <IconButton
-                    icon={<span>×</span>}
-                    variant="ghost"
-                    size="small"
-                    label="Delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteIdea(p.title);
-                    }}
-                  />
-                }
-              />
-            ))}
-            {ideas.length === 0 && (
-              <span
-                className="text-sm"
-                style={{
-                  display: 'block',
-                  padding: `${space[1]} ${space[3]}`,
-                  opacity: 0.35,
-                  fontStyle: 'italic',
-                }}
-              >
-                Nothing yet
-              </span>
-            )}
-          </SidebarSection>
-        </div>
-      </aside>
+            Nothing yet
+          </span>
+        )}
+      </SidebarSection>
       <AddIdeaModal open={addingIdea} onClose={() => setAddingIdea(false)} onAdd={handleAddIdea} />
     </>
   );

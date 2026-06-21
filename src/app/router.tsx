@@ -10,16 +10,14 @@ import {
 } from '@tanstack/react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { ProjectIdentityHeader, StackPanel } from './components';
+import { ProjectIdentityHeader, SidebarShell, StackPanel } from './components';
 import { DocsPage, DocsSidebar } from './features/docs/index';
-import { FocusPage } from './features/focus/index';
 import { PlansPage, PlansSidebar } from './features/plans/index';
 import { SettingsPage, SettingsSidebar } from './features/settings/index';
 import { useAppStore } from './stores/app-store';
 
 const navItems = [
   { id: 'plans', label: 'Plans', path: '/' },
-  { id: 'focus', label: 'Focus', path: '/focus' },
   { id: 'docs', label: 'Docs', path: '/docs' },
   { id: 'settings', label: 'Settings', path: '/settings' },
 ];
@@ -52,9 +50,11 @@ const RootLayout = () => {
         style={{ paddingRight: stackOpen ? layout.stackPanelWidth : 0 }}
       >
         <div className="flex h-full min-h-0 w-full max-w-layout" style={{ gap: layout.contentGap }}>
-          {pathname === '/' && <PlansSidebar />}
-          {pathname === '/docs' && <DocsSidebar />}
-          {pathname === '/settings' && <SettingsSidebar />}
+          <SidebarShell routeKey={pathname}>
+            {pathname === '/' && <PlansSidebar />}
+            {pathname === '/docs' && <DocsSidebar />}
+            {pathname === '/settings' && <SettingsSidebar />}
+          </SidebarShell>
           <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
             <div className="flex-1 min-h-0" style={{ paddingBottom: layout.pagePaddingBottom }}>
               <Page texture={{ texture: 'parchment' }}>
@@ -133,11 +133,6 @@ const plansRoute = createRoute({
   path: '/',
   component: PlansPage,
 });
-const focusRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/focus',
-  component: FocusPage,
-});
 const docsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/docs',
@@ -150,7 +145,7 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
-const routeTree = rootRoute.addChildren([plansRoute, focusRoute, docsRoute, settingsRoute]);
+const routeTree = rootRoute.addChildren([plansRoute, docsRoute, settingsRoute]);
 
 export const router = createRouter({ routeTree });
 
