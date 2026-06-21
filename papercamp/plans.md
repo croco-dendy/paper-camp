@@ -116,6 +116,7 @@ current set of three pages (Plans, Focus, Settings).
 **Status:** done
 **Kind:** feat
 **Id:** FEAT-4
+**Idea:** IDEA-1
 **Created:** 2026-06-19
 **Updated:** 2026-06-19
 **Tags:** app, docs
@@ -167,6 +168,7 @@ generic config list.
 **Status:** done
 **Kind:** feat
 **Id:** FEAT-6
+**Idea:** IDEA-3
 **Created:** 2026-06-19
 **Updated:** 2026-06-19
 **Tags:** app, stack
@@ -322,6 +324,7 @@ that route is gone.
 **Status:** done
 **Kind:** feat
 **Id:** FEAT-7
+**Idea:** IDEA-6
 **Created:** 2026-06-21
 **Updated:** 2026-06-21
 **Tags:** app, plans, core
@@ -361,6 +364,7 @@ plan is deleted).
 **Status:** done
 **Kind:** feat
 **Id:** FEAT-8
+**Idea:** IDEA-8
 **Created:** 2026-06-21
 **Updated:** 2026-06-21
 **Tags:** app, plans, ideas
@@ -386,3 +390,175 @@ rationale.
       Each idea row shows an icon (lightbulb for Planned, checkmark for Done) and its short title; expanding it lists every linked plan as a clickable `Stamp` per plan ID
 - [x] Order ideas by file position
       Order ideas within each column by their position in `ideas.md` (priority = file order); read-only for v1, no reorder controls yet
+
+## Editable configs write path
+
+**Status:** planned
+**Kind:** feat
+**Id:** FEAT-9
+**Idea:** IDEA-2
+**Created:** 2026-06-21
+**Tags:** app, settings
+
+The remaining half of the Settings/configs idea: FEAT-5 shipped sidebar layout and
+read-only viewing only. This plan adds the actual write path — editable raw contents,
+JSON validation before save, an allowlisted save endpoint, and an editable project name
+— closing out IDEA-2.
+
+### Phases
+- [ ] Add Textarea editor and Save button
+      `ConfigEditorSection` becomes editable: load the file's text into a `Textarea`, enable a Save button once the content is dirty
+- [ ] Add POST /api/configs write endpoint
+      Accepts `{ name, content }`; validated against the same allowlist the existing `GET /api/configs?name=...` already uses, never an arbitrary path
+- [ ] Validate JSON before writing
+      For JSON-shaped files (`biome.json`, `tsconfig.json`, `package.json`), parse and reject invalid JSON before it touches disk, surfaced as an inline `Alert`
+- [ ] Make project name editable
+      The "General" card's project name becomes an editable `Input`, writing back to `.paper-camp/config.json`
+
+## Agent orchestration
+
+**Status:** planned
+**Kind:** feat
+**Id:** FEAT-10
+**Idea:** IDEA-4
+**Created:** 2026-06-21
+**Tags:** app, agent
+
+Launches a real agent session scoped to a plan/task from the dashboard, streams a
+simplified progress view into the Stack panel, and lets follow-up input go into the
+same session without leaving the browser — built for more than one agent from the
+start. See ideas.md's "Agent orchestration" for the full rationale, including the
+decisions (capability flags, one task at a time, localhost-only) that need to stay
+explicit rather than discovered mid-build.
+
+### Phases
+- [ ] Build per-agent adapter interface
+      `launch(prompt, options) -> stream of events`, `resume(sessionId, message) -> stream`, plus capability flags (e.g. `supportsResume`); ship a Claude Code adapter first
+- [ ] Add agent selection config
+      Default agent in `.paper-camp/config.json`; optional per-task override via a new `Agent` field on a `plans.md` entry
+- [ ] Add system-prompt checkpoint instruction
+      The launched agent is told to append to `progress.md` / check off `plans.md` phases as it works — no new log schema, the agent's own writes are the activity log
+- [ ] Stream live status to the Stack panel
+      Collapse raw tool-use events into one-line human-readable status text, pushed over the existing SSE activity channel; shown only while running, never written to disk
+- [ ] Support mid-task steering
+      For agents whose adapter supports resume, hold the running task's session id and route panel input as a new turn into that same session
+- [ ] Handle process lifecycle and completion
+      The process keeps running independent of the browser tab; the panel returns to its idle/history state on exit, showing the fresh `progress.md` entries the session wrote
+
+## Repo health status
+
+**Status:** review
+**Kind:** feat
+**Id:** FEAT-11
+**Idea:** IDEA-5
+**Created:** 2026-06-21
+**Updated:** 2026-06-21
+**Tags:** app, stack
+
+A third Stack panel section, above "Active", showing whether the repo is actually green
+right now — lint, format, tests — without opening a terminal. No new infrastructure:
+reuses the file watcher and SSE activity channel FEAT-6 already built, pointed at
+`biome`/`vitest` exit codes instead of `papercamp/` file diffs. See ideas.md's "Repo
+health status" for the full rationale.
+
+### Phases
+- [x] Add backend status cache
+      An in-memory `{ lint, format, test }` `CheckResult` store next to `createActivityManager`, starting all `stale` on server boot
+- [x] Add GET /api/status route
+      Returns the current cache as-is, same shape as the other read routes
+- [x] Auto-run lint/format on file change
+      Extend the existing file watcher to also watch `src/`, debounced, spawning `biome lint .` + `biome format .` on settle, pushed over the existing `/api/activity/stream` channel
+- [x] Add manual Run tests button
+      `POST /api/status/test` triggers a one-off `vitest run`, streaming `running` → `pass`/`fail` over the same SSE channel
+- [x] Add in-flight guard
+      Track a running boolean per check so a burst of file saves can't spawn overlapping `biome`/`vitest` processes; a change mid-run queues one more run after the current one finishes
+- [x] Build Status section in Stack panel
+      Three chalkboard `Stamp` pills (Lint/Format/Tests) above "Active"; a `fail` pill expands a chalkboard `CodeBlock` inline with the raw error output
+
+## Commit section
+
+**Status:** review
+**Kind:** feat
+**Id:** FEAT-12
+**Idea:** IDEA-7
+**Created:** 2026-06-21
+**Updated:** 2026-06-21
+**Tags:** app, stack, git
+
+A second top-of-panel Stack section, below "Status", showing the live working-tree diff
+and a small form to write and fire off a commit without switching to a terminal. Commit
+only — no Push button, on purpose. See ideas.md's "Commit section" for the full
+rationale.
+
+### Phases
+- [x] Add GET /api/git/status route
+      Runs `git status --porcelain=v1` from the repo root, parsed into `{ path, status }[]`, pushed over the existing activity SSE channel on the same file-watcher trigger
+- [x] Build changed-files accordion
+      The Commit section: a "N files changed" headline expanding via paper-ui's `Accordion`, each row showing a path and its git status letter with an include/exclude checkbox
+- [x] Add POST /api/git/commit route
+      Body `{ files, title, message? }`; runs `git add -- <explicit files>` (never `-A`/`-u`) then `git commit -m`
+- [x] Add commit form
+      Title `Input` + message `Textarea` + Commit `Button`, disabled when zero files are checked or the title is empty; a `commit-msg` hook failure surfaces as an inline `Alert`
+- [x] Pre-fill from active plan
+      If `findFocusPlan` resolves a single in-progress plan, pre-fill the title with its `Kind` as a conventional-commit prefix and offer a one-click `Refs: FEAT-N` footer
+
+## Review status
+
+**Status:** done
+**Kind:** feat
+**Id:** FEAT-13
+**Idea:** IDEA-9
+**Created:** 2026-06-21
+**Updated:** 2026-06-21
+**Tags:** app, plans
+
+Adds a `review` checkpoint between `in-progress` and `done` so completing the last phase
+isn't the same action as closing a plan, surfaces it as a Stamp on the existing
+Plan Card (no new board column or list section) and gives it a dedicated Review
+page to act on, fixes a real bug where closed plans are unopenable from list view,
+and adds a per-plan `Log` for what happened during review.
+See ideas.md's "Review status" for the full rationale.
+
+### Phases
+- [x] Fix closed-section onOpen prop
+      Pass the `onOpen` prop `list-view.tsx` already wires up for active/backlog `PlanCard`s, restoring the ability to open a closed or dropped plan
+- [x] Add review PlanStatus
+      New status between `in-progress` and `done`; checking the last phase in `handleTogglePhase` sets `status: 'review'` automatically instead of a separate submit click
+- [x] Add Review stamp to Plan Card
+      `KanbanCard` and `PlanCard` show a small "Review" `Stamp` next to `PlanIdStamp` when `plan.status === 'review'`; no new `KANBAN_COLUMNS` entry or List view section — the card stays bucketed with `in-progress` for board/list purposes
+- [x] Add Review page
+      New top-level route (`/review`) and nav item, structured like the Plans page: its own sidebar branch and a list filtered to `status === 'review'`, opening into the existing plan-detail view
+- [x] Add Approve and Needs changes actions
+      On the Review page (or plan detail opened from it): "Approve & close" (`done`) or "Needs changes" (back to `in-progress`); reopening a phase is what naturally drops `allDone` back to `false`
+- [x] Add per-plan Log
+      A new `### Log` sub-section parsed like `### Phases`; dated bullets appended via a `Textarea` + "Add entry" button through a `PATCH /api/plans` extension, rendered in `plan-detail.tsx` below phases
+
+## Fix Review status bugs
+
+**Status:** done
+**Kind:** fix
+**Id:** FIX-2
+**Created:** 2026-06-21
+**Updated:** 2026-06-21
+**Tags:** app, plans, core
+
+Code review of FEAT-13's implementation surfaced five correctness bugs and two
+cleanup items, all introduced by the Review status work itself.
+
+### Phases
+- [x] Reset active selection on page change
+      `activePlanTitle`/`activeIdeaTitle` are global Zustand state shared by `PlansPage`
+      and the new `ReviewPage`, with neither clearing it on navigation — opening a plan
+      on one page and switching to the other via the nav bar (not its own back button)
+      renders that same plan's detail regardless of status. Clear both on route change,
+      or scope the selection per-route.
+- [x] Gate Start button on review status
+- [x] Support multi-line Log entries
+- [x] Disable phase checkboxes while updating
+- [x] Demote review plans when starting a new one
+- [x] Remove duplicate Review stamp
+- [x] Extract shared section-parsing helper
+      `extractLog` in `src/core/parser.ts` copy-pastes `extractPhases`'s
+      heading-search/boundary-scan/remainder-slice logic almost verbatim — factor out a
+      shared `extractSection(body, headingRe, parseEntry)` before a third markdown
+      sub-section repeats the duplication.

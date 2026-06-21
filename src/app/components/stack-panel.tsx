@@ -1,9 +1,21 @@
 import { color, fontFamily, fontSize, layout, lineHeight, space } from '@/app/styles/tokens';
-import { Card, IconButton } from '@dendelion/paper-ui';
+import {
+  Accordion,
+  Alert,
+  Button,
+  Card,
+  CodeBlock,
+  IconButton,
+  Input,
+  Stamp,
+  Textarea,
+} from '@dendelion/paper-ui';
+import type { CheckName, CheckStatus, GitStatusEntry } from '@/types/index';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findFocusPlan } from '../features/plans/helpers';
 import { useAppStore } from '../stores/app-store';
+import { commitChanges } from '../services/git-api';
 
 const CHALKBOARD_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.28 0 0 0 0 0.20 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='1'/%3E%3C/svg%3E")`;
 
@@ -34,16 +46,30 @@ const sectionLabelStyle: React.CSSProperties = {
 
 export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const plans = useAppStore((s) => s.plans);
-  const progress = useAppStore((s) => s.progress);
   const loadProgress = useAppStore((s) => s.loadProgress);
   const loadPlans = useAppStore((s) => s.loadPlans);
+  const statusData = useAppStore((s) => s.status);
+  const loadStatus = useAppStore((s) => s.loadStatus);
+  const runTests = useAppStore((s) => s.runTests);
+  const loadGitStatus = useAppStore((s) => s.loadGitStatus);
+  const gitStatus = useAppStore((s) => s.gitStatus);
   const [liveEvents, setLiveEvents] = useState<SseEvent[]>([]);
+  const [expandedFail, setExpandedFail] = useState<CheckName | null>(null);
+  const [commitExpanded, setCommitExpanded] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [commitTitle, setCommitTitle] = useState('');
+  const [commitMessage, setCommitMessage] = useState('');
+  const [committing, setCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [addRefs, setAddRefs] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const refreshRef = useRef({ loadProgress, loadPlans });
-  refreshRef.current = { loadProgress, loadPlans };
+  const refreshRef = useRef({ loadProgress, loadPlans, loadStatus, loadGitStatus });
+  refreshRef.current = { loadProgress, loadPlans, loadStatus, loadGitStatus };
 
   useEffect(() => {
     refreshRef.current.loadProgress();
+    refreshRef.current.loadStatus();
+    refreshRef.current.loadGitStatus();
   }, []);
 
   useEffect(() => {
@@ -57,6 +83,8 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
         });
         refreshRef.current.loadProgress();
         refreshRef.current.loadPlans();
+        refreshRef.current.loadStatus();
+        refreshRef.current.loadGitStatus();
       } catch {
         // ignore malformed events
       }
@@ -77,7 +105,52 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
 
   const activePlan = useMemo(() => findFocusPlan(plans?.entries), [plans?.entries]);
 
-  const sorted = [...progress].sort((a, b) => b.date.localeCompare(a.date));
+  const suggestedTitle = useMemo(() => {
+    if (!activePlan) return '';
+    const kind = activePlan.kind ?? 'feat';
+    return `${kind}: ${activePlan.title}`;
+  }, [activePlan]);
+
+  useEffect(() => {
+    if (suggestedTitle && !commitTitle) {
+      setCommitTitle(suggestedTitle);
+    }
+  }, [suggestedTitle, commitTitle]);
+
+  useEffect(() => {
+    if (gitStatus) {
+      setSelectedFiles(new Set(gitStatus.map((e) => e.path)));
+    }
+  }, [gitStatus]);
+
+  const handleToggleFile = useCallback((path: string) => {
+    setSelectedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const handleCommit = useCallback(async () => {
+    if (!commitTitle.trim()) return;
+    setCommitting(true);
+    setCommitError(null);
+    try {
+      const msg = addRefs && activePlan?.id
+        ? `${commitMessage}\n\nRefs: ${activePlan.id}`
+        : commitMessage;
+      await commitChanges([...selectedFiles], commitTitle.trim(), msg.trim() || undefined);
+      setCommitTitle(suggestedTitle);
+      setCommitMessage('');
+      setAddRefs(false);
+      setCommitExpanded(false);
+    } catch (err) {
+      setCommitError((err as Error).message);
+    } finally {
+      setCommitting(false);
+    }
+  }, [commitTitle, commitMessage, selectedFiles, addRefs, activePlan, suggestedTitle]);
 
   return (
     <>
@@ -177,6 +250,218 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
             scrollbarColor: 'rgba(200, 210, 195, 0.3) transparent',
           }}
         >
+          <div style={{ marginBottom: space[8] }}>
+            <div style={sectionLabelStyle}>Status</div>
+            <div
+              style={{
+                display: 'flex',
+                gap: space[2],
+                flexWrap: 'wrap',
+                marginBottom: space[4],
+              }}
+            >
+              {(['lint', 'format', 'test'] as CheckName[]).map((name) => {
+                const result = statusData?.[name];
+                const status: CheckStatus = result?.status ?? 'stale';
+                const statusFill: Record<CheckStatus, string> = {
+                  pass: '#2d5a3b',
+                  fail: '#5a2d2d',
+                  running: '#5a4a2d',
+                  stale: 'transparent',
+                };
+                const statusText: Record<CheckStatus, string | undefined> = {
+                  pass: '#b5d6b5',
+                  fail: '#d6a0a0',
+                  running: '#d6c4a0',
+                  stale: undefined,
+                };
+                const label = `${name.charAt(0).toUpperCase() + name.slice(1)}`;
+                const isExpanded = expandedFail === name && status === 'fail';
+                return (
+                  <div key={name}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (status === 'fail') {
+                          setExpandedFail(isExpanded ? null : name);
+                        }
+                      }}
+                      style={{
+                        cursor: status === 'fail' ? 'pointer' : 'default',
+                        display: 'inline-flex',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                      }}
+                    >
+                      <Stamp
+                        variant="chalkboard"
+                        size="small"
+                        fillColor={statusFill[status]}
+                        textColor={statusText[status]}
+                      >
+                        {label}
+                        {status === 'running' ? '…' : ''}
+                      </Stamp>
+                    </button>
+                    {isExpanded && result && (
+                      <div style={{ marginTop: space[2] }}>
+                        <CodeBlock
+                          code={result.output || '(no output)'}
+                          variant="chalkboard"
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={runTests}
+              disabled={statusData?.test?.status === 'running'}
+              style={{
+                fontFamily: fontFamily.handwritten,
+                fontSize: fontSize.sm,
+                color: deskChalk,
+                background: 'rgba(200, 210, 195, 0.1)',
+                border: `1px solid ${deskBorder}`,
+                borderRadius: 4,
+                padding: `${space[1]} ${space[3]}`,
+                cursor: statusData?.test?.status === 'running' ? 'not-allowed' : 'pointer',
+                opacity: statusData?.test?.status === 'running' ? 0.5 : 1,
+              }}
+            >
+              {statusData?.test?.status === 'running' ? 'Running…' : 'Run tests'}
+            </button>
+          </div>
+
+          <div style={{ marginBottom: space[8] }}>
+            <div style={sectionLabelStyle}>Commit</div>
+            {gitStatus && gitStatus.length > 0 ? (
+              <>
+                <Accordion
+                  title={`${gitStatus.length} file${gitStatus.length === 1 ? '' : 's'} changed`}
+                  expanded={commitExpanded}
+                  onToggle={() => setCommitExpanded(!commitExpanded)}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: space[2],
+                      paddingTop: space[2],
+                    }}
+                  >
+                    {gitStatus.map((entry) => (
+                      <label
+                        key={entry.path}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: space[2],
+                          fontFamily: fontFamily.mono,
+                          fontSize: fontSize['2xs'],
+                          color: deskChalk,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedFiles.has(entry.path)}
+                          onChange={() => handleToggleFile(entry.path)}
+                          style={{ accentColor: deskChalk }}
+                        />
+                        <span
+                          style={{
+                            color: entry.staged ? deskChalk : deskTextMuted,
+                            minWidth: 24,
+                          }}
+                        >
+                          {entry.status}
+                        </span>
+                        <span
+                          style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {entry.path}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </Accordion>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: space[3],
+                    marginTop: space[3],
+                  }}
+                >
+                  <Input
+                    variant="chalkboard"
+                    size="small"
+                    placeholder="Commit title"
+                    value={commitTitle}
+                    onChange={(e) => setCommitTitle(e.currentTarget.value)}
+                  />
+                  <Textarea
+                    variant="chalkboard"
+                    size="small"
+                    placeholder="Commit message (optional)"
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.currentTarget.value)}
+                    rows={2}
+                  />
+                  {activePlan?.id && (
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: space[2],
+                        fontFamily: fontFamily.handwritten,
+                        fontSize: fontSize.sm,
+                        color: deskChalk,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={addRefs}
+                        onChange={() => setAddRefs(!addRefs)}
+                        style={{ accentColor: deskChalk }}
+                      />
+                      Add Refs: {activePlan.id}
+                    </label>
+                  )}
+                  {commitError && (
+                    <Alert variant="chalkboard" dismissible onDismiss={() => setCommitError(null)}>
+                      {commitError}
+                    </Alert>
+                  )}
+                  <Button
+                    variant="chalkboard"
+                    size="small"
+                    fullWidth
+                    disabled={
+                      selectedFiles.size === 0 || !commitTitle.trim() || committing
+                    }
+                    onClick={handleCommit}
+                  >
+                    {committing ? 'Committing…' : 'Commit'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>
+                No changed files.
+              </p>
+            )}
+          </div>
+
           <div style={{ marginBottom: space[8] }}>
             <div style={sectionLabelStyle}>Active</div>
             {activePlan ? (

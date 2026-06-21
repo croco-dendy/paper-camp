@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-import { readFile, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { Command } from 'commander';
 import { AlreadyInitializedError, PAPER_CAMP_VERSION, initProject } from '../core/scaffold';
-import { appendBlock, formatPlanEntry, todayDateString } from '../core/serializer';
-import type { PaperCampConfig } from '../types/index';
+import { appendBlock, assignPlanId, formatPlanEntry, todayDateString } from '../core/serializer';
+import { PLAN_KINDS } from '../types/index';
 import { startDevServer } from './dev-server';
 
 const program = new Command();
@@ -55,34 +54,27 @@ program
 program
   .command('add <type> [name]')
   .description('Add a new entry (currently supports: plan)')
-  .action(async (type: string, name: string | undefined) => {
+  .option('-k, --kind <kind>', `plan kind (${PLAN_KINDS.join('|')})`, 'feat')
+  .action(async (type: string, name: string | undefined, opts: { kind: string }) => {
     if (type !== 'plan') {
       console.error(`Unknown type "${type}". Supported types: plan`);
       process.exitCode = 1;
       return;
     }
     if (!name) {
-      console.error('Usage: paper-camp add plan <name>');
+      console.error('Usage: paper-camp add plan <name> [--kind feat|fix|chore|docs|refactor]');
+      process.exitCode = 1;
+      return;
+    }
+    if (!PLAN_KINDS.includes(opts.kind as (typeof PLAN_KINDS)[number])) {
+      console.error(`Unknown kind "${opts.kind}". Supported kinds: ${PLAN_KINDS.join(', ')}`);
       process.exitCode = 1;
       return;
     }
 
+    const kind = opts.kind;
     const configPath = resolve(process.cwd(), '.paper-camp', 'config.json');
-    let config: PaperCampConfig | undefined;
-    try {
-      config = JSON.parse(await readFile(configPath, 'utf-8')) as PaperCampConfig;
-    } catch {
-      // no config; create without ID
-    }
-
-    const kind = 'feat';
-    let id: string | undefined;
-    if (config?.nextId) {
-      const next = config.nextId[kind] ?? 1;
-      id = `${kind.toUpperCase()}-${next}`;
-      config.nextId[kind] = next + 1;
-      await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
-    }
+    const id = await assignPlanId(configPath, kind);
 
     const filePath = resolve(process.cwd(), 'papercamp', 'plans.md');
     const block = formatPlanEntry({

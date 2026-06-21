@@ -6,9 +6,10 @@ import { PlanCard } from './plan-card';
 
 interface ClosedSectionProps {
   plans: PlanEntry[];
+  onOpen?: (title: string) => void;
 }
 
-export const ClosedSection = ({ plans }: ClosedSectionProps) => {
+export const ClosedSection = ({ plans, onOpen }: ClosedSectionProps) => {
   const [open, setOpen] = useState(false);
   if (plans.length === 0) return null;
   return (
@@ -43,7 +44,7 @@ export const ClosedSection = ({ plans }: ClosedSectionProps) => {
           style={{ marginTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}
         >
           {plans.map((p) => (
-            <PlanCard key={p.title} plan={p} />
+            <PlanCard key={p.title} plan={p} onOpen={onOpen} />
           ))}
         </div>
       )}

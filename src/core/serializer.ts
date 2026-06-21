@@ -1,9 +1,40 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { PhaseItem } from '../types/index';
+import type { LogEntry, PhaseItem } from '../types/index';
 
 export function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+let idAssignmentChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Mints the next `<KIND>-<N>` plan ID from the persistent counter in `.paper-camp/config.json`,
+ * incrementing and writing it back. Calls are chained through a module-level promise so two
+ * near-simultaneous calls within this process never read the same counter value and mint a
+ * duplicate ID — this does not protect against a concurrent call from a separate process (e.g.
+ * the CLI racing the dev server), which is an accepted gap for a local single-user tool.
+ * Returns undefined if the config file is missing or has no `nextId` counters yet.
+ */
+export async function assignPlanId(configPath: string, kind: string): Promise<string | undefined> {
+  const run = idAssignmentChain.then(async () => {
+    let config: { nextId?: Record<string, number> } | null = null;
+    try {
+      config = JSON.parse(await readFile(configPath, 'utf-8')) as {
+        nextId?: Record<string, number>;
+      };
+    } catch {
+      return undefined;
+    }
+    if (!config?.nextId) return undefined;
+    const next = config.nextId[kind] ?? 1;
+    const id = `${kind.toUpperCase()}-${next}`;
+    config.nextId[kind] = next + 1;
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    return id;
+  });
+  idAssignmentChain = run.catch(() => undefined);
+  return run;
 }
 
 interface NewPlanInput {
@@ -17,6 +48,7 @@ interface NewPlanInput {
   tags?: string[];
   body?: string;
   phases?: PhaseItem[];
+  log?: LogEntry[];
 }
 
 export function formatPlanEntry(input: NewPlanInput): string {
@@ -38,6 +70,12 @@ export function formatPlanEntry(input: NewPlanInput): string {
           lines.push(`      ${paragraphLine}`);
         }
       }
+    }
+  }
+  if (input.log && input.log.length > 0) {
+    lines.push('', '### Log');
+    for (const entry of input.log) {
+      lines.push(`- ${entry.date}: ${entry.text}`);
     }
   }
   return lines.join('\n').trimEnd();

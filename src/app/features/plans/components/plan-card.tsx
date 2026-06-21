@@ -22,6 +22,7 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
   const [updating, setUpdating] = useState(false);
   const progress = phaseProgress(plan);
   const inProgress = plan.status === 'in-progress';
+  const underReview = plan.status === 'review';
 
   const handleStart = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -134,15 +135,17 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
               Open
             </Button>
           )}
-          <Button
-            variant="primary"
-            size="small"
-            className={inProgress ? 'btn-orange' : 'btn-green'}
-            onClick={inProgress ? handleStop : handleStart}
-            disabled={updating}
-          >
-            {inProgress ? 'Stop' : 'Start'}
-          </Button>
+          {!underReview && (
+            <Button
+              variant="primary"
+              size="small"
+              className={inProgress ? 'btn-orange' : 'btn-green'}
+              onClick={inProgress ? handleStop : handleStart}
+              disabled={updating}
+            >
+              {inProgress ? 'Stop' : 'Start'}
+            </Button>
+          )}
         </div>
       </Card>
     </div>

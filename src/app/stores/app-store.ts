@@ -1,6 +1,7 @@
 import { deriveIdeaStatuses, parseIdeas } from '@/core/parser';
 import type {
   DecisionEntry,
+  GitStatusEntry,
   IdeaEntry,
   OpenQuestionEntry,
   ParseResult,
@@ -14,8 +15,11 @@ import {
   fetchProgress,
   fetchRepoDocs,
 } from '../services/docs-api';
+import { fetchGitStatus } from '../services/git-api';
 import { fetchIdeas } from '../services/ideas-api';
 import { fetchPlans } from '../services/plans-api';
+import type { StatusState } from '../services/status-api';
+import { fetchStatus, triggerTests } from '../services/status-api';
 
 type AppStore = {
   plans: ParseResult<PlanEntry> | null;
@@ -68,6 +72,13 @@ type AppStore = {
 
   settingsConfigFiles: string[];
   setSettingsConfigFiles: (files: string[]) => void;
+
+  status: StatusState | null;
+  loadStatus: () => Promise<void>;
+  runTests: () => Promise<void>;
+
+  gitStatus: GitStatusEntry[] | null;
+  loadGitStatus: () => Promise<void>;
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -158,6 +169,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const data = await fetchRepoDocs();
       set({ repoDocs: data.files, repoDocsLoading: false });
+      const { activeDocSection } = get();
+      if (!activeDocSection && data.files.some((f) => f.name === 'MAIN.md')) {
+        set({ activeDocSection: 'repo-docs', activeDocTitle: 'MAIN.md' });
+      }
     } catch {
       set({ repoDocs: [], repoDocsLoading: false });
     }
@@ -177,4 +192,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   settingsConfigFiles: [],
   setSettingsConfigFiles: (files) => set({ settingsConfigFiles: files }),
+
+  status: null,
+  loadStatus: async () => {
+    try {
+      const data = await fetchStatus();
+      set({ status: data });
+    } catch {
+      // keep previous status
+    }
+  },
+  runTests: async () => {
+    try {
+      await triggerTests();
+    } catch {
+      // ignore
+    }
+  },
+
+  gitStatus: null,
+  loadGitStatus: async () => {
+    try {
+      const data = await fetchGitStatus();
+      set({ gitStatus: data });
+    } catch {
+      // keep previous status
+    }
+  },
 }));

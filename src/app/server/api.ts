@@ -2,9 +2,23 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
 import { parseDecisions, parseOpenQuestions, parsePlans, parseProgress } from '../../core/parser';
-import { appendBlock, formatPlanEntry, formatPlans, todayDateString } from '../../core/serializer';
-import type { PhaseItem, PlanEntry, PlanStatus } from '../../types/index';
+import {
+  appendBlock,
+  assignPlanId,
+  formatPlanEntry,
+  formatPlans,
+  todayDateString,
+} from '../../core/serializer';
+import {
+  type LogEntry,
+  PLAN_KINDS,
+  type PhaseItem,
+  type PlanEntry,
+  type PlanStatus,
+} from '../../types/index';
 import { createActivityManager } from './activity';
+import { createGitManager } from './git';
+import { createStatusManager } from './status';
 
 async function readMaybe(path: string): Promise<string> {
   try {
@@ -92,7 +106,7 @@ const apiRoutes: ApiRoute[] = [
   {
     path: '/api/docs',
     handler: async (root) => {
-      const docNames = ['README.md', 'CHANGELOG.md', 'LICENSE'];
+      const docNames = ['MAIN.md', 'README.md', 'CHANGELOG.md', 'LICENSE'];
       const files: { name: string; content: string }[] = [];
       for (const name of docNames) {
         const content = await readMaybe(join(root, name));
@@ -125,6 +139,8 @@ const apiRoutes: ApiRoute[] = [
 
 export function createApiMiddleware(root: string) {
   const activity = createActivityManager(root);
+  const git = createGitManager(root);
+  const status = createStatusManager(root);
   return async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const pathname = (req.url ?? '').split('?')[0];
 
@@ -177,25 +193,10 @@ export function createApiMiddleware(root: string) {
           return;
         }
         const planKind =
-          kind && ['feat', 'fix', 'chore', 'docs', 'refactor'].includes(kind) ? kind : 'feat';
+          kind && PLAN_KINDS.includes(kind as (typeof PLAN_KINDS)[number]) ? kind : 'feat';
 
         const configPath = join(root, '.paper-camp', 'config.json');
-        let config: { nextId?: Record<string, number> } | null = null;
-        try {
-          config = JSON.parse(await readFile(configPath, 'utf-8')) as {
-            nextId?: Record<string, number>;
-          };
-        } catch {
-          // no config; create without ID
-        }
-
-        let id: string | undefined;
-        if (config?.nextId) {
-          const next = config.nextId[planKind] ?? 1;
-          id = `${planKind.toUpperCase()}-${next}`;
-          config.nextId[planKind] = next + 1;
-          await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
-        }
+        const id = await assignPlanId(configPath, planKind);
 
         const entry = formatPlanEntry({
           title: title.trim(),
@@ -229,7 +230,11 @@ export function createApiMiddleware(root: string) {
           return;
         }
         const body = await readBody(req);
-        const updates = JSON.parse(body) as { phases?: PhaseItem[]; status?: PlanStatus };
+        const updates = JSON.parse(body) as {
+          phases?: PhaseItem[];
+          status?: PlanStatus;
+          log?: LogEntry[];
+        };
         const filePath = campFile(root, 'plans.md');
         const parsed = parsePlans(await readMaybe(filePath));
         const trimmed = title.trim();
@@ -241,11 +246,15 @@ export function createApiMiddleware(root: string) {
               ...entry,
               ...(updates.status !== undefined && { status: updates.status }),
               ...(updates.phases !== undefined && { phases: updates.phases }),
+              ...(updates.log !== undefined && { log: updates.log }),
               updated: todayDateString(),
             };
           }
           // Starting a plan puts it in focus — only one plan is "in focus" at a time.
-          if (updates.status === 'in-progress' && entry.status === 'in-progress') {
+          if (
+            updates.status === 'in-progress' &&
+            (entry.status === 'in-progress' || entry.status === 'review')
+          ) {
             return { ...entry, status: 'planned' as const, updated: todayDateString() };
           }
           return entry;
@@ -332,6 +341,65 @@ export function createApiMiddleware(root: string) {
       return;
     }
 
+    // GET /api/git/status — return working tree status
+    if (req.method === 'GET' && pathname === '/api/git/status') {
+      try {
+        const entries = await git.getStatus();
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(entries));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/git/commit — stage files and create a commit
+    if (req.method === 'POST' && pathname === '/api/git/commit') {
+      try {
+        const body = await readBody(req);
+        const { files, title, message } = JSON.parse(body) as {
+          files: string[];
+          title: string;
+          message?: string;
+        };
+        if (!title?.trim()) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'title is required' }));
+          return;
+        }
+        await git.commit(files ?? [], title.trim(), message?.trim());
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // GET /api/status — return current lint/format/test check results
+    if (req.method === 'GET' && pathname === '/api/status') {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(status.getStatus()));
+      return;
+    }
+
+    // POST /api/status/test — trigger a one-off test run
+    if (req.method === 'POST' && pathname === '/api/status/test') {
+      status.runCheck('test');
+      res.statusCode = 202;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
     // GET /api/activity/stream — SSE endpoint for live activity events
     if (req.method === 'GET' && pathname === '/api/activity/stream') {
       res.statusCode = 200;
@@ -340,6 +408,8 @@ export function createApiMiddleware(root: string) {
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders();
       activity.subscribe(res);
+      git.subscribe(res);
+      status.subscribe(res);
       return;
     }
 

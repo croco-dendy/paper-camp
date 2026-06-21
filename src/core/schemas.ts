@@ -3,7 +3,7 @@ import { z } from 'zod';
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected a YYYY-MM-DD date');
 
 export const planFieldsSchema = z.object({
-  status: z.enum(['idea', 'planned', 'in-progress', 'done', 'dropped']),
+  status: z.enum(['idea', 'planned', 'in-progress', 'review', 'done', 'dropped']),
   kind: z.enum(['feat', 'fix', 'chore', 'docs', 'refactor']).optional(),
   id: z.string().optional(),
   idea: z.string().optional(),

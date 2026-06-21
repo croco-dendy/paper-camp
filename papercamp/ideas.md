@@ -1,28 +1,3 @@
-Paper Camp
-A local-first, AI-native project companion that lives where your work lives.
-
-Most project management tools are built around teams, dashboards, and the assumption that your work needs to be somewhere on the internet. Paper Camp rejects that. It lives in your repository, versioned alongside your code, invisible to everything except you and your AI assistant.
-The core idea is simple: every project deserves a memory. Not a kanban board, not a ticket system — a structured, honest record of where you started, where you are, and where you're going. A place where ideas don't get lost in chat history or sticky notes. A place your AI can read in seconds and immediately understand the current state of your intent.
-
-The folder is the database.
-A papercamp/ directory sits at the root of your project. It contains markdown files with a defined structure — ideas, plans, progress, decisions, open questions. No external services, no sync, no accounts. Every change is a git commit. The history of your project is the history of those files.
-
-AI as a first-class collaborator.
-Paper Camp is designed around the way humans actually work with AI assistants. At the start of every session, you point your assistant to papercamp/ and it knows everything — what was built, what was decided, what's next. No re-explaining. No lost context. The structured files are not documentation written after the fact; they are the living source of truth that both you and the AI maintain together.
-
-Planting seeds, not filling templates.
-New projects don't start from static boilerplate. They start from intent. You describe what you want to build — a single high-level idea — and the system scaffolds the initial papercamp/ structure around that intent. The AI initializes the infrastructure based on your blueprint, not a generic template. Every project begins with its own logic, not someone else's defaults.
-
-The interface is analog by choice.
-When you run papercamp in your terminal, a local web interface opens — built with Paper UI, styled like a retro creative dashboard. Analog gauges display project health and momentum. Focus toggles let you isolate a single task and feed it cleanly to your AI without noise. It feels like a creative studio tool, not enterprise software.
-
-It grows with you.
-Paper Camp doesn't tell you how to manage your project. It gives you a structure minimal enough to stay out of the way and rich enough to be genuinely useful. Over time, the papercamp/ folder becomes an artifact — a honest, chronological record of how something was made, decision by decision, idea by idea.
-
-Built for makers who work alone, think in systems, and use AI as a creative partner — not a shortcut.
-
----
-
 ### IDEA-1: Project docs browser
 
 A Docs page that aggregates all project documentation into a browsable, searchable view inside the dashboard, so the project's full narrative — structure, conventions, decisions — is one click away instead of scattered across the terminal and editor. The papercamp/ folder is the living memory; the Docs page is the reference library built on top of it.
@@ -47,16 +22,19 @@ Why this one first: the backend is already done and tested. This is UI work on t
 
 Turn Settings from a single static info+icon page into a real sidebar-driven configuration workspace — but scoped honestly to what *this* repo's stack actually has, not a generic eslint/prettier list. The existing project-info card (name, version, icon — already built) becomes the sidebar's default "General" section rather than the whole page.
 
-Feature ideas:
+**Shipped (FEAT-5), confirmed against the current code:**
 
-- **Sidebar layout** — mirror `PlansSidebar`'s structure: a left rail of sections, main area showing whichever one is selected. "General" (current project-info card) is the default landing section.
-- **Auto-discovered config sections, not a hardcoded list** — a new `GET /api/configs` route that scans the repo root for config files that *actually exist* (this repo today: `biome.json`, `tsconfig.json`, `tailwind.config.ts`, `vite.config.ts`, `vite.app.config.ts`, `postcss.config.js`, `package.json`) and returns only those. Keeps the feature honest as the stack changes, instead of a stale list baked into the UI.
-- **Editable raw contents per config** — selecting a config loads its text in an editor area (even a plain `<textarea>` to start; a lightweight syntax highlighter for JSON/TS is a nice-to-have later) with a Save button.
-- **Validate before writing** — for JSON-shaped files (`biome.json`, `tsconfig.json`, `package.json`) parse and reject invalid JSON before it touches disk, surfaced as an inline `Alert`. Never let a typo corrupt a config file silently.
-- **Write-path security boundary** — the save endpoint must only accept filenames from the same allowlisted scan as the read side, never an arbitrary path. This is a local-only dev tool, but a write endpoint that takes any path is still worth avoiding on principle.
-- **Editable project identity** — make the existing "General" card's project name field actually editable (it's read-only today), writing back to `.paper-camp/config.json` — pairs naturally with the icon upload that's already shipped.
+- **Sidebar layout** — `settings-sidebar.tsx` mirrors `PlansSidebar`'s structure: a left rail of sections (`General`, `Config Files`), main area showing whichever one is selected. "General" is the default landing section.
+- **Auto-discovered config sections, not a hardcoded list** — `GET /api/configs` (`src/app/server/api.ts`) checks a fixed candidate list (`biome.json`, `tsconfig.json`, `tailwind.config.ts`, `vite.config.ts`, `vite.app.config.ts`, `postcss.config.js`, `package.json`) against what actually exists in the repo root and returns only the hits — the sidebar never shows a config this repo doesn't have.
 
-Why this one second: it needs a new write path (with real validation/security thought, unlike the read-only Docs idea above), so it's more work and slightly more risk — better attempted once the Docs page's read-only pattern is proven out.
+**Still open — this is the part that makes the idea only half-done:**
+
+- **Editable raw contents per config** — `ConfigEditorSection` (`settings-page.tsx`) only renders the file in a read-only `CodeBlock` today; there's no `Textarea`, no edit state, no Save button.
+- **Validate before writing** — moot until the above exists; nothing parses or rejects invalid JSON yet because nothing writes.
+- **Write-path security boundary** — `GET /api/configs?name=...` already checks an allowlist before reading, but there is no `POST`/`PATCH` handler for configs at all yet — the write path itself hasn't been built, allowlisted or not.
+- **Editable project identity** — the "General" card's project name is still a static `<h2>{config.projectName}</h2>`; the icon upload next to it works (shipped earlier, in FEAT-3), but the name field itself is not editable.
+
+Why the remaining half is still worth doing as its own pass: it's a write path (validation + an allowlisted save endpoint), a different risk profile than the read-only scan that already shipped — not a reason to avoid it, just a reason it was deliberately split off rather than bundled into FEAT-5.
 
 ---
 
@@ -221,7 +199,9 @@ Two real gaps found while reading `plan-detail.tsx` and `closed-section.tsx` jus
 
 **A new `review` status closes the first gap:** `PlanStatus` gains `review`, sitting between `in-progress` and `done`. The transition into it is automatic, not a button: `handleTogglePhase` already recomputes `allDone` on every toggle — when checking a phase makes it true, the same call sets `status: 'review'` instead of leaving it `in-progress`, no separate "Submit for review" click required. The "Mark complete" button disappears entirely; completing the last phase *is* the submission. A plan in `review` gets two manual outcomes: **"Approve & close"** (`status: 'done'`) or **"Needs changes"** (`status: 'in-progress'`, sent back — and since phases are already all checked at that point, reopening one of them is what naturally drops `allDone` back to `false`, so there's no separate "uncheck everything" step). Phase checkmarks otherwise survive every transition untouched — whatever's wrong belongs in the Log (below), not in mass-unchecking boxes.
 
-**Where it lives in the layout — no new route.** `review` is just another `PlanStatus`, so it slots into the views that already exist rather than needing a dedicated page: one more column in the Board view (`KANBAN_COLUMNS` in `plans/constants.ts` already drives columns from a plain array — inserting `review` between `in-progress` and `done` is a one-line change) and one more section in List view (between "In progress" and "Backlog"). The plan's own detail view — already the single place phases/body/progress render — becomes the review screen simply by virtue of being opened while `status === 'review'`, enhanced with the Log section below. This avoids a second page that has to stay in sync with the same plan data it would just be filtering. If a cross-plan "waiting on my review" queue turns out to be genuinely wanted later, that's a thin filtered view addable on top of this without restructuring anything — a reasonable fallback, not the starting design.
+**Where it lives in the layout — a dedicated Review page, not a new column or section.** Board view and List view keep their current shape: `KANBAN_COLUMNS` stays `planned` / `in-progress` (no third column), and `list-view.tsx`'s section filters stay as they are (no new "Review" section between "In progress" and "Backlog"). A plan that flips to `review` simply stays wherever it already renders — bucketed with `in-progress` for board/list purposes — and gets called out with a small `Stamp` reading "Review" next to its `PlanIdStamp` on `KanbanCard` and `PlanCard`, reusing the same `Stamp`/`STATUS_STAMP` pattern already used for tags and IDs. That's the only change to the existing board/list components.
+
+The actual review workflow — "Approve & close" / "Needs changes", and the Log below — lives on a **new top-level Review page**, structured like the Plans page: its own route (`/review`) and nav item in `router.tsx`'s `navItems`, its own sidebar branch in `RootLayout`, and a list filtered to `status === 'review'` across all plans, each opening into the same plan-detail view used elsewhere. This gives review a dedicated place to work from — a "what's waiting on me" queue — without retrofitting the Board/List filters to carry a status they don't otherwise need to display as a column.
 
 **Fix `closed-section.tsx`:** pass the same `onOpen` prop `list-view.tsx` already wires up for the active/backlog `PlanCard`s. This alone restores the ability to open a closed or dropped plan and read what's in it — independent of everything else in this idea, and worth doing regardless.
 

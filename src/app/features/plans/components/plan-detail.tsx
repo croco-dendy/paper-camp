@@ -1,8 +1,8 @@
 import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
 import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
-import type { PhaseItem, PlanEntry } from '@/types/index';
-import { Button, Checkbox, Stamp, Table } from '@dendelion/paper-ui';
+import type { LogEntry, PhaseItem, PlanEntry } from '@/types/index';
+import { Button, Checkbox, Stamp, Table, Textarea } from '@dendelion/paper-ui';
 import { useState } from 'react';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
@@ -17,8 +17,10 @@ interface PlanDetailProps {
 export const PlanDetail = ({ plan }: PlanDetailProps) => {
   const loadPlans = useAppStore((s) => s.loadPlans);
   const [updating, setUpdating] = useState(false);
+  const [logInput, setLogInput] = useState('');
   const progress = phaseProgress(plan);
   const inProgress = plan.status === 'in-progress';
+  const underReview = plan.status === 'review';
   const allDone = progress !== null && progress.done === progress.total && progress.total > 0;
 
   const handleStart = async () => {
@@ -40,15 +42,40 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
       i === index ? { ...phase, done: !phase.done } : phase,
     );
     setUpdating(true);
-    await updatePlan(plan.title, { phases: nextPhases });
+    const allChecked = nextPhases.every((p) => p.done);
+    // Auto-set to review when last phase is checked
+    if (allChecked && plan.status === 'in-progress') {
+      await updatePlan(plan.title, { phases: nextPhases, status: 'review' });
+    } else {
+      await updatePlan(plan.title, { phases: nextPhases });
+    }
     await loadPlans();
     setUpdating(false);
   };
 
-  const handleMarkDone = async () => {
+  const handleApprove = async () => {
     setUpdating(true);
     await updatePlan(plan.title, { status: 'done' });
     await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleNeedsChanges = async () => {
+    setUpdating(true);
+    await updatePlan(plan.title, { status: 'in-progress' });
+    await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleAddLogEntry = async () => {
+    if (!logInput.trim()) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const newLog: LogEntry = { date: today, text: logInput.trim().replace(/\n/g, ' ') };
+    const updatedLog = [...(plan.log ?? []), newLog];
+    setUpdating(true);
+    await updatePlan(plan.title, { log: updatedLog });
+    await loadPlans();
+    setLogInput('');
     setUpdating(false);
   };
 
@@ -78,15 +105,17 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
           <PlanIdStamp id={plan.id} />
           {plan.title}
         </h2>
-        <Button
-          variant="primary"
-          size="small"
-          className={inProgress ? 'btn-orange' : 'btn-green'}
-          onClick={inProgress ? handleStop : handleStart}
-          disabled={updating}
-        >
-          {inProgress ? 'Stop' : 'Start'}
-        </Button>
+        {!underReview && (
+          <Button
+            variant="primary"
+            size="small"
+            className={inProgress ? 'btn-orange' : 'btn-green'}
+            onClick={inProgress ? handleStop : handleStart}
+            disabled={updating}
+          >
+            {inProgress ? 'Stop' : 'Start'}
+          </Button>
+        )}
       </div>
 
       <div
@@ -159,7 +188,11 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
                 key: 'checkbox',
                 header: 'Status',
                 cell: (phase: PhaseItem, index: number) => (
-                  <Checkbox checked={phase.done} onChange={() => handleTogglePhase(index)} />
+                  <Checkbox
+                    checked={phase.done}
+                    onChange={() => handleTogglePhase(index)}
+                    disabled={updating}
+                  />
                 ),
                 width: 2,
               },
@@ -194,17 +227,76 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
         </div>
       )}
 
-      {allDone && plan.status !== 'done' && (
-        <Button
-          variant="primary"
-          size="small"
-          className="btn-violet"
-          onClick={handleMarkDone}
-          disabled={updating}
-        >
-          Mark complete
-        </Button>
+      {underReview && (
+        <div style={{ display: 'flex', gap: space[3], marginBottom: space[6] }}>
+          <Button
+            variant="primary"
+            size="small"
+            className="btn-green"
+            onClick={handleApprove}
+            disabled={updating}
+          >
+            Approve &amp; close
+          </Button>
+          <Button
+            variant="primary"
+            size="small"
+            className="btn-orange"
+            onClick={handleNeedsChanges}
+            disabled={updating}
+          >
+            Needs changes
+          </Button>
+        </div>
       )}
+
+      <div style={{ marginBottom: space[8] }}>
+        <h3
+          style={{
+            fontFamily: fontFamily.serif,
+            fontSize: fontSize.sm,
+            fontWeight: 600,
+            margin: `0 0 ${space[3]}`,
+            opacity: 0.65,
+          }}
+        >
+          Log
+        </h3>
+        {plan.log && plan.log.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: space[2],
+              marginBottom: space[3],
+            }}
+          >
+            {plan.log.map((entry, i) => (
+              <div key={`${entry.date}-${i}`} className="text-sm" style={{ opacity: 0.75 }}>
+                <span style={{ fontWeight: 600, marginRight: space[2] }}>{entry.date}</span>
+                {entry.text}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: space[2], alignItems: 'flex-end' }}>
+          <Textarea
+            value={logInput}
+            onChange={(e) => setLogInput(e.target.value)}
+            placeholder="Add a log entry…"
+            rows={2}
+          />
+          <Button
+            variant="primary"
+            size="small"
+            className="btn-violet"
+            onClick={handleAddLogEntry}
+            disabled={updating || !logInput.trim()}
+          >
+            Add entry
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

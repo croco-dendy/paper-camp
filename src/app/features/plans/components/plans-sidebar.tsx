@@ -23,7 +23,8 @@ export const PlansSidebar = () => {
   } = useAppStore();
   const [addingIdea, setAddingIdea] = useState(false);
 
-  const active = plans?.entries.filter((p) => p.status === 'in-progress') ?? [];
+  const active =
+    plans?.entries.filter((p) => p.status === 'in-progress' || p.status === 'review') ?? [];
   const planned = plans?.entries.filter((p) => p.status === 'planned') ?? [];
   const ideas = plans?.entries.filter((p) => p.status === 'idea') ?? [];
 

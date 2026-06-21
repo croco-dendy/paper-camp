@@ -29,7 +29,7 @@ export const ListView = ({
     }
   }, [activePlanTitle]);
 
-  const active = plans.filter((p) => p.status === 'in-progress');
+  const active = plans.filter((p) => p.status === 'in-progress' || p.status === 'review');
   const backlog = plans.filter((p) => p.status === 'planned' || p.status === 'idea');
   const closed = plans.filter((p) => p.status === 'done' || p.status === 'dropped');
 
@@ -77,7 +77,7 @@ export const ListView = ({
         </section>
       )}
 
-      <ClosedSection plans={closed} />
+      <ClosedSection plans={closed} onOpen={onOpenPlan} />
     </div>
   );
 };

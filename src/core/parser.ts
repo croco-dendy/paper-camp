@@ -14,34 +14,46 @@ import { decisionFieldsSchema, openQuestionFieldsSchema, planFieldsSchema } from
 const HEADING_RE = /^##\s+(.+?)\s*$/;
 const FIELD_RE = /^\*\*([A-Za-z][A-Za-z-]*):\*\*\s*(.*)$/;
 const PHASES_HEADING_RE = /^###\s+Phases\s*$/i;
+const LOG_HEADING_RE = /^###\s+Log\s*$/i;
 const SUB_HEADING_RE = /^#{2,3}\s+/;
 const CHECKBOX_RE = /^[-*]\s+\[([ xX])\]\s+(.*)$/;
+const LOG_ENTRY_RE = /^-\s+(\d{4}-\d{2}-\d{2}):\s*(.*)$/;
 
-function extractPhases(body: string): { body: string; phases: PhaseItem[] } {
+function extractSection<T>(
+  body: string,
+  headingRe: RegExp,
+  parseFn: (lines: string[], start: number, end: number) => T[],
+): { body: string; entries: T[] } {
   const lines = body.split('\n');
-  const phasesStart = lines.findIndex((line) => PHASES_HEADING_RE.test(line));
-  if (phasesStart === -1) {
-    return { body, phases: [] };
-  }
+  const sectionStart = lines.findIndex((line) => headingRe.test(line));
+  if (sectionStart === -1) return { body, entries: [] };
 
-  let phasesEnd = lines.length;
-  for (let i = phasesStart + 1; i < lines.length; i++) {
+  let sectionEnd = lines.length;
+  for (let i = sectionStart + 1; i < lines.length; i++) {
     if (SUB_HEADING_RE.test(lines[i])) {
-      phasesEnd = i;
+      sectionEnd = i;
       break;
     }
   }
 
+  const entries = parseFn(lines, sectionStart + 1, sectionEnd);
+  const remaining = [...lines.slice(0, sectionStart), ...lines.slice(sectionEnd)]
+    .join('\n')
+    .trim();
+  return { body: remaining, entries };
+}
+
+function parsePhaseEntries(lines: string[], start: number, end: number): PhaseItem[] {
   const phases: PhaseItem[] = [];
-  let i = phasesStart + 1;
-  while (i < phasesEnd) {
+  let i = start;
+  while (i < end) {
     const match = lines[i].match(CHECKBOX_RE);
     if (match) {
       const text = match[2].trim();
       const done = match[1].toLowerCase() === 'x';
       const descriptionLines: string[] = [];
       i++;
-      while (i < phasesEnd) {
+      while (i < end) {
         const next = lines[i];
         if (next.trim() === '') break;
         if (CHECKBOX_RE.test(next) || SUB_HEADING_RE.test(next)) break;
@@ -61,16 +73,34 @@ function extractPhases(body: string): { body: string; phases: PhaseItem[] } {
       i++;
     }
   }
-
-  const remaining = [...lines.slice(0, phasesStart), ...lines.slice(phasesEnd)].join('\n').trim();
-  return { body: remaining, phases };
+  return phases;
 }
 
-/**
- * Splits a papercamp markdown file into `## Heading` blocks, each with an optional
- * `**Key:** value` fields block immediately below the heading, a prose body, and an
- * optional `### Phases` checkbox list. Used for plans.md, decisions.md, open-questions.md.
- */
+function extractPhases(body: string): { body: string; phases: PhaseItem[] } {
+  const result = extractSection(body, PHASES_HEADING_RE, parsePhaseEntries);
+  return { body: result.body, phases: result.entries };
+}
+
+function parseLogEntries(
+  lines: string[],
+  start: number,
+  end: number,
+): import('../types/index').LogEntry[] {
+  const log: import('../types/index').LogEntry[] = [];
+  for (let i = start; i < end; i++) {
+    const match = lines[i].match(LOG_ENTRY_RE);
+    if (match) {
+      log.push({ date: match[1], text: match[2].trim() });
+    }
+  }
+  return log;
+}
+
+function extractLog(body: string): { body: string; log: import('../types/index').LogEntry[] } {
+  const result = extractSection(body, LOG_HEADING_RE, parseLogEntries);
+  return { body: result.body, log: result.entries };
+}
+
 export function parseRawEntries(markdown: string): RawEntry[] {
   const lines = markdown.split('\n');
   const headingIndices: number[] = [];
@@ -101,9 +131,11 @@ export function parseRawEntries(markdown: string): RawEntry[] {
     while (cursor < block.length && block[cursor].trim() === '') cursor++;
 
     const rawBody = block.slice(cursor).join('\n').trim();
-    const { body, phases } = extractPhases(rawBody);
+    let { body, phases } = extractPhases(rawBody);
+    const { body: bodyAfterLog, log } = extractLog(body);
+    body = bodyAfterLog;
 
-    entries.push({ title, fields, body, phases });
+    entries.push({ title, fields, body, phases, log });
   }
 
   return entries;
@@ -139,6 +171,7 @@ export function parsePlans(markdown: string): ParseResult<PlanEntry> {
         : [],
       body: raw.body,
       phases: raw.phases,
+      log: raw.log,
     });
   }
 

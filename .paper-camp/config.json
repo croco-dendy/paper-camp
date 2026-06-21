@@ -3,8 +3,8 @@
   "projectName": "paper-camp",
   "initializedAt": "2026-04-29T00:00:00.000Z",
   "nextId": {
-    "feat": 9,
-    "fix": 2,
+    "feat": 14,
+    "fix": 3,
     "chore": 1,
     "docs": 2,
     "refactor": 4

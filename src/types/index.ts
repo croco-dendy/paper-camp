@@ -1,4 +1,9 @@
-export type PlanStatus = 'idea' | 'planned' | 'in-progress' | 'done' | 'dropped';
+export type PlanStatus = 'idea' | 'planned' | 'in-progress' | 'review' | 'done' | 'dropped';
+
+export interface LogEntry {
+  date: string;
+  text: string;
+}
 
 export type PlanKind = 'feat' | 'fix' | 'chore' | 'docs' | 'refactor';
 
@@ -20,6 +25,7 @@ export interface RawEntry {
   fields: Record<string, string>;
   body: string;
   phases: PhaseItem[];
+  log?: LogEntry[];
 }
 
 export interface ParseWarning {
@@ -43,6 +49,7 @@ export interface PlanEntry {
   tags: string[];
   body: string;
   phases: PhaseItem[];
+  log?: LogEntry[];
 }
 
 export interface DecisionEntry {
@@ -80,4 +87,20 @@ export interface PaperCampConfig {
   projectName: string;
   initializedAt: string;
   nextId?: Record<PlanKind, number>;
+}
+
+export type CheckStatus = 'stale' | 'running' | 'pass' | 'fail';
+
+export interface CheckResult {
+  status: CheckStatus;
+  lastRun: string | null;
+  output: string;
+}
+
+export type CheckName = 'lint' | 'format' | 'test';
+
+export interface GitStatusEntry {
+  path: string;
+  status: string;
+  staged: boolean;
 }

@@ -32,5 +32,5 @@ export const findFocusPlan = (
     const selected = plans.find((p) => p.title === activePlanTitle);
     if (selected) return selected;
   }
-  return plans.find((p) => p.status === 'in-progress');
+  return plans.find((p) => p.status === 'in-progress' || p.status === 'review');
 };

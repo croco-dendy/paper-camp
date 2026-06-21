@@ -14,6 +14,9 @@ component before writing raw HTML.
 - Layout surfaces → `Card`, `Layout`, `Page`, `Island`
 - Status → `Stamp`, `Progress`
 - Lists → `ListItem`
+- Tabular data → `Table`
+- Lane/column boards (Kanban-style, grouped cards) → `Table` with its `board`
+  prop, not hand-rolled flex divs
 - Overlays → `Modal`, `Alert`
 - Code → `CodeBlock`
 
@@ -25,6 +28,23 @@ Known gaps that are intentionally raw:
 
 - `<input type="file">` hidden trigger in `settings-page.tsx` — paper-ui has no
   file-input abstraction.
+
+### Lane/column boards use `Table`'s `board` prop
+
+Any UI that groups items into side-by-side lanes (the Kanban board, the Ideas
+Planned/Done board) renders through paper-ui's `Table` component with its
+`board` prop, not a hand-rolled `display: flex` div per column. `Table` owns
+the wrapper border/shadow/paper-texture, the column header chrome (label +
+count badge, accent-colored bottom border), and the per-card border/background
+— so a board consumer only supplies `{ key, label, accent, items, getKey,
+renderItem }` per column and a `renderItem` that returns the card's *inner*
+content (no outer border/background of its own; `Table` draws that).
+
+See [`board-view.tsx`](src/app/features/plans/components/board-view.tsx) and
+[`ideas-board.tsx`](src/app/features/plans/components/ideas-board.tsx) for the
+canonical usage. The `board` prop itself lives in the paper-ui repo
+(`~/dev/paper-ui/src/components/table/table.tsx`) — see "Working with the
+paper-ui sibling repo" in `AGENTS.md` before touching it.
 
 ## 2. Design tokens, not literals
 
@@ -72,6 +92,12 @@ Use paper-ui tokens where exposed (`--pui-bg-base`, `--pui-bg-surface`,
 paper-ui `_tokens.scss` values in `src/app/styles/tokens.ts` rather than copying
 hex codes. Transitions should use the paper-ui timing values (`150ms`, `200ms`,
 `300ms`) with `ease-out` / `cubic-bezier(0.4, 0, 0.2, 1)`.
+
+Components that take a named accent (`Card`'s `accentColor`, `Table`'s `board[].accent`)
+only accept the fixed palette `'blue' | 'green' | 'amber' | 'rose' | 'slate'` —
+never pass a raw hex/rgba to these props. `constants.ts`'s `STATUS_ACCENT` is
+the existing `PlanStatus -> accent` mapping; reuse it (or extend it) instead of
+inventing a parallel hex-keyed map like the old `KANBAN_COLUMNS.accent` was.
 
 ## 3. Three copies means extract
 
