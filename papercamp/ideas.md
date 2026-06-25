@@ -27,14 +27,12 @@ Turn Settings from a single static info+icon page into a real sidebar-driven con
 - **Sidebar layout** — `settings-sidebar.tsx` mirrors `PlansSidebar`'s structure: a left rail of sections (`General`, `Config Files`), main area showing whichever one is selected. "General" is the default landing section.
 - **Auto-discovered config sections, not a hardcoded list** — `GET /api/configs` (`src/app/server/api.ts`) checks a fixed candidate list (`biome.json`, `tsconfig.json`, `tailwind.config.ts`, `vite.config.ts`, `vite.app.config.ts`, `postcss.config.js`, `package.json`) against what actually exists in the repo root and returns only the hits — the sidebar never shows a config this repo doesn't have.
 
-**Still open — this is the part that makes the idea only half-done:**
+**Still open:**
 
-- **Editable raw contents per config** — `ConfigEditorSection` (`settings-page.tsx`) only renders the file in a read-only `CodeBlock` today; there's no `Textarea`, no edit state, no Save button.
-- **Validate before writing** — moot until the above exists; nothing parses or rejects invalid JSON yet because nothing writes.
-- **Write-path security boundary** — `GET /api/configs?name=...` already checks an allowlist before reading, but there is no `POST`/`PATCH` handler for configs at all yet — the write path itself hasn't been built, allowlisted or not.
+- **Structured rendering for what's already viewable** — `ConfigEditorSection` (`settings-page.tsx`) renders every allowlisted file as a raw `CodeBlock`, even `package.json`, whose `scripts` block is the one piece of that file anyone actually looks at here. Special-case it into a `name → command` table; the rest stay as `CodeBlock`.
 - **Editable project identity** — the "General" card's project name is still a static `<h2>{config.projectName}</h2>`; the icon upload next to it works (shipped earlier, in FEAT-3), but the name field itself is not editable.
 
-Why the remaining half is still worth doing as its own pass: it's a write path (validation + an allowlisted save endpoint), a different risk profile than the read-only scan that already shipped — not a reason to avoid it, just a reason it was deliberately split off rather than bundled into FEAT-5.
+**Scope change (2026-06-25): the write path for `biome.json`/`tsconfig.json`/etc. is dropped, not deferred.** The original plan for the remaining half was a `Textarea` + JSON-validate + allowlisted save endpoint over these files directly. On reflection that solves a problem nobody has — they're real editor/LSP-backed files; a save button in a browser textarea is strictly worse than the editor already open in another window, for the exact same edit. What's actually worth making *editable* through this dashboard is a small, curated set of operational settings common to most repos (dev server port, env vars) — split out into [[IDEA-13]] rather than bolted onto this idea's original "make every config writable" framing.
 
 ---
 
@@ -217,3 +215,118 @@ Rendered in `plan-detail.tsx` below the phases list, with a small `Textarea` + "
 
 - **Phase checkmarks survive "Needs changes."** Reopening a plan doesn't reset progress — what needs fixing gets written as a new Log entry, not represented by un-ticking a box that was honestly completed.
 - **Log entries are manual-only for v1.** An AI agent appending its own checkpoints there instead of (or alongside) `progress.md` is a natural extension once the "Agent orchestration" idea's "write checkpoints as you go" convention exists, but isn't required to ship this.
+
+---
+
+### IDEA-10: Plan clarification pass
+
+Three ideas below (this one, "Phase convergence audit", and "Plan/decision consistency check") came out of looking at how GitHub's `spec-kit` and similar spec-driven tools structure the AI's side of planning — not to adopt their per-feature folder pipeline (`about.md` already rejected that ceremony on purpose), but because a few of their individual mechanisms are genuinely portable onto the plan record shape this project already has.
+
+Right now a plan goes from `idea` to `planned` with whatever ambiguity was in the original prose — nothing forces a pass over scope, edge cases, or non-functional constraints before phases get written. `spec-kit`'s `/clarify` command's actual algorithm (not just its existence) is worth borrowing directly: scan against a fixed taxonomy (functional scope, data model, UX flow, non-functional attributes, edge cases, terminology, completion signals), surface at most 5 of the highest-impact gaps, and ask **one question at a time**, each with a stated recommendation up front (`**Recommended:** Option A — <why>`) so the default answer is just "yes." This turns an open-ended "anything unclear?" into a bounded, low-effort loop.
+
+**Where it lives — a new optional `### Clarifications` sub-section per plan**, parsed the same way `### Phases` and `### Log` already are. `extractLog` (`src/core/parser.ts:99-102`) and `extractPhases` (`src/core/parser.ts:79-82`) both already go through the generic `extractSection` helper (`parser.ts:22-44`); this needs the same treatment, not a new one-off parser:
+
+- Generalize `extractLog`'s body into an `extractDatedList(body, headingRe)` helper, since a clarification entry and a `LogEntry` are the same shape (`{ date, text }`) — `LOG_ENTRY_RE`'s `^-\s+(\d{4}-\d{2}-\d{2}):\s*(.*)$` pattern works unchanged for `- 2026-06-25: Q: <question> → A: <answer>` lines.
+- Add `CLARIFICATIONS_HEADING_RE = /^###\s+Clarifications\s*$/i` and call the generalized helper with it, same as `extractPhases`/`extractLog` do with their own heading regexes.
+- `PlanEntry` gains `clarifications?: LogEntry[]`, reusing the existing `LogEntry` type from `src/types/index.ts` — no new type needed.
+
+**Where the taxonomy/loop logic lives — a static prompt, not new app logic.** The existing "AI focus handoff" pattern (`PhaseCopyButton`, `src/app/features/plans/components/phase-copy-button.tsx:41`) is a one-line template (`Start phase ${phaseIndex + 1} of plan "${planTitle}"...`) copied to the clipboard. This idea needs the same mechanism — a button on `plan-detail.tsx`, e.g. "Clarify before starting" — but with a longer fixed prompt constant (the taxonomy + the "ask one at a time, lead with a recommendation, write accepted answers back under `### Clarifications`" instructions), since one line can't carry it. Worth a small `src/app/features/plans/prompts.ts` once there's more than one of these — this idea plus "Phase convergence audit" below both need a prompt constant longer than `PhaseCopyButton`'s current inline template literal.
+
+**Rendering**: a read-only list below the plan body, above Phases, styled identically to how `### Log` entries already render in `plan-detail.tsx` (dated bullets) — this is presented context, not something edited directly in the UI; corrections happen by re-running the clarify prompt or hand-editing the markdown.
+
+**Decisions worth making explicit:**
+
+- **No session grouping, unlike `spec-kit`'s `### Session YYYY-MM-DD` subheadings.** Each clarification entry already carries its own date via the reused `LogEntry`/`LOG_ENTRY_RE` shape; grouping multiple same-day answers under a second heading level is ceremony this project's "no numbering scheme, no status tables" stance (`about.md`) doesn't need.
+- **Trigger point is `idea`/`planned` → about to start, not enforced.** Nothing blocks moving a plan to `in-progress` without a clarification pass — it's an available tool for plans worth the 5-question overhead, not a gate every plan must pass through.
+
+---
+
+### IDEA-11: Phase convergence audit
+
+The companion to "The Stack" panel's existing phase-progress view and to "Plan clarification pass" above: once a plan has phases and work is underway, nothing currently re-checks whether the phase list still matches what the code actually needs. A phase written before implementation started can easily miss something that only became obvious once the work began.
+
+`spec-kit`'s `/converge` command's mechanism is exactly the missing piece, and it's a particularly cheap one to borrow because its core discipline is a write constraint, not new logic: compare the plan's intent against the current code, and **append** any newly-discovered remaining work as new phase items at the bottom of `### Phases` — never reorder, check, uncheck, or rewrite an existing phase. If nothing's missing, it changes nothing at all, not even an empty heading.
+
+**This needs zero parser or schema changes.** `parsePhaseEntries` (`src/core/parser.ts:46-77`) already round-trips an arbitrary list of `- [ ]`/`- [x]` lines with optional indented descriptions; appending new unchecked items to that list is just... writing more lines in the same format a human already writes by hand. The entire feature is a UI affordance plus a prompt:
+
+- A button on `plan-detail.tsx`, next to the existing phase list — "Audit phases against code" — alongside `PhaseCopyButton`.
+- A fixed prompt (same `prompts.ts` home suggested in the clarification idea above) instructing the agent: read this plan's phases and body, inspect the current repo state, and append any phase that's clearly required but missing — each as a normal `- [ ]` line, optionally with the existing indented-description format `parsePhaseEntries` already supports — at the end of the list. Explicitly never touch existing lines, checked or not. Finish by appending one line to `### Log` (the field IDEA-9 already added) summarizing what was found, e.g. `- 2026-06-25: Convergence audit — appended 2 phases (missing error-state handling, missing test coverage).` — for free, since the Stack panel's "Live" feed already narrates diffs against `plans.md`, including `### Log` additions (per IDEA-3's design).
+- If the audit finds nothing missing, the prompt should say so and write nothing — matching `/converge`'s "byte-for-byte unchanged" guarantee, which is what makes the audit safe to re-run anytime without it becoming log spam.
+
+**Decisions worth making explicit:**
+
+- **Append-only is the entire safety property.** The value of this idea over just asking the AI "what's left?" in chat is specifically that it can never silently mark something done or reorder a phase someone's relying on the position of — that constraint belongs in the prompt text itself, stated explicitly, not left implicit.
+- **No new UI for reviewing what got appended beyond the existing phase list and Log entry.** The appended phases show up exactly where any other phase would, in `plan-detail.tsx`'s normal list; this isn't a diff viewer, just a disciplined writer.
+
+---
+
+### IDEA-12: Plan/decision consistency check
+
+`decisions.md` and `open-questions.md` are the two files in `papercamp/` that exist specifically to stop a project from re-litigating settled questions or losing track of blockers — but nothing today checks whether they're internally consistent, or whether an unresolved open question is actually blocking work that's marked `in-progress` anyway. `spec-kit`'s `/analyze` command runs exactly this kind of check across its own artifacts (spec/plan/tasks): a read-only, severity-graded findings pass, never a write. The equivalent here is small enough to be entirely derivable from data already parsed — no AI call needed for v1, same "derive, don't duplicate" approach `deriveIdeaStatuses` (`src/core/parser.ts:253-265`) already uses for Idea status.
+
+**Checks worth running, all pure functions over already-parsed entries:**
+
+- **Dangling cross-references** — an `OpenQuestionEntry.resolvedBy` (`src/types/index.ts:67`) or `DecisionEntry.supersededBy` (`types/index.ts:59`) whose value doesn't match any actual entry title. These links are currently rendered as clickable (per IDEA-1's "Cross-linking between the two"), so a typo'd or stale title silently produces a dead link today with nothing surfacing it.
+- **Open questions blocking active work** — needs one new optional field to express the link honestly: `OpenQuestionEntry` gains `blocks?: string` (a plan `id`, e.g. `FEAT-2`), parsed and serialized the same way the existing optional `Idea:` field on `PlanEntry` already is. A finding fires when a question with a `Blocks:` field is still `open` while that plan's `status` is `in-progress` or `review` — surfaced as "open question is blocking active work," the single most useful flag this idea produces.
+- **Orphaned `decided` decisions** *(stretch, not required for v1)* — a decision with no plan ever referencing it isn't necessarily wrong (plenty of decisions are about process, not a specific feature), so this is a weaker signal than the two above; worth deferring until the two structural checks prove useful on their own.
+
+**Where it renders** — as a fourth pill in the Stack panel's existing "Status" section (IDEA-5: `src/app/components/stack-panel.tsx`), next to Lint/Format/Tests, labeled "Consistency." States: `clean` (no findings) or a count (`"2 issues"`), same `Stamp` component, same click-to-expand pattern the lint/format pills already use for showing failure detail — except the expanded content here is a short list of findings (one line each, e.g. "Open question 'Should plans support sub-tasks?' blocks FEAT-7 (in-progress)"), each clickable through to the Docs page's decision/open-question view (IDEA-1) or the blocking plan itself. Reuses the panel's existing disclosure affordance rather than inventing a new one.
+
+**Decisions worth making explicit:**
+
+- **No AI involved in v1.** Every check above is a structural join over fields that already exist or are trivial additions — `spec-kit`'s `/analyze` does ambiguity/duplication detection that genuinely needs an LLM; the highest-value findings for this project's actual data shape don't.
+- **`Blocks:` is optional and asymmetric, matching how `Idea:` already works** — a plan doesn't need to know which questions block it; the open question declares the dependency, the same direction `Idea:` already points (plan → idea, not idea → plan).
+- **Read-only, same as `/analyze`.** This never edits `decisions.md`/`open-questions.md`/`plans.md` — it's a lint pass over docs, surfaced where the existing lint/format/test pills already live, not a new write path.
+
+---
+
+### IDEA-13: Project settings — port & env vars
+
+Replaces the "editable raw contents" ambition [[IDEA-2]] originally had for `biome.json`/`tsconfig.json`/etc. Those are real editor/LSP-backed files — a write path over them adds nothing. What's actually worth editing through this dashboard is the small set of operational knobs that are genuinely common across most repos, not specific to this stack: which port the dev server binds to, and which env vars are set.
+
+This repo's own state makes the gap concrete. The port `3333` is hardcoded in three separate places with nothing tying them together: `package.json`'s `dev` script (`--port 3333`), `vite.app.config.ts`'s `server.port`, and the default on `src/cli/index.ts:41`'s `-p, --port` CLI flag for the published `paper-camp dev` command. None of them are visible in the dashboard, and there's no single place that's the source of truth. Env vars are the opposite problem: this repo has no `.env` file at all today, despite that being the single most universal mechanism across JS projects for exactly this kind of config — the feature needs to ship generic, not against a file that happens to exist here.
+
+**Port:**
+
+- New optional `port?: number` field on `PaperCampConfig` (`src/types/index.ts:85-90`), alongside the existing `version`/`projectName`/`initializedAt`/`nextId`.
+- A number `Input` in the Settings "General" section, saved through a new `POST /api/config` — this endpoint doesn't exist yet (`GET /api/config` at `src/app/server/api.ts:100-105` is read-only); building it once also closes `IDEA-2`'s still-open "editable project name" item, since both are just different fields on the same `.paper-camp/config.json`.
+- **Honest framing, stated in the UI itself**: this sets the default for the *next* launch, not a live port switch on the server that's currently running — same as changing `--port` on a CLI invocation. Nothing about editing this field should imply the dashboard you're looking at right now will hop ports.
+- Stretch, not required for v1: wire `src/cli/index.ts:41`'s default to read this value (falling back to `3333` only if unset), so the config field is an actual source of truth instead of a number nothing downstream consumes.
+
+**Env vars:**
+
+- A new `GET`/`POST /api/env` pair, reading/writing the project root's `.env` file directly — not folded into `.paper-camp/config.json`, since `.env` is the format the rest of the ecosystem (including this repo's own Vite setup, if it ever needs one) already expects.
+- Parse into `{ key, value }[]`, rendered as a table. Values whose key matches `KEY`/`SECRET`/`TOKEN`/`PASSWORD` (best-effort substring match, not a security boundary) render masked by default with a click-to-reveal; everything else renders plain.
+- Add/edit/delete rows; write back as a normal `KEY=value` file, preserving comment lines and the ordering of every line not touched — a one-field edit shouldn't reformat the whole file.
+- **The actual highest-value piece**: if a `.env.example` exists, diff its keys against `.env` and flag any present in the example but missing from the real file. "Which env var did I forget to set after pulling" is the recurring problem this solves — editing a value that's already there without opening a text file is a much smaller win by comparison.
+- Auto-discovery, same rule the existing `GET /api/configs` list already follows (`api.ts:119-137`) — the section simply doesn't render when neither `.env` nor `.env.example` exists, same as a tool config that isn't present today.
+
+**Where it lives**: a new section in the Settings sidebar, separate from the existing read-only "Config Files" section — these are knobs paper-camp itself manages, not a viewer over someone else's tool config.
+
+**Decisions worth making explicit:**
+
+- **Write paths stay allowlisted and explicit, same principle as every other write path in this codebase** (the Commit section's explicit-files-only `git add`, the existing config-name allowlist) — `/api/env` and `/api/config` only ever touch their one fixed file each, never an arbitrary path from the request.
+- **Masking env values is a UX nicety, not a security control.** The dev server has no auth and is already assumed localhost-only everywhere else in this file; this doesn't change that boundary, it just avoids splashing a secret across the screen by default.
+- **Not a generalized "config editor."** This idea exists because port and env vars are the actual instances of "config most repos need to change" — it's deliberately not a reusable framework for editing arbitrary files, which is exactly the scope `IDEA-2`'s original write-path ambition overreached into.
+
+---
+
+### IDEA-14: Review findings become marked phases on the plan
+
+A `/code-review` pass against a plan's implementation surfaces real findings (bugs, cleanup, conventions violations) that today only exist as chat output — nothing persists them, and nothing lets you act on one with a click the way [[IDEA-4]]'s "Start agent" button already lets you act on a planned phase.
+
+The first design considered was a separate `bugs`/`updates` entity type, parallel to plans, linked back to the plan it was found against (the same shape `ideas.md` already uses for idea→plan links). Rejected as overbuilt: it means a new markdown file, its own parser/schema/serializer support, a new sidebar section, and a duplicate of the per-phase "Start agent" wiring [[IDEA-4]] already built and tested — all to express something that's structurally just "another unit of work on this plan."
+
+**Simpler shape: review findings become new, unchecked phases appended to the plan they were reviewed against.** This gets the existing per-phase machinery for free — the "Start agent" button, the running-phase spinner, the post-run "did it actually check off the box" verification — with zero new infrastructure. The only real gap: a review-found phase needs to read as *not originally planned* at a glance, so it doesn't look like scope the user wrote themselves.
+
+**Marking, roughly:**
+
+- `PhaseItem` gets an optional `source` field (e.g. `source?: 'review'`), parsed from a small inline tag on the phase's checkbox line in `plans.md` (e.g. `- [ ] [review] <finding summary>`) rather than a separate markdown section — keeps phases as one list, ordered however they were added, instead of two competing lists to reconcile.
+- In the Phases table (`plan-detail.tsx`), a review-found phase gets a small `Stamp`/badge next to its title (mirroring how tags already render) and a slightly different row background so it reads as distinct without a second table or section.
+- **Open implementation gap, not yet decided:** paper-ui's `Table` has no per-row styling hook today — only per-cell `cell` render functions. Giving a row its own background means either adding a small generic `rowClassName?: (row, index) => string` prop to paper-ui's `Table` (a real, if small, addition to the shared sibling repo, not just a paper-camp change) or finding a paper-camp-only way to fake it from inside a cell. Worth resolving deliberately when this gets built, not mid-flight.
+- The finding's `failure_scenario`/file:line detail from the review (already produced today by `/code-review`'s JSON output) becomes the phase's `description` — same field that already renders in the expandable row for ordinary phases.
+
+**Decisions worth making explicit:**
+
+- **One plan, one phase list — review findings are not a parallel track.** This avoids the "which list is authoritative" question a separate entity type would raise, at the cost of phases no longer being purely "things planned in advance."
+- **Marking is cosmetic/informational, not a different lifecycle.** A review-found phase still goes through the exact same checkbox/Status-honesty rules ([AGENTS.md](../AGENTS.md)'s "update the plan as you go") as any other phase — it just looks different.

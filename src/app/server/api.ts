@@ -1,6 +1,7 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
+import { applyEnvEntries, parseEnv } from '../../core/env';
 import { parseDecisions, parseOpenQuestions, parsePlans, parseProgress } from '../../core/parser';
 import {
   appendBlock,
@@ -10,13 +11,18 @@ import {
   todayDateString,
 } from '../../core/serializer';
 import {
+  AGENT_IDS,
+  type AgentId,
+  type EnvEntry,
   type LogEntry,
   PLAN_KINDS,
+  type PaperCampConfig,
   type PhaseItem,
   type PlanEntry,
   type PlanStatus,
 } from '../../types/index';
 import { createActivityManager } from './activity';
+import { type AgentManager, createAgentManager } from './agent';
 import { createGitManager } from './git';
 import { createStatusManager } from './status';
 
@@ -26,6 +32,15 @@ async function readMaybe(path: string): Promise<string> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
     throw error;
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -137,11 +152,17 @@ const apiRoutes: ApiRoute[] = [
   },
 ];
 
-export function createApiMiddleware(root: string) {
+export interface ApiMiddleware {
+  (req: IncomingMessage, res: ServerResponse, next: () => void): Promise<void>;
+  agent: AgentManager;
+}
+
+export function createApiMiddleware(root: string): ApiMiddleware {
   const activity = createActivityManager(root);
   const git = createGitManager(root);
   const status = createStatusManager(root);
-  return async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+  const agent = createAgentManager(root);
+  const handler = async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const pathname = (req.url ?? '').split('?')[0];
 
     // DELETE /api/plans?title=... — remove a plan entry
@@ -234,7 +255,14 @@ export function createApiMiddleware(root: string) {
           phases?: PhaseItem[];
           status?: PlanStatus;
           log?: LogEntry[];
+          agent?: AgentId | null;
         };
+        if (updates.agent && !AGENT_IDS.includes(updates.agent)) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'agent must be a known agent id' }));
+          return;
+        }
         const filePath = campFile(root, 'plans.md');
         const parsed = parsePlans(await readMaybe(filePath));
         const trimmed = title.trim();
@@ -247,6 +275,7 @@ export function createApiMiddleware(root: string) {
               ...(updates.status !== undefined && { status: updates.status }),
               ...(updates.phases !== undefined && { phases: updates.phases }),
               ...(updates.log !== undefined && { log: updates.log }),
+              ...(updates.agent !== undefined && { agent: updates.agent ?? undefined }),
               updated: todayDateString(),
             };
           }
@@ -410,6 +439,217 @@ export function createApiMiddleware(root: string) {
       activity.subscribe(res);
       git.subscribe(res);
       status.subscribe(res);
+      agent.subscribe(res);
+      return;
+    }
+
+    // GET /api/agent/status — current agent task state, if any
+    if (req.method === 'GET' && pathname === '/api/agent/status') {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(agent.getStatus()));
+      return;
+    }
+
+    // POST /api/agent/launch — start a headless agent on one plan phase
+    if (req.method === 'POST' && pathname === '/api/agent/launch') {
+      try {
+        const body = await readBody(req);
+        const { planId, phaseIndex } = JSON.parse(body) as { planId?: string; phaseIndex?: number };
+        if (!planId || typeof phaseIndex !== 'number') {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'planId and phaseIndex are required' }));
+          return;
+        }
+        const parsed = parsePlans(await readMaybe(campFile(root, 'plans.md')));
+        const plan = parsed.entries.find((p) => p.id === planId);
+        if (!plan) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'plan not found' }));
+          return;
+        }
+        const result = await agent.start(plan, phaseIndex);
+        if (!result.ok) {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: result.error }));
+          return;
+        }
+        res.statusCode = 202;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/agent/resume — send a steering message to the running agent task
+    if (req.method === 'POST' && pathname === '/api/agent/resume') {
+      try {
+        const body = await readBody(req);
+        const { message } = JSON.parse(body) as { message?: string };
+        if (!message?.trim()) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'message is required' }));
+          return;
+        }
+        const result = agent.resume(message.trim());
+        if (!result.ok) {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: result.error }));
+          return;
+        }
+        res.statusCode = 202;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/agent/stop — kill the running agent task
+    if (req.method === 'POST' && pathname === '/api/agent/stop') {
+      const result = agent.stop();
+      if (!result.ok) {
+        res.statusCode = 409;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: result.error }));
+        return;
+      }
+      res.statusCode = 202;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // POST /api/config — update editable fields in .paper-camp/config.json (port, projectName)
+    if (req.method === 'POST' && pathname === '/api/config') {
+      try {
+        const configPath = join(root, '.paper-camp', 'config.json');
+        const raw = await readMaybe(configPath);
+        if (!raw) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'config not found' }));
+          return;
+        }
+        const body = await readBody(req);
+        const { port, projectName, defaultAgent } = JSON.parse(body) as {
+          port?: number;
+          projectName?: string;
+          defaultAgent?: AgentId;
+        };
+        if (port !== undefined && (!Number.isInteger(port) || port <= 0)) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'port must be a positive integer' }));
+          return;
+        }
+        if (projectName !== undefined && projectName.trim().length === 0) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'projectName must not be empty' }));
+          return;
+        }
+        if (defaultAgent !== undefined && !AGENT_IDS.includes(defaultAgent)) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'defaultAgent must be a known agent id' }));
+          return;
+        }
+        const config = JSON.parse(raw) as PaperCampConfig;
+        const updated: PaperCampConfig = {
+          ...config,
+          ...(port !== undefined && { port }),
+          ...(projectName !== undefined && { projectName: projectName.trim() }),
+          ...(defaultAgent !== undefined && { defaultAgent }),
+        };
+        await writeFile(configPath, JSON.stringify(updated, null, 2));
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // GET /api/env — read the project root's .env, masked client-side only
+    if (req.method === 'GET' && pathname === '/api/env') {
+      try {
+        const envPath = join(root, '.env');
+        const examplePath = join(root, '.env.example');
+        const [exists, exampleExists] = await Promise.all([
+          fileExists(envPath),
+          fileExists(examplePath),
+        ]);
+        const entries = exists ? parseEnv(await readMaybe(envPath)) : [];
+        const exampleKeys = exampleExists
+          ? parseEnv(await readMaybe(examplePath)).map((e) => e.key)
+          : [];
+        const envKeys = new Set(entries.map((e) => e.key));
+        const missingKeys = exampleKeys.filter((key) => !envKeys.has(key));
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ exists, exampleExists, entries, missingKeys }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/env — write the full desired entry set back to .env
+    if (req.method === 'POST' && pathname === '/api/env') {
+      try {
+        const body = await readBody(req);
+        const { entries } = JSON.parse(body) as { entries?: EnvEntry[] };
+        if (!Array.isArray(entries)) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'entries is required' }));
+          return;
+        }
+        const keys = new Set<string>();
+        for (const entry of entries) {
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.key)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: `invalid key: ${entry.key}` }));
+            return;
+          }
+          if (keys.has(entry.key)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: `duplicate key: ${entry.key}` }));
+            return;
+          }
+          keys.add(entry.key);
+        }
+        const envPath = join(root, '.env');
+        const current = await readMaybe(envPath);
+        await writeFile(envPath, applyEnvEntries(current, entries));
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
       return;
     }
 
@@ -463,4 +703,7 @@ export function createApiMiddleware(root: string) {
       res.end(JSON.stringify({ error: (error as Error).message }));
     }
   };
+
+  (handler as ApiMiddleware).agent = agent;
+  return handler as ApiMiddleware;
 }

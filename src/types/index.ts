@@ -9,6 +9,14 @@ export type PlanKind = 'feat' | 'fix' | 'chore' | 'docs' | 'refactor';
 
 export const PLAN_KINDS: PlanKind[] = ['feat', 'fix', 'chore', 'docs', 'refactor'];
 
+export const AGENT_IDS = ['claude-code'] as const;
+
+export type AgentId = (typeof AGENT_IDS)[number];
+
+export const AGENT_LABELS: Record<AgentId, string> = {
+  'claude-code': 'Claude Code',
+};
+
 export type DecisionStatus = 'decided' | 'superseded';
 
 export type QuestionStatus = 'open' | 'resolved';
@@ -44,6 +52,7 @@ export interface PlanEntry {
   kind?: PlanKind;
   id?: string;
   idea?: string;
+  agent?: AgentId;
   created: string;
   updated?: string;
   tags: string[];
@@ -82,11 +91,18 @@ export interface ProgressEntry {
   items: string[];
 }
 
+export interface EnvEntry {
+  key: string;
+  value: string;
+}
+
 export interface PaperCampConfig {
   version: string;
   projectName: string;
   initializedAt: string;
   nextId?: Record<PlanKind, number>;
+  port?: number;
+  defaultAgent?: AgentId;
 }
 
 export type CheckStatus = 'stale' | 'running' | 'pass' | 'fail';
@@ -103,4 +119,16 @@ export interface GitStatusEntry {
   path: string;
   status: string;
   staged: boolean;
+}
+
+export type AgentTaskStatus = 'starting' | 'running' | 'stopping' | 'done' | 'error';
+
+export interface AgentTaskState {
+  status: AgentTaskStatus;
+  planTitle: string;
+  planId?: string;
+  phaseIndex: number;
+  agentId: AgentId;
+  sessionId?: string;
+  lines: string[];
 }

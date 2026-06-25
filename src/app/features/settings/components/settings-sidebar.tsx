@@ -1,7 +1,8 @@
 import { fetchConfigs } from '@/app/services/configs-api';
+import { fetchEnv } from '@/app/services/env-api';
 import { useAppStore } from '@/app/stores/app-store';
 import { ListItem } from '@dendelion/paper-ui';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SidebarSection } from '../../plans/components/sidebar-section';
 
 export const SettingsSidebar = () => {
@@ -9,9 +10,11 @@ export const SettingsSidebar = () => {
   const setActiveSection = useAppStore((s) => s.setActiveSettingsSection);
   const configFiles = useAppStore((s) => s.settingsConfigFiles);
   const setConfigFiles = useAppStore((s) => s.setSettingsConfigFiles);
+  const [showEnv, setShowEnv] = useState(false);
 
   useEffect(() => {
     fetchConfigs().then(setConfigFiles);
+    fetchEnv().then((env) => setShowEnv(env.exists || env.exampleExists));
   }, [setConfigFiles]);
 
   return (
@@ -25,6 +28,18 @@ export const SettingsSidebar = () => {
           Project Info
         </ListItem>
       </SidebarSection>
+
+      {showEnv && (
+        <SidebarSection label="Environment">
+          <ListItem
+            size="small"
+            active={activeSection === 'env'}
+            onClick={() => setActiveSection('env')}
+          >
+            Env Vars
+          </ListItem>
+        </SidebarSection>
+      )}
 
       {configFiles.length > 0 && (
         <SidebarSection label="Config Files">

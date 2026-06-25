@@ -43,6 +43,7 @@ interface NewPlanInput {
   kind?: string;
   id?: string;
   idea?: string;
+  agent?: string;
   created: string;
   updated?: string;
   tags?: string[];
@@ -56,6 +57,7 @@ export function formatPlanEntry(input: NewPlanInput): string {
   if (input.kind) lines.push(`**Kind:** ${input.kind}`);
   if (input.id) lines.push(`**Id:** ${input.id}`);
   if (input.idea) lines.push(`**Idea:** ${input.idea}`);
+  if (input.agent) lines.push(`**Agent:** ${input.agent}`);
   lines.push(`**Created:** ${input.created}`);
   if (input.updated) lines.push(`**Updated:** ${input.updated}`);
   if (input.tags && input.tags.length > 0) lines.push(`**Tags:** ${input.tags.join(', ')}`);

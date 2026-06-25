@@ -1,5 +1,11 @@
 import { color, fontFamily, fontSize, layout, lineHeight, space } from '@/app/styles/tokens';
 import {
+  AGENT_LABELS,
+  type AgentTaskStatus,
+  type CheckName,
+  type CheckStatus,
+} from '@/types/index';
+import {
   Accordion,
   Alert,
   Button,
@@ -10,12 +16,11 @@ import {
   Stamp,
   Textarea,
 } from '@dendelion/paper-ui';
-import type { CheckName, CheckStatus, GitStatusEntry } from '@/types/index';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findFocusPlan } from '../features/plans/helpers';
-import { useAppStore } from '../stores/app-store';
 import { commitChanges } from '../services/git-api';
+import { useAppStore } from '../stores/app-store';
 
 const CHALKBOARD_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.28 0 0 0 0 0.20 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='1'/%3E%3C/svg%3E")`;
 
@@ -53,6 +58,12 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const runTests = useAppStore((s) => s.runTests);
   const loadGitStatus = useAppStore((s) => s.loadGitStatus);
   const gitStatus = useAppStore((s) => s.gitStatus);
+  const agentStatus = useAppStore((s) => s.agentStatus);
+  const loadAgentStatus = useAppStore((s) => s.loadAgentStatus);
+  const stopAgentTask = useAppStore((s) => s.stopAgent);
+  const resumeAgentTask = useAppStore((s) => s.resumeAgent);
+  const [steeringMessage, setSteeringMessage] = useState('');
+  const [steering, setSteering] = useState(false);
   const [liveEvents, setLiveEvents] = useState<SseEvent[]>([]);
   const [expandedFail, setExpandedFail] = useState<CheckName | null>(null);
   const [commitExpanded, setCommitExpanded] = useState(false);
@@ -63,13 +74,20 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const [commitError, setCommitError] = useState<string | null>(null);
   const [addRefs, setAddRefs] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const refreshRef = useRef({ loadProgress, loadPlans, loadStatus, loadGitStatus });
-  refreshRef.current = { loadProgress, loadPlans, loadStatus, loadGitStatus };
+  const refreshRef = useRef({
+    loadProgress,
+    loadPlans,
+    loadStatus,
+    loadGitStatus,
+    loadAgentStatus,
+  });
+  refreshRef.current = { loadProgress, loadPlans, loadStatus, loadGitStatus, loadAgentStatus };
 
   useEffect(() => {
     refreshRef.current.loadProgress();
     refreshRef.current.loadStatus();
     refreshRef.current.loadGitStatus();
+    refreshRef.current.loadAgentStatus();
   }, []);
 
   useEffect(() => {
@@ -85,6 +103,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
         refreshRef.current.loadPlans();
         refreshRef.current.loadStatus();
         refreshRef.current.loadGitStatus();
+        refreshRef.current.loadAgentStatus();
       } catch {
         // ignore malformed events
       }
@@ -137,9 +156,8 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
     setCommitting(true);
     setCommitError(null);
     try {
-      const msg = addRefs && activePlan?.id
-        ? `${commitMessage}\n\nRefs: ${activePlan.id}`
-        : commitMessage;
+      const msg =
+        addRefs && activePlan?.id ? `${commitMessage}\n\nRefs: ${activePlan.id}` : commitMessage;
       await commitChanges([...selectedFiles], commitTitle.trim(), msg.trim() || undefined);
       setCommitTitle(suggestedTitle);
       setCommitMessage('');
@@ -151,6 +169,17 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
       setCommitting(false);
     }
   }, [commitTitle, commitMessage, selectedFiles, addRefs, activePlan, suggestedTitle]);
+
+  const handleSendSteering = useCallback(async () => {
+    if (!steeringMessage.trim()) return;
+    setSteering(true);
+    try {
+      await resumeAgentTask(steeringMessage.trim());
+      setSteeringMessage('');
+    } finally {
+      setSteering(false);
+    }
+  }, [steeringMessage, resumeAgentTask]);
 
   return (
     <>
@@ -306,10 +335,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                     </button>
                     {isExpanded && result && (
                       <div style={{ marginTop: space[2] }}>
-                        <CodeBlock
-                          code={result.output || '(no output)'}
-                          variant="chalkboard"
-                        />
+                        <CodeBlock code={result.output || '(no output)'} variant="chalkboard" />
                       </div>
                     )}
                   </div>
@@ -446,9 +472,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                     variant="chalkboard"
                     size="small"
                     fullWidth
-                    disabled={
-                      selectedFiles.size === 0 || !commitTitle.trim() || committing
-                    }
+                    disabled={selectedFiles.size === 0 || !commitTitle.trim() || committing}
                     onClick={handleCommit}
                   >
                     {committing ? 'Committing…' : 'Commit'}
@@ -456,9 +480,120 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                 </div>
               </>
             ) : (
-              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>
-                No changed files.
-              </p>
+              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No changed files.</p>
+            )}
+          </div>
+
+          <div style={{ marginBottom: space[8] }}>
+            <div style={sectionLabelStyle}>Agent</div>
+            {agentStatus ? (
+              <Card variant="chalkboard" size="small">
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: space[2],
+                    marginBottom: space[2],
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: fontFamily.serif,
+                      fontWeight: 600,
+                      fontSize: fontSize.sm,
+                      color: deskChalk,
+                    }}
+                  >
+                    {agentStatus.planTitle} — phase {agentStatus.phaseIndex + 1} ·{' '}
+                    {AGENT_LABELS[agentStatus.agentId]}
+                  </span>
+                  {(() => {
+                    const statusFill: Record<AgentTaskStatus, string> = {
+                      starting: '#5a4a2d',
+                      running: '#5a4a2d',
+                      stopping: '#5a4a2d',
+                      done: '#2d5a3b',
+                      error: '#5a2d2d',
+                    };
+                    const statusText: Record<AgentTaskStatus, string> = {
+                      starting: '#d6c4a0',
+                      running: '#d6c4a0',
+                      stopping: '#d6c4a0',
+                      done: '#b5d6b5',
+                      error: '#d6a0a0',
+                    };
+                    return (
+                      <Stamp
+                        variant="chalkboard"
+                        size="small"
+                        fillColor={statusFill[agentStatus.status]}
+                        textColor={statusText[agentStatus.status]}
+                      >
+                        {agentStatus.status}
+                      </Stamp>
+                    );
+                  })()}
+                </div>
+                {agentStatus.lines.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: space[1],
+                      fontFamily: fontFamily.mono,
+                      fontSize: fontSize['2xs'],
+                      color: deskTextMuted,
+                      marginBottom: space[3],
+                      maxHeight: 120,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {agentStatus.lines.slice(-5).map((line, i) => (
+                      <span key={`${i}-${line}`} style={{ whiteSpace: 'pre-wrap' }}>
+                        {line}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {(agentStatus.status === 'running' ||
+                  agentStatus.status === 'starting' ||
+                  agentStatus.status === 'stopping') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                    {agentStatus.status === 'running' && (
+                      <div style={{ display: 'flex', gap: space[2] }}>
+                        <Input
+                          variant="chalkboard"
+                          size="small"
+                          placeholder="Steer the agent…"
+                          value={steeringMessage}
+                          onChange={(e) => setSteeringMessage(e.currentTarget.value)}
+                        />
+                        <Button
+                          variant="primary"
+                          size="small"
+                          className="btn-violet"
+                          onClick={handleSendSteering}
+                          disabled={steering || !steeringMessage.trim()}
+                        >
+                          Send
+                        </Button>
+                      </div>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="small"
+                      className="btn-orange"
+                      onClick={stopAgentTask}
+                      disabled={agentStatus.status === 'stopping'}
+                    >
+                      Stop
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ) : (
+              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No agent running.</p>
             )}
           </div>
 

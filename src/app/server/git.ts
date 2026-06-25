@@ -6,7 +6,6 @@ import type { GitStatusEntry } from '../../types';
 
 export function createGitManager(root: string) {
   const clients = new Set<ServerResponse>();
-  let cached: GitStatusEntry[] | null = null;
 
   function broadcast(event: { message: string; timestamp: string }) {
     const data = `data: ${JSON.stringify(event)}\n\n`;
@@ -76,7 +75,7 @@ export function createGitManager(root: string) {
 
   async function refresh() {
     try {
-      cached = await runGitStatus();
+      await runGitStatus();
       broadcast({
         message: 'Working tree status updated',
         timestamp: new Date().toISOString(),
@@ -99,12 +98,20 @@ export function createGitManager(root: string) {
     // watcher not available
   }
 
+  const srcDir = join(root, 'src');
+  let srcTimer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    watch(srcDir, { recursive: true }, () => {
+      if (srcTimer) clearTimeout(srcTimer);
+      srcTimer = setTimeout(refresh, 500);
+    });
+  } catch {
+    // src/ doesn't exist or watcher not available
+  }
+
   return {
     async getStatus(): Promise<GitStatusEntry[]> {
-      if (!cached) {
-        cached = await runGitStatus();
-      }
-      return cached;
+      return runGitStatus();
     },
     commit,
     subscribe(res: ServerResponse) {

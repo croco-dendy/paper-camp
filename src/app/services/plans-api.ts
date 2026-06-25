@@ -1,4 +1,11 @@
-import type { LogEntry, ParseResult, PhaseItem, PlanEntry, PlanStatus } from '@/types/index';
+import type {
+  AgentId,
+  LogEntry,
+  ParseResult,
+  PhaseItem,
+  PlanEntry,
+  PlanStatus,
+} from '@/types/index';
 
 export const fetchPlans = async (): Promise<ParseResult<PlanEntry>> => {
   const response = await fetch('/api/plans');
@@ -23,7 +30,12 @@ export const deletePlan = async (title: string): Promise<void> => {
 
 export const updatePlan = async (
   title: string,
-  updates: { phases?: PhaseItem[]; status?: PlanStatus; log?: LogEntry[] },
+  updates: {
+    phases?: PhaseItem[];
+    status?: PlanStatus;
+    log?: LogEntry[];
+    agent?: AgentId | null;
+  },
 ): Promise<void> => {
   await fetch(`/api/plans?title=${encodeURIComponent(title)}`, {
     method: 'PATCH',

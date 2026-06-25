@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AGENT_IDS } from '../types/index';
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected a YYYY-MM-DD date');
 
@@ -7,6 +8,7 @@ export const planFieldsSchema = z.object({
   kind: z.enum(['feat', 'fix', 'chore', 'docs', 'refactor']).optional(),
   id: z.string().optional(),
   idea: z.string().optional(),
+  agent: z.enum(AGENT_IDS).optional(),
   created: dateString,
   updated: dateString.optional(),
   tags: z.string().optional(),
@@ -37,6 +39,7 @@ export const paperCampConfigSchema = z.object({
       refactor: z.number(),
     })
     .optional(),
+  defaultAgent: z.enum(AGENT_IDS).optional(),
 });
 
 export type PlanFields = z.infer<typeof planFieldsSchema>;

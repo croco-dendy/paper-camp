@@ -391,37 +391,46 @@ rationale.
 - [x] Order ideas by file position
       Order ideas within each column by their position in `ideas.md` (priority = file order); read-only for v1, no reorder controls yet
 
-## Editable configs write path
+## Project settings and config views
 
-**Status:** planned
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-9
-**Idea:** IDEA-2
+**Idea:** IDEA-13
 **Created:** 2026-06-21
+**Updated:** 2026-06-25
 **Tags:** app, settings
 
-The remaining half of the Settings/configs idea: FEAT-5 shipped sidebar layout and
-read-only viewing only. This plan adds the actual write path — editable raw contents,
-JSON validation before save, an allowlisted save endpoint, and an editable project name
-— closing out IDEA-2.
+Revised scope (was "Editable configs write path"): a `Textarea`-and-Save write path
+over `biome.json`/`tsconfig.json`/etc. solves a problem nobody has — they're real
+editor/LSP-backed files. This plan instead (1) renders `package.json`'s `scripts` as a
+table instead of raw text, leaving every other config read-only exactly as FEAT-5 shipped
+it, and (2) adds the actual editable surface: a `port` field and an env-var table, the
+operational settings common to most repos, per IDEA-13.
 
 ### Phases
-- [ ] Add Textarea editor and Save button
-      `ConfigEditorSection` becomes editable: load the file's text into a `Textarea`, enable a Save button once the content is dirty
-- [ ] Add POST /api/configs write endpoint
-      Accepts `{ name, content }`; validated against the same allowlist the existing `GET /api/configs?name=...` already uses, never an arbitrary path
-- [ ] Validate JSON before writing
-      For JSON-shaped files (`biome.json`, `tsconfig.json`, `package.json`), parse and reject invalid JSON before it touches disk, surfaced as an inline `Alert`
-- [ ] Make project name editable
-      The "General" card's project name becomes an editable `Input`, writing back to `.paper-camp/config.json`
+- [x] Render package.json scripts as a table
+      `ConfigEditorSection` special-cases `package.json`: parse its `scripts` block into `name → command` rows instead of dumping the whole file through `CodeBlock`; every other allowlisted config stays exactly as today
+- [x] Add `port` to PaperCampConfig and POST /api/config
+      New optional `port?: number` field; a number `Input` in Settings "General", saved through a new `POST /api/config` (doesn't exist yet — `GET /api/config` is read-only). State in the UI that this sets the default for the next launch, not a live switch on the running server
+- [x] Make project name editable
+      The "General" card's project name becomes an editable `Input`, writing back through the same new `POST /api/config` as the port field
+- [x] Add GET/POST /api/env and env table
+      Reads/writes the project root's `.env`; table UI with masked values for `KEY`/`SECRET`/`TOKEN`/`PASSWORD`-like keys, add/edit/delete rows, preserving comments and ordering of untouched lines; section doesn't render when no `.env`/`.env.example` exists
+- [x] Diff against .env.example
+      Flag keys present in `.env.example` but missing from `.env` — the actual highest-value piece of the env-var work
+
+### Log
+- 2026-06-25: Reviewed and checked off phases 2–5 (built across several agent-launched sessions, not previously reflected here). `POST /api/config` saves `port`/`projectName`/`defaultAgent` onto `.paper-camp/config.json` with validation; Settings "General" gained matching `Input`/`Select` fields with save-confirmation. `src/core/env.ts` parses/serializes `.env` preserving comments and untouched line order; `GET`/`POST /api/env` and a new `EnvSection` (masked values for key/secret/token/password-like keys, add/edit/delete rows) only render in the sidebar when `.env` or `.env.example` exists — confirmed live via a temporary `.env.example` that `missingKeys` correctly reports unset keys with one-click add buttons. `tsc`/`biome` clean across all touched files. All phases done — Status set to `review` per `AGENTS.md`.
 
 ## Agent orchestration
 
-**Status:** planned
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-10
 **Idea:** IDEA-4
 **Created:** 2026-06-21
+**Updated:** 2026-06-25
 **Tags:** app, agent
 
 Launches a real agent session scoped to a plan/task from the dashboard, streams a
@@ -432,27 +441,32 @@ decisions (capability flags, one task at a time, localhost-only) that need to st
 explicit rather than discovered mid-build.
 
 ### Phases
-- [ ] Build per-agent adapter interface
+- [x] Build per-agent adapter interface
       `launch(prompt, options) -> stream of events`, `resume(sessionId, message) -> stream`, plus capability flags (e.g. `supportsResume`); ship a Claude Code adapter first
-- [ ] Add agent selection config
+- [x] Add agent selection config
       Default agent in `.paper-camp/config.json`; optional per-task override via a new `Agent` field on a `plans.md` entry
-- [ ] Add system-prompt checkpoint instruction
+- [x] Add system-prompt checkpoint instruction
       The launched agent is told to append to `progress.md` / check off `plans.md` phases as it works — no new log schema, the agent's own writes are the activity log
-- [ ] Stream live status to the Stack panel
+- [x] Stream live status to the Stack panel
       Collapse raw tool-use events into one-line human-readable status text, pushed over the existing SSE activity channel; shown only while running, never written to disk
-- [ ] Support mid-task steering
+- [x] Support mid-task steering
       For agents whose adapter supports resume, hold the running task's session id and route panel input as a new turn into that same session
-- [ ] Handle process lifecycle and completion
+- [x] Handle process lifecycle and completion
       The process keeps running independent of the browser tab; the panel returns to its idle/history state on exit, showing the fresh `progress.md` entries the session wrote
+
+### Log
+- 2026-06-25: Ran the prerequisite opencode verification IDEA-4 called for but that hadn't happened yet (see decisions.md "Verify opencode's CLI before assuming it generalizes from Claude Code"). Confirmed: opencode's `--format json` streams true NDJSON with `sessionID` on every event, and `-s/--session <id>` resume works as tested live. `supportsResume` can be `true` for the opencode adapter, not an unknown. Still open before "Build per-agent adapter interface" starts: whether the opencode adapter is subprocess-per-call (matching the Claude adapter's shape) or a long-lived `opencode serve` + `--attach` connection — a real architecture choice, not yet made.
+- 2026-06-25: Shipped the v1 slice (Claude Code adapter only, per the approved sub-plan). `src/app/server/agents/claude-code.ts` implements `buildArgs`/`parseLine`/`capabilities` against a live-confirmed `stream-json` shape (see decisions.md). `src/app/server/agent.ts` is a singleton task manager (one agent at a time, ring-buffered status lines, array-arg `spawn` — never `shell: true`, since prompts embed user-editable plan text). New routes: `POST /api/agent/launch|resume|stop`, `GET /api/agent/status`; agent events multiplexed onto the existing SSE channel with `type: 'agent'`. New Stack panel "Agent" section and a per-phase "Start agent" button in plan detail. Steering is v1-scoped: a steering message kills the current process and respawns with `-r <sessionId>`, not persistent bidirectional stdin. Verified live: a real launch spawns a real `claude` process, streams into the panel, Stop kills it cleanly, and `SIGTERM`-ing the dev server (the `dev-server.ts`/`vite.app.config.ts` shutdown hooks) kills an orphaned child too — confirmed via `ps` before/after each case. `tsc`/`biome` clean. Not done: "Add agent selection config" stays unchecked — no second adapter exists yet to choose between, so a selection mechanism would be speculative (the opencode adapter is still blocked on its own architecture decision, see entry above).
+- 2026-06-25: Found and fixed a real orchestration bug: Vite's dev server restarts its middleware in-process on every server-side file change (not just Ctrl-C), which was silently orphaning the singleton `agent` manager — `vite.app.config.ts` now persists the `ApiMiddleware` instance on `globalThis` so it survives those restarts. Also added a post-run check in `agent.ts` (`wasPhaseChecked`/`finishTask`) that re-reads `plans.md` after a clean finish and pushes a visible warning line if the agent's own claimed phase checkbox didn't actually get flipped, instead of trusting the agent's self-report. Added `--permission-mode auto` to the Claude Code adapter's args (Claude Code's own classifier-based approval, the same mechanism governing this orchestrating session) layered on top of the `.claude/settings.json` allowlist, after discovering headless runs without it get stuck in permission-denial loops on real Edit/Bash work. Reviewed and checked off "Add agent selection config" — `src/app/server/agents/index.ts` (new) adds a proper `AgentAdapter`/`resolveAgent` registry consumed by `agent.ts`, `AGENT_IDS`/`AGENT_LABELS`/`agent?: AgentId` landed across `types/index.ts`/`schemas.ts`/`serializer.ts`/`parser.ts`, a per-plan `Select` in `plan-detail.tsx`, and a project-wide default in Settings — all wired end-to-end, `tsc` clean. All phases done — Status set to `review` per `AGENTS.md`. While auditing this, found and killed several genuinely orphaned `claude` processes and duplicate `pnpm dev` instances left over from the restart bug, consolidated back to one dev server on port 3333.
 
 ## Repo health status
 
-**Status:** review
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-11
 **Idea:** IDEA-5
 **Created:** 2026-06-21
-**Updated:** 2026-06-21
+**Updated:** 2026-06-24
 **Tags:** app, stack
 
 A third Stack panel section, above "Active", showing whether the repo is actually green
@@ -475,14 +489,17 @@ health status" for the full rationale.
 - [x] Build Status section in Stack panel
       Three chalkboard `Stamp` pills (Lint/Format/Tests) above "Active"; a `fail` pill expands a chalkboard `CodeBlock` inline with the raw error output
 
+### Log
+- 2026-06-24: Verified live: stale→fail/running/pass transitions all work, failing pills expand a CodeBlock with raw biome output, auto lint/format fires on a src/ file change (and caught two real pre-existing issues in router.tsx and parser.ts), manual Run tests streams to pass. Approved and closed.
+
 ## Commit section
 
-**Status:** review
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-12
 **Idea:** IDEA-7
 **Created:** 2026-06-21
-**Updated:** 2026-06-21
+**Updated:** 2026-06-25
 **Tags:** app, stack, git
 
 A second top-of-panel Stack section, below "Status", showing the live working-tree diff
@@ -501,6 +518,10 @@ rationale.
       Title `Input` + message `Textarea` + Commit `Button`, disabled when zero files are checked or the title is empty; a `commit-msg` hook failure surfaces as an inline `Alert`
 - [x] Pre-fill from active plan
       If `findFocusPlan` resolves a single in-progress plan, pre-fill the title with its `Kind` as a conventional-commit prefix and offer a one-click `Refs: FEAT-N` footer
+
+### Log
+- 2026-06-24: Needs changes: GET /api/git/status caches the result and only invalidates on a watcher tied to .git/index changes, not the src/ file watcher FEAT-6/FEAT-11 already use. Editing or creating a file never refreshes it, so the Commit section can stay stale indefinitely — verified it kept showing a deleted test file as staged hours after removal. Form validation, pre-fill from active plan, and the commit/accordion UI are all correct otherwise. Fix: drop the cache and call runGitStatus() fresh on every GET, or hook into the existing src/ watcher instead of watching .git/index.
+- 2026-06-25: Re-reviewed the fix in `src/app/server/git.ts`: the cache is gone and `getStatus()` now calls `runGitStatus()` fresh on every GET, so the stale-status bug is fixed regardless of any watcher. Also added a `src/` watcher so the live SSE broadcast itself fires on file edits, not just `.git/index` changes (previously the push only fired on stage/commit). Two non-blocking nits for later: `refresh()` still calls `runGitStatus()` only to discard the result now that there's no cache to populate it into; and there are now two independent recursive `src/` watchers (here and in `status.ts`) with different debounce windows doing the same directory-tree watch — worth consolidating into one shared watcher per IDEA-5's original plan. Approved and closed.
 
 ## Review status
 

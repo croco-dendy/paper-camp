@@ -1,12 +1,30 @@
 import { PageTitle } from '@/app/components/page-title';
 import { useProjectIdentity } from '@/app/hooks';
-import { fetchConfig } from '@/app/services/config-api';
+import { fetchConfig, saveConfig } from '@/app/services/config-api';
 import { fetchConfigFile } from '@/app/services/configs-api';
+import { fetchEnv, saveEnv } from '@/app/services/env-api';
 import { uploadIcon } from '@/app/services/icon-api';
 import { useAppStore } from '@/app/stores/app-store';
-import { color, space } from '@/app/styles/tokens';
-import type { PaperCampConfig } from '@/types/index';
-import { Alert, Button, Card, CodeBlock, Stamp } from '@dendelion/paper-ui';
+import { color, fontFamily, space } from '@/app/styles/tokens';
+import {
+  AGENT_IDS,
+  AGENT_LABELS,
+  type AgentId,
+  type EnvEntry,
+  type PaperCampConfig,
+} from '@/types/index';
+import {
+  Alert,
+  Button,
+  Card,
+  CloseIcon,
+  CodeBlock,
+  IconButton,
+  Input,
+  Select,
+  Stamp,
+  Table,
+} from '@dendelion/paper-ui';
 import { useEffect, useRef, useState } from 'react';
 
 const GeneralSection = () => {
@@ -17,10 +35,57 @@ const GeneralSection = () => {
   const iconDataUri = uploadedIconDataUri ?? fetchedIconDataUri;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [portInput, setPortInput] = useState('');
+  const [portSaving, setPortSaving] = useState(false);
+  const [portSaved, setPortSaved] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [agentSaved, setAgentSaved] = useState(false);
 
   useEffect(() => {
-    fetchConfig().then(setConfig);
+    fetchConfig().then((c) => {
+      setConfig(c);
+      if (c?.port !== undefined) setPortInput(String(c.port));
+      if (c?.projectName !== undefined) setNameInput(c.projectName);
+    });
   }, []);
+
+  const handleSaveDefaultAgent = async (defaultAgent: string) => {
+    const ok = await saveConfig({ defaultAgent: defaultAgent as AgentId });
+    if (ok) {
+      setConfig((prev) => (prev ? { ...prev, defaultAgent: defaultAgent as AgentId } : prev));
+      setAgentSaved(true);
+      setTimeout(() => setAgentSaved(false), 2000);
+    }
+  };
+
+  const handleSavePort = async () => {
+    const port = Number(portInput);
+    if (!Number.isInteger(port) || port <= 0) return;
+    setPortSaving(true);
+    const ok = await saveConfig({ port });
+    setPortSaving(false);
+    if (ok) {
+      setConfig((prev) => (prev ? { ...prev, port } : prev));
+      setPortSaved(true);
+      setTimeout(() => setPortSaved(false), 2000);
+    }
+  };
+
+  const handleSaveName = async () => {
+    const projectName = nameInput.trim();
+    if (!projectName) return;
+    setNameSaving(true);
+    const ok = await saveConfig({ projectName });
+    setNameSaving(false);
+    if (ok) {
+      setConfig((prev) => (prev ? { ...prev, projectName } : prev));
+      setNameInput(projectName);
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 2000);
+    }
+  };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,8 +118,20 @@ const GeneralSection = () => {
       )}
       {config && (
         <Card accent accentColor="slate">
-          <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
-            <h2 style={{ margin: 0 }}>{config.projectName}</h2>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: space[3] }}>
+            <Input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              label="Project Name"
+            />
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleSaveName}
+              disabled={nameSaving || !nameInput.trim() || nameInput.trim() === config.projectName}
+            >
+              {nameSaving ? 'Saving…' : 'Save'}
+            </Button>
             <Stamp
               size="small"
               fillColor="rgba(143, 185, 150, 0.25)"
@@ -62,6 +139,11 @@ const GeneralSection = () => {
             >
               v{config.version}
             </Stamp>
+            {nameSaved && (
+              <span className="text-sm" style={{ opacity: 0.6 }}>
+                Saved
+              </span>
+            )}
           </div>
           <p>
             <strong>Initialized:</strong> {new Date(config.initializedAt).toLocaleString()}
@@ -116,8 +198,73 @@ const GeneralSection = () => {
           </div>
         </Card>
       </div>
+
+      {config && (
+        <div style={{ marginTop: space[8] }}>
+          <h3 style={{ marginBottom: space[3] }}>Dev Server Port</h3>
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: space[3] }}>
+              <Input
+                type="number"
+                value={portInput}
+                onChange={(e) => setPortInput(e.target.value)}
+                helperText="Sets the default port for the next time you run `paper-camp dev`. Does not affect the currently running server."
+              />
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={handleSavePort}
+                disabled={portSaving || !portInput}
+              >
+                {portSaving ? 'Saving…' : 'Save'}
+              </Button>
+              {portSaved && (
+                <span className="text-sm" style={{ opacity: 0.6 }}>
+                  Saved
+                </span>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {config && (
+        <div style={{ marginTop: space[8] }}>
+          <h3 style={{ marginBottom: space[3] }}>Default Agent</h3>
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: space[3] }}>
+              <Select
+                value={config.defaultAgent ?? AGENT_IDS[0]}
+                onChange={handleSaveDefaultAgent}
+                options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
+                helperText="Used to launch agent sessions on a plan's phases, unless a plan sets its own Agent override."
+              />
+              {agentSaved && (
+                <span className="text-sm" style={{ opacity: 0.6 }}>
+                  Saved
+                </span>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
+};
+
+interface ScriptRow {
+  name: string;
+  command: string;
+}
+
+const parsePackageScripts = (content: string): ScriptRow[] | null => {
+  try {
+    const parsed = JSON.parse(content) as { scripts?: Record<string, string> };
+    if (!parsed.scripts || typeof parsed.scripts !== 'object') return null;
+    return Object.entries(parsed.scripts).map(([name, command]) => ({ name, command }));
+  } catch {
+    return null;
+  }
 };
 
 const ConfigEditorSection = ({ fileName }: { fileName: string }) => {
@@ -141,6 +288,8 @@ const ConfigEditorSection = ({ fileName }: { fileName: string }) => {
     );
   }
 
+  const scripts = fileName === 'package.json' ? parsePackageScripts(content) : null;
+
   return (
     <div>
       <div
@@ -153,7 +302,198 @@ const ConfigEditorSection = ({ fileName }: { fileName: string }) => {
       >
         <h2 style={{ margin: 0 }}>{fileName}</h2>
       </div>
-      <CodeBlock code={content} filename={fileName} />
+      {scripts ? (
+        <Table
+          data={scripts}
+          columns={[
+            {
+              key: 'name',
+              header: 'Script',
+              cell: (row: ScriptRow) => (
+                <span style={{ fontFamily: fontFamily.mono }}>{row.name}</span>
+              ),
+              width: 4,
+            },
+            {
+              key: 'command',
+              header: 'Command',
+              cell: (row: ScriptRow) => (
+                <span style={{ fontFamily: fontFamily.mono }}>{row.command}</span>
+              ),
+            },
+          ]}
+        />
+      ) : (
+        <CodeBlock code={content} filename={fileName} />
+      )}
+    </div>
+  );
+};
+
+const isSecretKey = (key: string) => /key|secret|token|password/i.test(key);
+
+const EnvSection = () => {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<EnvEntry[]>([]);
+  const [missingKeys, setMissingKeys] = useState<string[]>([]);
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchEnv().then((env) => {
+      setRows(env.entries);
+      setMissingKeys(env.missingKeys);
+      setLoading(false);
+    });
+  }, []);
+
+  const updateRow = (index: number, patch: Partial<EnvEntry>) => {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+
+  const handleAddRow = () => setRows((prev) => [...prev, { key: '', value: '' }]);
+
+  const handleAddMissingKey = (key: string) => {
+    setRows((prev) => [...prev, { key, value: '' }]);
+    setMissingKeys((prev) => prev.filter((k) => k !== key));
+  };
+
+  const handleDeleteRow = (index: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      next.delete(index);
+      return next;
+    });
+  };
+
+  const toggleReveal = (index: number) =>
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+
+  const handleSave = async () => {
+    const trimmed = rows
+      .map((row) => ({ key: row.key.trim(), value: row.value }))
+      .filter((row) => row.key.length > 0);
+    const keys = new Set(trimmed.map((row) => row.key));
+    if (keys.size !== trimmed.length) {
+      setError('Duplicate keys are not allowed');
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    const ok = await saveEnv(trimmed);
+    setSaving(false);
+    if (ok) {
+      setRows(trimmed);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } else {
+      setError('Failed to save .env');
+    }
+  };
+
+  if (loading) return <p>Loading…</p>;
+
+  return (
+    <div>
+      <h2 style={{ margin: 0, marginBottom: space[4] }}>Environment Variables</h2>
+      {error && (
+        <Alert variant="warning" title="Could not save">
+          {error}
+        </Alert>
+      )}
+      {missingKeys.length > 0 && (
+        <Alert variant="warning" title="Missing from .env">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: space[2], alignItems: 'center' }}>
+            <span>Present in .env.example but not set:</span>
+            {missingKeys.map((key) => (
+              <Button
+                key={key}
+                variant="secondary"
+                size="small"
+                onClick={() => handleAddMissingKey(key)}
+              >
+                + {key}
+              </Button>
+            ))}
+          </div>
+        </Alert>
+      )}
+      <Table
+        data={rows}
+        columns={[
+          {
+            key: 'key',
+            header: 'Key',
+            cell: (row: EnvEntry, index: number) => (
+              <Input
+                value={row.key}
+                placeholder="KEY"
+                style={{ fontFamily: fontFamily.mono }}
+                onChange={(e) => updateRow(index, { key: e.target.value })}
+              />
+            ),
+            width: 6,
+          },
+          {
+            key: 'value',
+            header: 'Value',
+            cell: (row: EnvEntry, index: number) => {
+              const masked = isSecretKey(row.key) && !revealed.has(index);
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
+                  <Input
+                    type={masked ? 'password' : 'text'}
+                    value={row.value}
+                    placeholder="value"
+                    style={{ fontFamily: fontFamily.mono, flex: 1 }}
+                    onChange={(e) => updateRow(index, { value: e.target.value })}
+                  />
+                  {isSecretKey(row.key) && (
+                    <Button variant="ghost" size="small" onClick={() => toggleReveal(index)}>
+                      {masked ? 'Show' : 'Hide'}
+                    </Button>
+                  )}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'actions',
+            header: '',
+            width: 2,
+            cell: (_row: EnvEntry, index: number) => (
+              <IconButton
+                icon={<CloseIcon />}
+                variant="ghost"
+                size="small"
+                label="Remove variable"
+                onClick={() => handleDeleteRow(index)}
+              />
+            ),
+          },
+        ]}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: space[3], marginTop: space[4] }}>
+        <Button variant="secondary" size="small" onClick={handleAddRow}>
+          + Add variable
+        </Button>
+        <Button variant="primary" size="small" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+        {saved && (
+          <span className="text-sm" style={{ opacity: 0.6 }}>
+            Saved
+          </span>
+        )}
+      </div>
     </div>
   );
 };
@@ -165,6 +505,7 @@ export const SettingsPage = () => {
     <div>
       <PageTitle>Settings</PageTitle>
       {activeSection === 'general' && <GeneralSection />}
+      {activeSection === 'env' && <EnvSection />}
       {activeSection.startsWith('config:') && (
         <ConfigEditorSection fileName={activeSection.slice('config:'.length)} />
       )}

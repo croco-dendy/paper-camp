@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(src/**)",
+      "Write(src/**)",
+      "Edit(papercamp/**)",
+      "Write(papercamp/**)",
+      "Edit(*.json)",
+      "Write(*.json)",
+      "Edit(*.config.ts)",
+      "Write(*.config.ts)",
+      "Edit(*.config.js)",
+      "Write(*.config.js)",
+      "Bash(pnpm run check-types*)",
+      "Bash(npx biome check*)",
+      "Bash(git status*)",
+      "Bash(git diff*)"
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import { deriveIdeaStatuses, parseIdeas } from '@/core/parser';
 import type {
+  AgentTaskState,
   DecisionEntry,
   GitStatusEntry,
   IdeaEntry,
@@ -9,6 +10,7 @@ import type {
   ProgressEntry,
 } from '@/types/index';
 import { create } from 'zustand';
+import { fetchAgentStatus, launchAgent, resumeAgent, stopAgent } from '../services/agent-api';
 import {
   fetchDecisions,
   fetchOpenQuestions,
@@ -79,6 +81,12 @@ type AppStore = {
 
   gitStatus: GitStatusEntry[] | null;
   loadGitStatus: () => Promise<void>;
+
+  agentStatus: AgentTaskState | null;
+  loadAgentStatus: () => Promise<void>;
+  launchAgent: (planId: string, phaseIndex: number) => Promise<void>;
+  resumeAgent: (message: string) => Promise<void>;
+  stopAgent: () => Promise<void>;
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -218,5 +226,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch {
       // keep previous status
     }
+  },
+
+  agentStatus: null,
+  loadAgentStatus: async () => {
+    try {
+      const data = await fetchAgentStatus();
+      set({ agentStatus: data });
+    } catch {
+      // keep previous status
+    }
+  },
+  launchAgent: async (planId, phaseIndex) => {
+    await launchAgent(planId, phaseIndex);
+    await get().loadAgentStatus();
+  },
+  resumeAgent: async (message) => {
+    await resumeAgent(message);
+    await get().loadAgentStatus();
+  },
+  stopAgent: async () => {
+    await stopAgent();
+    await get().loadAgentStatus();
   },
 }));

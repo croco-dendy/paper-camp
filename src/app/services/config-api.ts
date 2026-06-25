@@ -1,4 +1,4 @@
-import type { PaperCampConfig } from '@/types/index';
+import type { AgentId, PaperCampConfig } from '@/types/index';
 
 export const fetchConfig = async (): Promise<PaperCampConfig | null> => {
   try {
@@ -6,5 +6,22 @@ export const fetchConfig = async (): Promise<PaperCampConfig | null> => {
     return response.json();
   } catch {
     return null;
+  }
+};
+
+export const saveConfig = async (updates: {
+  port?: number;
+  projectName?: string;
+  defaultAgent?: AgentId;
+}): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 };

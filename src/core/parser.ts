@@ -37,9 +37,7 @@ function extractSection<T>(
   }
 
   const entries = parseFn(lines, sectionStart + 1, sectionEnd);
-  const remaining = [...lines.slice(0, sectionStart), ...lines.slice(sectionEnd)]
-    .join('\n')
-    .trim();
+  const remaining = [...lines.slice(0, sectionStart), ...lines.slice(sectionEnd)].join('\n').trim();
   return { body: remaining, entries };
 }
 
@@ -161,6 +159,7 @@ export function parsePlans(markdown: string): ParseResult<PlanEntry> {
       kind: fields.kind,
       id: fields.id,
       idea: fields.idea,
+      agent: fields.agent,
       created: fields.created,
       updated: fields.updated,
       tags: fields.tags

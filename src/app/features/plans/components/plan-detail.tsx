@@ -1,11 +1,19 @@
 import { updatePlan } from '@/app/services/plans-api';
 import { useAppStore } from '@/app/stores/app-store';
 import { fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
-import type { LogEntry, PhaseItem, PlanEntry } from '@/types/index';
-import { Button, Checkbox, Stamp, Table, Textarea } from '@dendelion/paper-ui';
+import {
+  AGENT_IDS,
+  AGENT_LABELS,
+  type AgentId,
+  type LogEntry,
+  type PhaseItem,
+  type PlanEntry,
+} from '@/types/index';
+import { Button, Checkbox, Select, Stamp, Table, Textarea } from '@dendelion/paper-ui';
 import { useState } from 'react';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
+import { AgentStartButton } from './agent-start-button';
 import { PhaseCopyButton } from './phase-copy-button';
 import { PlanIdStamp } from './plan-id-stamp';
 import { ProgressBar } from './progress-bar';
@@ -16,6 +24,13 @@ interface PlanDetailProps {
 
 export const PlanDetail = ({ plan }: PlanDetailProps) => {
   const loadPlans = useAppStore((s) => s.loadPlans);
+  const agentStatus = useAppStore((s) => s.agentStatus);
+  const agentBusy =
+    agentStatus !== null && agentStatus.status !== 'done' && agentStatus.status !== 'error';
+  const agentPhaseIndex =
+    agentBusy && agentStatus !== null && agentStatus.planId === plan.id
+      ? agentStatus.phaseIndex
+      : null;
   const [updating, setUpdating] = useState(false);
   const [logInput, setLogInput] = useState('');
   const progress = phaseProgress(plan);
@@ -63,6 +78,13 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
   const handleNeedsChanges = async () => {
     setUpdating(true);
     await updatePlan(plan.title, { status: 'in-progress' });
+    await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleSetAgent = async (value: string) => {
+    setUpdating(true);
+    await updatePlan(plan.title, { agent: value ? (value as AgentId) : null });
     await loadPlans();
     setUpdating(false);
   };
@@ -144,6 +166,16 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
             {tag}
           </Stamp>
         ))}
+        <Select
+          size="small"
+          value={plan.agent ?? ''}
+          onChange={handleSetAgent}
+          disabled={updating}
+          options={[
+            { value: '', label: 'Project default agent' },
+            ...AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] })),
+          ]}
+        />
       </div>
 
       {plan.body && (
@@ -212,9 +244,26 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
               },
               {
                 key: 'actions',
-                header: 'Copy Prompt',
-                cell: (__phase: PhaseItem, index: number) => (
-                  <PhaseCopyButton planTitle={plan.title} phaseIndex={index} />
+                header: 'Actions',
+                cell: (phase: PhaseItem, index: number) => (
+                  <div style={{ display: 'flex', gap: space[2], alignItems: 'center' }}>
+                    <PhaseCopyButton planTitle={plan.title} phaseIndex={index} />
+                    {!phase.done && agentPhaseIndex === index ? (
+                      <span
+                        className="spinner"
+                        style={{ opacity: 0.6 }}
+                        title={`Agent ${agentStatus?.status}…`}
+                      />
+                    ) : (
+                      !phase.done && (
+                        <AgentStartButton
+                          planId={plan.id}
+                          phaseIndex={index}
+                          disabled={agentBusy}
+                        />
+                      )
+                    )}
+                  </div>
                 ),
                 width: 5,
               },
