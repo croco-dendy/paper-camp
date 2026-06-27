@@ -66,7 +66,8 @@ export function formatPlanEntry(input: NewPlanInput): string {
   if (input.phases && input.phases.length > 0) {
     lines.push('### Phases');
     for (const phase of input.phases) {
-      lines.push(`- [${phase.done ? 'x' : ' '}] ${phase.text}`);
+      const text = phase.source === 'review' ? `[review] ${phase.text}` : phase.text;
+      lines.push(`- [${phase.done ? 'x' : ' '}] ${text}`);
       if (phase.description) {
         for (const paragraphLine of phase.description.split('\n')) {
           lines.push(`      ${paragraphLine}`);
@@ -104,6 +105,7 @@ interface NewOpenQuestionInput {
   raised: string;
   status: string;
   resolvedBy?: string;
+  blocks?: string;
   body?: string;
 }
 
@@ -115,6 +117,7 @@ export function formatOpenQuestionEntry(input: NewOpenQuestionInput): string {
     `**Raised:** ${input.raised}`,
   ];
   if (input.resolvedBy) lines.push(`**Resolved-by:** ${input.resolvedBy}`);
+  if (input.blocks) lines.push(`**Blocks:** ${input.blocks}`);
   lines.push('');
   if (input.body) lines.push(input.body);
   return lines.join('\n').trimEnd();

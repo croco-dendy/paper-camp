@@ -1,4 +1,9 @@
-import type { DecisionEntry, OpenQuestionEntry, ProgressEntry } from '@/types/index';
+import type {
+  ConsistencyIssue,
+  DecisionEntry,
+  OpenQuestionEntry,
+  ProgressEntry,
+} from '@/types/index';
 
 export const fetchDecisions = async () => {
   const res = await fetch('/api/decisions');
@@ -24,4 +29,9 @@ export const fetchProgress = async () => {
 export const fetchRepoDocs = async () => {
   const res = await fetch('/api/docs');
   return res.json() as Promise<{ files: { name: string; content: string }[] }>;
+};
+
+export const fetchConsistency = async () => {
+  const res = await fetch('/api/consistency');
+  return res.json() as Promise<ConsistencyIssue[]>;
 };

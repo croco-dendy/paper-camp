@@ -157,6 +157,10 @@ export function createAgentManager(root: string) {
     });
   }
 
+  function isBusy(): boolean {
+    return current !== null && current.status !== 'done' && current.status !== 'error';
+  }
+
   // Shared by start()/startForPlan(): synchronous on purpose, same race-avoidance
   // reasoning as the busy-guard above — no `await` between the guard check and
   // reserving `current`.
@@ -165,7 +169,7 @@ export function createAgentManager(root: string) {
     prompt: string,
     scope: Pick<AgentTask, 'phaseIndex' | 'planBaseline'>,
   ): Result {
-    if (current && current.status !== 'done' && current.status !== 'error') {
+    if (isBusy()) {
       return { ok: false, error: 'An agent task is already running' };
     }
     const { id: agentId, adapter } = resolveAgent(plan.agent ?? readDefaultAgentId(root));
@@ -187,6 +191,9 @@ export function createAgentManager(root: string) {
   }
 
   function start(plan: PlanEntry, phaseIndex: number): Result {
+    if (isBusy()) {
+      return { ok: false, error: 'An agent task is already running' };
+    }
     const phase = plan.phases[phaseIndex];
     if (!phase) {
       return { ok: false, error: 'Phase not found' };

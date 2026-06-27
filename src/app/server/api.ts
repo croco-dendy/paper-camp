@@ -2,7 +2,13 @@ import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
 import { applyEnvEntries, parseEnv } from '../../core/env';
-import { parseDecisions, parseOpenQuestions, parsePlans, parseProgress } from '../../core/parser';
+import {
+  findConsistencyIssues,
+  parseDecisions,
+  parseOpenQuestions,
+  parsePlans,
+  parseProgress,
+} from '../../core/parser';
 import {
   appendBlock,
   assignPlanId,
@@ -110,6 +116,20 @@ const apiRoutes: ApiRoute[] = [
     handler: async (root) => ({
       content: await readMaybe(campFile(root, 'ideas.md')),
     }),
+  },
+  {
+    path: '/api/consistency',
+    handler: async (root) => {
+      const [decisionsRaw, openQuestionsRaw, plansRaw] = await Promise.all([
+        readMaybe(campFile(root, 'decisions.md')),
+        readMaybe(campFile(root, 'open-questions.md')),
+        readMaybe(campFile(root, 'plans.md')),
+      ]);
+      const decisions = parseDecisions(decisionsRaw);
+      const openQuestions = parseOpenQuestions(openQuestionsRaw);
+      const plans = parsePlans(plansRaw);
+      return findConsistencyIssues(decisions.entries, openQuestions.entries, plans.entries);
+    },
   },
   {
     path: '/api/config',

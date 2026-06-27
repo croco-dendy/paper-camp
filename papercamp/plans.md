@@ -586,7 +586,7 @@ cleanup items, all introduced by the Review status work itself.
 
 ## Phase convergence audit
 
-**Status:** review
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-14
 **Idea:** IDEA-11
@@ -626,12 +626,12 @@ ideas.md's "Phase convergence audit" for full rationale.
 
 ## Plan/decision consistency check
 
-**Status:** planned
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-15
 **Idea:** IDEA-12
 **Created:** 2026-06-26
-**Updated:** 2026-06-26
+**Updated:** 2026-06-27
 **Tags:** app, stack, docs
 
 A read-only, derived findings pass over `decisions.md`/`open-questions.md`/`plans.md`:
@@ -641,28 +641,28 @@ already-parsed entries, same "derive, don't duplicate" approach `deriveIdeaStatu
 already uses. See ideas.md's "Plan/decision consistency check" for full rationale.
 
 ### Phases
-- [ ] Add `blocks?` field to OpenQuestionEntry
+- [x] Add `blocks?` field to OpenQuestionEntry
       Parsed/serialized the same way `PlanEntry`'s existing optional `idea` field already
       is — a plan `id` (e.g. `FEAT-2`) that this open question blocks
-- [ ] Add findConsistencyIssues() derived check
+- [x] Add findConsistencyIssues() derived check
       Pure function over already-parsed entries: dangling `resolvedBy`/`supersededBy`
       references that don't match any actual entry title, and open questions with
       `blocks` pointing at a plan whose `status` is `in-progress` or `review`
-- [ ] Add GET /api/consistency route
+- [x] Add GET /api/consistency route
       Returns the findings array as-is, same shape pattern as the other read routes
-- [ ] Add Consistency pill to Stack panel Status section
+- [x] Add Consistency pill to Stack panel Status section
       Fourth pill next to Lint/Format/Tests — `clean` or a count, same `Stamp` and
       click-to-expand pattern, expanding into a list of findings each linking through to
       the Docs page entry or the blocking plan
 
 ## Review-found phases
 
-**Status:** planned
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-16
 **Idea:** IDEA-14
 **Created:** 2026-06-26
-**Updated:** 2026-06-26
+**Updated:** 2026-06-27
 **Tags:** app, plans, agent
 
 Lets `/code-review` findings become new, unchecked phases appended to the plan they were
@@ -671,18 +671,18 @@ reviewed against, instead of disappearing as chat output — reusing the existin
 ideas.md's "Review-found phases" for full rationale.
 
 ### Phases
-- [ ] Add `source?: 'review'` to PhaseItem
+- [x] Add `source?: 'review'` to PhaseItem
       Parsed from a small inline tag on the phase's checkbox line (e.g.
       `- [ ] [review] <finding summary>`) rather than a separate markdown section, so
       phases stay one list ordered however they were added
-- [ ] Resolve the paper-ui Table row-styling gap
+- [x] Resolve the paper-ui Table row-styling gap
       paper-ui's `Table` has no per-row styling hook today, only per-cell `cell` render
       functions — decide between adding a `rowClassName?: (row, index) => string` prop to
       the sibling paper-ui repo, or a paper-camp-only way to fake it from inside a cell
-- [ ] Render review-found phase styling in plan-detail.tsx
+- [x] Render review-found phase styling in plan-detail.tsx
       A small `Stamp`/badge next to the phase title plus the row treatment chosen in the
       previous phase, so a review-found phase reads as distinct without a second table
-- [ ] Wire /code-review findings into an "Add as phases" action
+- [x] Wire /code-review findings into an "Add as phases" action
       Each finding's `failure_scenario`/file:line detail becomes the new phase's
       `description` — same field that already renders in the expandable row for ordinary
       phases

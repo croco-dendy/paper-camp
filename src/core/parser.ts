@@ -1,4 +1,5 @@
 import type {
+  ConsistencyIssue,
   DecisionEntry,
   IdeaEntry,
   IdeaStatus,
@@ -17,6 +18,7 @@ const PHASES_HEADING_RE = /^###\s+Phases\s*$/i;
 const LOG_HEADING_RE = /^###\s+Log\s*$/i;
 const SUB_HEADING_RE = /^#{2,3}\s+/;
 const CHECKBOX_RE = /^[-*]\s+\[([ xX])\]\s+(.*)$/;
+const PHASE_SOURCE_RE = /^\[review\]\s+(.*)$/;
 const LOG_ENTRY_RE = /^-\s+(\d{4}-\d{2}-\d{2}):\s*(.*)$/;
 
 function extractSection<T>(
@@ -47,8 +49,11 @@ function parsePhaseEntries(lines: string[], start: number, end: number): PhaseIt
   while (i < end) {
     const match = lines[i].match(CHECKBOX_RE);
     if (match) {
-      const text = match[2].trim();
       const done = match[1].toLowerCase() === 'x';
+      const rawText = match[2].trim();
+      const sourceMatch = rawText.match(PHASE_SOURCE_RE);
+      const text = sourceMatch ? sourceMatch[1].trim() : rawText;
+      const source = sourceMatch ? ('review' as const) : undefined;
       const descriptionLines: string[] = [];
       i++;
       while (i < end) {
@@ -66,6 +71,7 @@ function parsePhaseEntries(lines: string[], start: number, end: number): PhaseIt
         done,
         text,
         description: descriptionLines.length > 0 ? descriptionLines.join('\n') : undefined,
+        source,
       });
     } else {
       i++;
@@ -222,6 +228,7 @@ export function parseOpenQuestions(markdown: string): ParseResult<OpenQuestionEn
       status: fields.status,
       raised: fields.raised,
       resolvedBy: fields['resolved-by'],
+      blocks: fields.blocks,
       body: raw.body,
     });
   }
@@ -261,6 +268,57 @@ export function deriveIdeaStatuses(ideas: IdeaEntry[], plans: PlanEntry[]): Idea
     const allDone = linkedPlans.every((p) => p.status === 'done' || p.status === 'dropped');
     return { ...idea, status: allDone ? 'done' : 'planned' };
   });
+}
+
+/** Read-only cross-reference checks over already-parsed decisions/open-questions/plans —
+ * dangling `resolved-by`/`superseded-by` titles, and open questions blocking an
+ * already-active plan. */
+export function findConsistencyIssues(
+  decisions: DecisionEntry[],
+  openQuestions: OpenQuestionEntry[],
+  plans: PlanEntry[],
+): ConsistencyIssue[] {
+  const decisionTitles = new Set(decisions.map((d) => d.title));
+  const issues: ConsistencyIssue[] = [];
+
+  for (const decision of decisions) {
+    if (decision.supersededBy && !decisionTitles.has(decision.supersededBy)) {
+      issues.push({
+        kind: 'dangling-superseded-by',
+        section: 'decisions',
+        title: decision.title,
+        message: `Superseded-by "${decision.supersededBy}" doesn't match any decision`,
+      });
+    }
+  }
+
+  for (const question of openQuestions) {
+    if (question.resolvedBy && !decisionTitles.has(question.resolvedBy)) {
+      issues.push({
+        kind: 'dangling-resolved-by',
+        section: 'open-questions',
+        title: question.title,
+        message: `Resolved-by "${question.resolvedBy}" doesn't match any decision`,
+      });
+    }
+    if (question.status === 'open' && question.blocks) {
+      const blockedPlan = plans.find((p) => p.id === question.blocks);
+      if (
+        blockedPlan &&
+        (blockedPlan.status === 'in-progress' || blockedPlan.status === 'review')
+      ) {
+        issues.push({
+          kind: 'blocked-plan-active',
+          section: 'open-questions',
+          title: question.title,
+          planId: blockedPlan.id,
+          message: `Still open but blocks "${blockedPlan.title}" (${blockedPlan.id}), already ${blockedPlan.status}`,
+        });
+      }
+    }
+  }
+
+  return issues;
 }
 
 const PROGRESS_HEADING_RE = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/;

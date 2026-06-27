@@ -1,6 +1,7 @@
 import { deriveIdeaStatuses, parseIdeas } from '@/core/parser';
 import type {
   AgentTaskState,
+  ConsistencyIssue,
   DecisionEntry,
   GitStatusEntry,
   IdeaEntry,
@@ -18,6 +19,7 @@ import {
   stopAgent,
 } from '../services/agent-api';
 import {
+  fetchConsistency,
   fetchDecisions,
   fetchOpenQuestions,
   fetchProgress,
@@ -84,6 +86,9 @@ type AppStore = {
   status: StatusState | null;
   loadStatus: () => Promise<void>;
   runTests: () => Promise<void>;
+
+  consistency: ConsistencyIssue[];
+  loadConsistency: () => Promise<void>;
 
   gitStatus: GitStatusEntry[] | null;
   loadGitStatus: () => Promise<void>;
@@ -222,6 +227,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await triggerTests();
     } catch {
       // ignore
+    }
+  },
+
+  consistency: [],
+  loadConsistency: async () => {
+    try {
+      const data = await fetchConsistency();
+      set({ consistency: data });
+    } catch {
+      // keep previous status
     }
   },
 

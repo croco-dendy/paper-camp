@@ -13,6 +13,7 @@ import { Button, Checkbox, Select, Stamp, Table, Textarea } from '@dendelion/pap
 import { useState } from 'react';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
+import { AddReviewPhasesButton } from './add-review-phases-button';
 import { AgentStartButton } from './agent-start-button';
 import { AuditPhasesButton } from './audit-phases-button';
 import { PhaseCopyButton } from './phase-copy-button';
@@ -91,6 +92,13 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
   const handleSetAgent = async (value: string) => {
     setUpdating(true);
     await updatePlan(plan.title, { agent: value ? (value as AgentId) : null });
+    await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleAddReviewPhases = async (newPhases: PhaseItem[]) => {
+    setUpdating(true);
+    await updatePlan(plan.title, { phases: [...plan.phases, ...newPhases] });
     await loadPlans();
     setUpdating(false);
   };
@@ -233,6 +241,7 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
                 <span className="spinner" style={{ opacity: 0.6 }} title="Audit running…" />
               )}
               <AuditPhasesButton plan={plan} disabled={agentBusy} />
+              <AddReviewPhasesButton onAdd={handleAddReviewPhases} disabled={updating} />
             </div>
           </div>
           <Table
@@ -256,11 +265,19 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
                 cell: (phase: PhaseItem) => (
                   <span
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: space[2],
                       textDecoration: phase.done ? 'line-through' : 'none',
                       opacity: phase.done ? 0.45 : 1,
                     }}
                   >
                     {phase.text}
+                    {phase.source === 'review' && (
+                      <Stamp size="small" fillColor="rgba(155, 122, 181, 0.25)" textColor="#7B5E9E">
+                        review
+                      </Stamp>
+                    )}
                   </span>
                 ),
               },
@@ -294,6 +311,9 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
               render: (phase: PhaseItem) => phase.description ?? null,
             }}
             showExpandColumn={false}
+            rowClassName={(phase: PhaseItem) =>
+              phase.source === 'review' ? 'phase-row-review' : undefined
+            }
           />
         </div>
       )}

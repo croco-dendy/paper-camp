@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseDecisions, parseOpenQuestions, parsePlans, parseProgress } from './parser';
+import type { DecisionEntry, OpenQuestionEntry, PlanEntry } from '../types/index';
+import {
+  findConsistencyIssues,
+  parseDecisions,
+  parseOpenQuestions,
+  parsePlans,
+  parseProgress,
+} from './parser';
 
 describe('parsePlans', () => {
   it('parses a well-formed plan with phases', () => {
@@ -160,6 +167,26 @@ Body.
       { done: false, text: 'Build parser' },
     ]);
   });
+
+  it('parses the [review] inline tag as phase.source', () => {
+    const md = `## Short title
+
+**Status:** in-progress
+**Created:** 2026-06-18
+
+Body.
+
+### Phases
+- [x] Decide on storage format
+- [ ] [review] Fix off-by-one in pagination
+`;
+    const { entries, warnings } = parsePlans(md);
+    expect(warnings).toEqual([]);
+    expect(entries[0].phases).toEqual([
+      { done: true, text: 'Decide on storage format' },
+      { done: false, text: 'Fix off-by-one in pagination', source: 'review' },
+    ]);
+  });
 });
 
 describe('parseDecisions', () => {
@@ -219,6 +246,85 @@ Body.
 `;
     const { entries } = parseOpenQuestions(md);
     expect(entries[0].resolvedBy).toBe('Markdown, not a database');
+  });
+
+  it('captures blocks when set', () => {
+    const md = `## Should dev bundle a server?
+
+**Status:** open
+**Raised:** 2026-06-18
+**Blocks:** FEAT-2
+
+Needs a decision before the dashboard ships.
+`;
+    const { entries } = parseOpenQuestions(md);
+    expect(entries[0].blocks).toBe('FEAT-2');
+  });
+});
+
+describe('findConsistencyIssues', () => {
+  const decision = (overrides: Partial<DecisionEntry>): DecisionEntry => ({
+    title: 'Some decision',
+    date: '2026-06-01',
+    status: 'decided',
+    body: '',
+    ...overrides,
+  });
+  const question = (overrides: Partial<OpenQuestionEntry>): OpenQuestionEntry => ({
+    title: 'Some question',
+    status: 'open',
+    raised: '2026-06-01',
+    body: '',
+    ...overrides,
+  });
+  const plan = (overrides: Partial<PlanEntry>): PlanEntry => ({
+    title: 'Some plan',
+    status: 'planned',
+    created: '2026-06-01',
+    tags: [],
+    body: '',
+    phases: [],
+    ...overrides,
+  });
+
+  it('returns no issues when references all resolve', () => {
+    const decisions = [decision({ title: 'New approach' })];
+    const questions = [question({ title: 'Q1', status: 'resolved', resolvedBy: 'New approach' })];
+    expect(findConsistencyIssues(decisions, questions, [])).toEqual([]);
+  });
+
+  it('flags a dangling superseded-by', () => {
+    const decisions = [decision({ title: 'Old approach', supersededBy: 'Nonexistent' })];
+    expect(findConsistencyIssues(decisions, [], [])).toEqual([
+      expect.objectContaining({ kind: 'dangling-superseded-by', title: 'Old approach' }),
+    ]);
+  });
+
+  it('flags a dangling resolved-by', () => {
+    const questions = [question({ title: 'Q1', status: 'resolved', resolvedBy: 'Nonexistent' })];
+    expect(findConsistencyIssues([], questions, [])).toEqual([
+      expect.objectContaining({ kind: 'dangling-resolved-by', title: 'Q1' }),
+    ]);
+  });
+
+  it('flags an open question blocking an in-progress or review plan', () => {
+    const questions = [question({ title: 'Q1', blocks: 'FEAT-2' })];
+    const plans = [plan({ title: 'Plan A', id: 'FEAT-2', status: 'in-progress' })];
+    expect(findConsistencyIssues([], questions, plans)).toEqual([
+      expect.objectContaining({ kind: 'blocked-plan-active', title: 'Q1', planId: 'FEAT-2' }),
+    ]);
+  });
+
+  it('does not flag a blocked plan that is still planned', () => {
+    const questions = [question({ title: 'Q1', blocks: 'FEAT-2' })];
+    const plans = [plan({ title: 'Plan A', id: 'FEAT-2', status: 'planned' })];
+    expect(findConsistencyIssues([], questions, plans)).toEqual([]);
+  });
+
+  it('does not flag a blocking question that has already been resolved', () => {
+    const questions = [question({ title: 'Q1', status: 'resolved', blocks: 'FEAT-2' })];
+    const plans = [plan({ title: 'Plan A', id: 'FEAT-2', status: 'in-progress' })];
+    expect(findConsistencyIssues([], questions, plans)).toEqual([]);
   });
 });
 

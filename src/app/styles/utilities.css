@@ -49,6 +49,15 @@
   }
 }
 
+/*
+ * Review-found phases get a faint violet wash matching the "review" plan-status
+ * color elsewhere — table cells have no background of their own, so this paints
+ * through them per the CSS table background-painting order.
+ */
+.phase-row-review {
+  background-color: rgba(155, 122, 181, 0.08);
+}
+
 .spinner {
   display: inline-block;
   width: 14px;

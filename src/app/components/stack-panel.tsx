@@ -4,6 +4,7 @@ import {
   type AgentTaskStatus,
   type CheckName,
   type CheckStatus,
+  type ConsistencyIssue,
 } from '@/types/index';
 import {
   Accordion,
@@ -16,6 +17,7 @@ import {
   Stamp,
   Textarea,
 } from '@dendelion/paper-ui';
+import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findFocusPlan } from '../features/plans/helpers';
@@ -56,6 +58,11 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const statusData = useAppStore((s) => s.status);
   const loadStatus = useAppStore((s) => s.loadStatus);
   const runTests = useAppStore((s) => s.runTests);
+  const consistency = useAppStore((s) => s.consistency);
+  const loadConsistency = useAppStore((s) => s.loadConsistency);
+  const setActiveDocSection = useAppStore((s) => s.setActiveDocSection);
+  const setActiveDocTitle = useAppStore((s) => s.setActiveDocTitle);
+  const setActivePlanTitle = useAppStore((s) => s.setActivePlanTitle);
   const loadGitStatus = useAppStore((s) => s.loadGitStatus);
   const gitStatus = useAppStore((s) => s.gitStatus);
   const agentStatus = useAppStore((s) => s.agentStatus);
@@ -66,6 +73,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const [steering, setSteering] = useState(false);
   const [liveEvents, setLiveEvents] = useState<SseEvent[]>([]);
   const [expandedFail, setExpandedFail] = useState<CheckName | null>(null);
+  const [consistencyExpanded, setConsistencyExpanded] = useState(false);
   const [commitExpanded, setCommitExpanded] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [commitTitle, setCommitTitle] = useState('');
@@ -74,18 +82,28 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const [commitError, setCommitError] = useState<string | null>(null);
   const [addRefs, setAddRefs] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const navigate = useNavigate();
   const refreshRef = useRef({
     loadProgress,
     loadPlans,
     loadStatus,
+    loadConsistency,
     loadGitStatus,
     loadAgentStatus,
   });
-  refreshRef.current = { loadProgress, loadPlans, loadStatus, loadGitStatus, loadAgentStatus };
+  refreshRef.current = {
+    loadProgress,
+    loadPlans,
+    loadStatus,
+    loadConsistency,
+    loadGitStatus,
+    loadAgentStatus,
+  };
 
   useEffect(() => {
     refreshRef.current.loadProgress();
     refreshRef.current.loadStatus();
+    refreshRef.current.loadConsistency();
     refreshRef.current.loadGitStatus();
     refreshRef.current.loadAgentStatus();
   }, []);
@@ -102,6 +120,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
         refreshRef.current.loadProgress();
         refreshRef.current.loadPlans();
         refreshRef.current.loadStatus();
+        refreshRef.current.loadConsistency();
         refreshRef.current.loadGitStatus();
         refreshRef.current.loadAgentStatus();
       } catch {
@@ -180,6 +199,23 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
       setSteering(false);
     }
   }, [steeringMessage, resumeAgentTask]);
+
+  const handleFindingClick = useCallback(
+    (issue: ConsistencyIssue) => {
+      if (issue.kind === 'blocked-plan-active' && issue.planId) {
+        const blockedPlan = plans?.entries.find((p) => p.id === issue.planId);
+        if (blockedPlan) {
+          setActivePlanTitle(blockedPlan.title);
+          navigate({ to: '/' });
+          return;
+        }
+      }
+      setActiveDocSection(issue.section === 'open-questions' ? 'questions' : 'decisions');
+      setActiveDocTitle(issue.title);
+      navigate({ to: '/docs' });
+    },
+    [plans?.entries, navigate, setActivePlanTitle, setActiveDocSection, setActiveDocTitle],
+  );
 
   return (
     <>
@@ -341,6 +377,75 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                   </div>
                 );
               })}
+              {(() => {
+                const hasIssues = consistency.length > 0;
+                const fillColor = hasIssues ? '#5a2d2d' : '#2d5a3b';
+                const textColor = hasIssues ? '#d6a0a0' : '#b5d6b5';
+                return (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (hasIssues) setConsistencyExpanded((prev) => !prev);
+                      }}
+                      style={{
+                        cursor: hasIssues ? 'pointer' : 'default',
+                        display: 'inline-flex',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                      }}
+                    >
+                      <Stamp
+                        variant="chalkboard"
+                        size="small"
+                        fillColor={fillColor}
+                        textColor={textColor}
+                      >
+                        Consistency{hasIssues ? ` ${consistency.length}` : ' clean'}
+                      </Stamp>
+                    </button>
+                    {consistencyExpanded && hasIssues && (
+                      <div
+                        style={{
+                          marginTop: space[2],
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: space[2],
+                        }}
+                      >
+                        {consistency.map((issue, i) => (
+                          <div
+                            key={`${issue.kind}-${issue.title}-${i}`}
+                            style={{
+                              fontFamily: fontFamily.mono,
+                              fontSize: fontSize['2xs'],
+                              color: deskTextMuted,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleFindingClick(issue)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                color: deskChalk,
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                                font: 'inherit',
+                                textAlign: 'left',
+                              }}
+                            >
+                              {issue.message}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <button
               type="button"

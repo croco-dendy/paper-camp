@@ -24,6 +24,7 @@ export const openQuestionFieldsSchema = z.object({
   status: z.enum(['open', 'resolved']),
   raised: dateString,
   'resolved-by': z.string().optional(),
+  blocks: z.string().optional(),
 });
 
 export const paperCampConfigSchema = z.object({

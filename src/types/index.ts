@@ -25,6 +25,7 @@ export interface PhaseItem {
   done: boolean;
   text: string;
   description?: string;
+  source?: 'review';
 }
 
 /** Raw shape produced by the generic heading-block parser, before per-file validation. */
@@ -74,7 +75,21 @@ export interface OpenQuestionEntry {
   status: QuestionStatus;
   raised: string;
   resolvedBy?: string;
+  blocks?: string;
   body: string;
+}
+
+export type ConsistencyIssueKind =
+  | 'dangling-resolved-by'
+  | 'dangling-superseded-by'
+  | 'blocked-plan-active';
+
+export interface ConsistencyIssue {
+  kind: ConsistencyIssueKind;
+  section: 'decisions' | 'open-questions';
+  title: string;
+  message: string;
+  planId?: string;
 }
 
 export type IdeaStatus = 'planned' | 'done';
