@@ -349,21 +349,8 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           if (finalEntry) {
             try {
               git.ensureBranch(finalEntry);
-              const scope = finalEntry.id
-                ? finalEntry.id.replace(/^(FEAT|FIX|CHORE|DOCS|REFACTOR)-/i, '')
-                : finalEntry.title
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, '-')
-                    .replace(/^-+|-+$/g, '')
-                    .slice(0, 30);
-              const commitTitle = `${finalEntry.kind?.toLowerCase() ?? 'chore'}(${scope}): ${finalEntry.title}`;
-              const commitBody = finalEntry.phases
-                .filter((p) => p.text)
-                .map((p) => `- ${p.text}`)
-                .join('\n');
-              await git.commitAll(commitTitle, commitBody);
             } catch {
-              // Non-fatal: git operations may fail (not a repo, no changes, etc.)
+              // Non-fatal: git operations may fail (not a repo, etc.)
             }
           }
         }

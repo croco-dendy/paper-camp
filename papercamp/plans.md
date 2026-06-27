@@ -1262,6 +1262,16 @@ FEAT-N/FIX-N naming scheme.
       commit scope (`chore(): Title`) for plans with no `Id`, violating the
       `scope-empty` rule from phase 8. Added a kebab-title fallback scope for
       that case.
+- [x] Drop auto-commit on approval — branch-only
+      Decided approval should only ensure the branch exists (create it if
+      none, no-op if already on it); committing is left to the user via the
+      Stack panel's existing manual commit flow. Removed `git.commitAll()`
+      from `git.ts` (now unused) and the commit-title/body/scope generation
+      from the `PATCH /api/plans` `status: 'done'` handler in `api.ts` —
+      `ensureBranch()` plus the existing `checkBranchConflictForPlan()` guard
+      from phase 14 are all that's left on approval. The
+      `type(scope): description` convention from phase 8 still applies, just
+      typed by hand rather than generated.
 
 ### Log
 - 2026-06-27: I want to have 3 steps in PR visible for each check - Quality, Tests and Consistency
@@ -1270,3 +1280,4 @@ FEAT-N/FIX-N naming scheme.
 - 2026-06-27: Asked whether branch creation can be automated for "start a plan's first phase" since this is our own app, not a third party — we can wire it directly into the agent-launch code path. Also want a check on plan approval: if the plan has no branch yet, create one then, and commit with a proper `type(scope)` name whose body lists all the phase titles. Appended two phases for this (not implementing yet, just scoping them).
 - 2026-06-27: Clarified the trigger is the first phase actually starting, not the plan merely reaching `in-progress` status with nothing started. Also want plan-switching blocked once a branch exists for an unfinished plan — show the user a message to finish the current feature first. Appended a phase for the block; not implementing yet.
 - 2026-06-27: Also want the branch name shown in the commit section at the top of the Stack panel's card, so it's obvious which branch a commit is about to land on. Appended a phase for it.
+- 2026-06-27: After seeing approval auto-commit in action, decided against it — only auto-create the branch (if missing); commit manually instead. Also asked whether the `feat/feat-22-...` double-prefix branch name is OK; confirmed it's the deliberate tradeoff from the original branch-naming decision (redundant but keeps the plan ID visually obvious in a plain `git branch` listing).

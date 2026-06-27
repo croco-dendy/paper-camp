@@ -73,13 +73,6 @@ export function createGitManager(root: string) {
     await runGit(args);
   }
 
-  async function commitAll(title: string, body?: string): Promise<void> {
-    await runGit(['add', '-A']);
-    const args = ['commit', '-m', title];
-    if (body) args.push('-m', body);
-    await runGit(args);
-  }
-
   function ensureBranch(plan: PlanEntry): void {
     if (!plan.kind || !plan.id) return;
 
@@ -156,7 +149,6 @@ export function createGitManager(root: string) {
     },
     getCurrentBranch,
     commit,
-    commitAll,
     ensureBranch,
     getFeatureBranchPlanId,
     subscribe(res: ServerResponse) {
