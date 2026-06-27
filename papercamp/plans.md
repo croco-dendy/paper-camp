@@ -1284,6 +1284,36 @@ FEAT-N/FIX-N naming scheme.
       removing the `version: latest` override from all 4 `pnpm/action-setup`
       steps (`ci.yml` ×3, `publish.yml` ×1) so the action reads the pinned
       version from `packageManager` instead.
+- [x] Fix CI failing on unresolvable @dendelion/paper-ui module
+      Quality check (`tsc --noEmit`) failed with `Cannot find module
+      '@dendelion/paper-ui'` across every file importing it. Root cause:
+      `package.json` declared `"@dendelion/paper-ui": "link:../paper-ui"` — a
+      relative symlink to a sibling repo that only exists on the dev
+      machine. CI has no `../paper-ui` checked out, and critically, this
+      would have broken any real `npm install paper-camp` too (the planned
+      `publish.yml` would have shipped a broken package). Fix, in order:
+      (1) in `~/dev/paper-ui`, committed 30+ files of pending work (5 new
+      components — Accordion, Icon, ListItem, Progress, Textarea — plus
+      supporting changes), wrote an accurate `minor` changeset (the existing
+      one was stale, marked `patch`), ran `pnpm run version` to bump
+      `0.1.1` → `0.2.0`, verified `check-types`/`build`, and `pnpm publish
+      --access public`. (2) In `paper-camp`, changed the dependency to
+      `"^0.2.0"` (a normal registry range) and ran `pnpm install` — verified
+      it resolves a real package from the npm store, not the old symlink.
+      `tsc`/`biome`/`vitest` all clean. (3) Documented the new workflow in
+      `AGENTS.md`: `pnpm link ../paper-ui` for local active co-development
+      (invisible to git/CI), plain `pnpm install` to go back to the
+      registry version, and the changeset → version → publish sequence for
+      shipping a new paper-ui release.
+- [x] Fix duplicate CI runs on feature branches
+      `ci.yml` triggered on both `push` (to `main`/`feat/*`/`fix/*`/etc.,
+      added in phase 4) and `pull_request` (to `main`). Once `draft-pr.yml`
+      opens a PR on the first push, every later push to that branch fires
+      both events for the same commit — two full sets of Quality/Tests/
+      Consistency runs. Restricted `push` to `main` only; `pull_request`
+      alone now covers every feature-branch commit, since a PR exists from
+      the first push onward (created within seconds by `draft-pr.yml`), so
+      there's no coverage gap.
 
 ### Log
 - 2026-06-27: I want to have 3 steps in PR visible for each check - Quality, Tests and Consistency
@@ -1294,3 +1324,5 @@ FEAT-N/FIX-N naming scheme.
 - 2026-06-27: Also want the branch name shown in the commit section at the top of the Stack panel's card, so it's obvious which branch a commit is about to land on. Appended a phase for it.
 - 2026-06-27: After seeing approval auto-commit in action, decided against it — only auto-create the branch (if missing); commit manually instead. Also asked whether the `feat/feat-22-...` double-prefix branch name is OK; confirmed it's the deliberate tradeoff from the original branch-naming decision (redundant but keeps the plan ID visually obvious in a plain `git branch` listing).
 - 2026-06-27: Reported a real CI failure: `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` then "this version of pnpm requires at least Node.js v22.13". Root cause was `pnpm/action-setup@v4`'s unpinned `version: latest` resolving to pnpm 11 against workflows pinned to Node 20. Pinned pnpm via `package.json`'s `packageManager` field instead.
+- 2026-06-27: Reported a second CI failure right after — `Cannot find module '@dendelion/paper-ui'` cascading across every file. Root cause was the `link:../paper-ui` dependency, which only resolves on the dev machine. Confirmed the deeper problem (this would break a real `npm install` too, since the package is already published to npm), and chose to publish the pending paper-ui work as `0.2.0` and switch paper-camp to depend on the registry version, with `pnpm link` documented for local co-development.
+- 2026-06-27: Noticed duplicated CI jobs — once for `push`, once for `pull_request` — on the same feature-branch commit. Root cause was `ci.yml` triggering on both events for feature branches; fixed by dropping the feature-branch `push` trigger now that `draft-pr.yml` guarantees a PR exists from the first push onward.

@@ -38,7 +38,7 @@
     "react-dom": "^18.0.0"
   },
   "dependencies": {
-    "@dendelion/paper-ui": "link:../paper-ui",
+    "@dendelion/paper-ui": "^0.2.0",
     "@tanstack/react-router": "^1.58.3",
     "clsx": "^2.1.1",
     "commander": "^12.0.0",

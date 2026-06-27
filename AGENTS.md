@@ -23,16 +23,30 @@ hierarchy, motion). Read both before making UI changes.
 ## Working with the paper-ui sibling repo
 
 The dashboard is built on `@dendelion/paper-ui`, which lives in a sibling repo at
-`~/dev/paper-ui` and is consumed via a local link (`"@dendelion/paper-ui":
-"link:../paper-ui"` in `package.json`, symlinked at
-`node_modules/@dendelion/paper-ui`).
+`~/dev/paper-ui` and is published to npm. `package.json` declares it as a
+normal registry range (`"@dendelion/paper-ui": "^0.2.0"`) — this is required
+for CI and for anyone installing `paper-camp` for real; a `link:../paper-ui`
+relative path only resolves on this dev machine and breaks everywhere else
+(this is exactly the bug that broke the CI quality check and would have
+broken `npm publish` too).
 
-- **paper-camp imports from `dist/`, not `src/`.** paper-ui's `package.json`
-  points `main`/`module`/`types` at `dist/index.{js,mjs,d.ts}`. If you edit
-  anything under `~/dev/paper-ui/src`, it has **no effect** in paper-camp until
-  you run `pnpm run build` inside `~/dev/paper-ui`. `vite.app.config.ts`'s dev
-  server watches the symlinked package's `dist/` output (and `dist/index.css`
-  specifically) for hot-reload, so the rebuild is the only manual step.
+- **For active co-development with paper-ui**, override the registry
+  resolution locally without touching `package.json`: run
+  `pnpm link ../paper-ui` from `paper-camp`'s root once. This symlinks
+  `node_modules/@dendelion/paper-ui` to the sibling repo for your local
+  checkout only — it's invisible to git, CI, and anyone else's install. Run
+  `pnpm install` (no args) to go back to the registry-resolved version.
+- **paper-camp imports from `dist/`, not `src/`** either way. paper-ui's
+  `package.json` points `main`/`module`/`types` at `dist/index.{js,mjs,d.ts}`.
+  If you edit anything under `~/dev/paper-ui/src` while linked, it has **no
+  effect** in paper-camp until you run `pnpm run build` inside `~/dev/paper-ui`.
+- **Publishing a new paper-ui version:** in `~/dev/paper-ui`, write a
+  changeset (`.changeset/*.md`, sized correctly — new components/exports are
+  `minor`, behavior-preserving fixes are `patch`), run `pnpm run version`
+  (needs a `GITHUB_TOKEN` env var for the changelog generator — `gh auth
+  token` works), verify with `pnpm run check-types && pnpm run build`, commit,
+  then `pnpm publish --access public`. Bump paper-camp's `package.json` range
+  afterward and `pnpm install`.
 - **Check the real source, not just the `.d.ts`.** Before assuming what a
   paper-ui prop does, read the component under `~/dev/paper-ui/src/components/`
   (and its showcase entry under `~/dev/paper-ui/src/showcase/`) rather than
