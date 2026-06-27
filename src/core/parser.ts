@@ -16,6 +16,7 @@ const HEADING_RE = /^##\s+(.+?)\s*$/;
 const FIELD_RE = /^\*\*([A-Za-z][A-Za-z-]*):\*\*\s*(.*)$/;
 const PHASES_HEADING_RE = /^###\s+Phases\s*$/i;
 const LOG_HEADING_RE = /^###\s+Log\s*$/i;
+const CLARIFICATIONS_HEADING_RE = /^###\s+Clarifications\s*$/i;
 const SUB_HEADING_RE = /^#{2,3}\s+/;
 const CHECKBOX_RE = /^[-*]\s+\[([ xX])\]\s+(.*)$/;
 const PHASE_SOURCE_RE = /^\[review\]\s+(.*)$/;
@@ -85,24 +86,39 @@ function extractPhases(body: string): { body: string; phases: PhaseItem[] } {
   return { body: result.body, phases: result.entries };
 }
 
-function parseLogEntries(
+function parseDatedListEntries(
   lines: string[],
   start: number,
   end: number,
 ): import('../types/index').LogEntry[] {
-  const log: import('../types/index').LogEntry[] = [];
+  const entries: import('../types/index').LogEntry[] = [];
   for (let i = start; i < end; i++) {
     const match = lines[i].match(LOG_ENTRY_RE);
     if (match) {
-      log.push({ date: match[1], text: match[2].trim() });
+      entries.push({ date: match[1], text: match[2].trim() });
     }
   }
-  return log;
+  return entries;
+}
+
+function extractDatedList(
+  body: string,
+  headingRe: RegExp,
+): { body: string; entries: import('../types/index').LogEntry[] } {
+  return extractSection(body, headingRe, parseDatedListEntries);
 }
 
 function extractLog(body: string): { body: string; log: import('../types/index').LogEntry[] } {
-  const result = extractSection(body, LOG_HEADING_RE, parseLogEntries);
-  return { body: result.body, log: result.entries };
+  const { body: remaining, entries } = extractDatedList(body, LOG_HEADING_RE);
+  return { body: remaining, log: entries };
+}
+
+function extractClarifications(body: string): {
+  body: string;
+  clarifications: import('../types/index').LogEntry[];
+} {
+  const { body: remaining, entries } = extractDatedList(body, CLARIFICATIONS_HEADING_RE);
+  return { body: remaining, clarifications: entries };
 }
 
 export function parseRawEntries(markdown: string): RawEntry[] {
@@ -138,8 +154,10 @@ export function parseRawEntries(markdown: string): RawEntry[] {
     let { body, phases } = extractPhases(rawBody);
     const { body: bodyAfterLog, log } = extractLog(body);
     body = bodyAfterLog;
+    const { body: bodyAfterClarifications, clarifications } = extractClarifications(body);
+    body = bodyAfterClarifications;
 
-    entries.push({ title, fields, body, phases, log });
+    entries.push({ title, fields, body, phases, log, clarifications });
   }
 
   return entries;
@@ -177,6 +195,7 @@ export function parsePlans(markdown: string): ParseResult<PlanEntry> {
       body: raw.body,
       phases: raw.phases,
       log: raw.log,
+      clarifications: raw.clarifications,
     });
   }
 

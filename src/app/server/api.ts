@@ -20,6 +20,8 @@ import {
 import {
   AGENT_IDS,
   type AgentId,
+  DEFAULT_AGENTS,
+  type DefaultAgentsMap,
   type EnvEntry,
   type LogEntry,
   PLAN_KINDS,
@@ -300,11 +302,10 @@ export function createApiMiddleware(root: string): ApiMiddleware {
               updated: todayDateString(),
             };
           }
-          // Starting a plan puts it in focus — only one plan is "in focus" at a time.
-          if (
-            updates.status === 'in-progress' &&
-            (entry.status === 'in-progress' || entry.status === 'review')
-          ) {
+          // Starting a plan puts it in focus — only one other plan is ever "in focus"
+          // (in-progress) at a time. A `review` plan isn't in focus, it's done and
+          // awaiting approval, so starting a different plan must never touch it.
+          if (updates.status === 'in-progress' && entry.status === 'in-progress') {
             return { ...entry, status: 'planned' as const, updated: todayDateString() };
           }
           return entry;
@@ -701,10 +702,11 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           return;
         }
         const body = await readBody(req);
-        const { port, projectName, defaultAgent } = JSON.parse(body) as {
+        const { port, projectName, defaultAgent, defaultAgents } = JSON.parse(body) as {
           port?: number;
           projectName?: string;
           defaultAgent?: AgentId;
+          defaultAgents?: DefaultAgentsMap;
         };
         if (port !== undefined && (!Number.isInteger(port) || port <= 0)) {
           res.statusCode = 400;
@@ -724,12 +726,29 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           res.end(JSON.stringify({ error: 'defaultAgent must be a known agent id' }));
           return;
         }
+        if (defaultAgents !== undefined) {
+          for (const key of ['phase', 'planDraft', 'ideaExtend'] as const) {
+            if (!AGENT_IDS.includes(defaultAgents[key])) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: `defaultAgents.${key} must be a known agent id` }));
+              return;
+            }
+          }
+        }
         const config = JSON.parse(raw) as PaperCampConfig;
+        const resolvedDefaultAgents =
+          defaultAgents ??
+          (defaultAgent !== undefined
+            ? { phase: defaultAgent, planDraft: defaultAgent, ideaExtend: defaultAgent }
+            : undefined);
+        const configWithOld = config as PaperCampConfig & { defaultAgent?: AgentId };
+        const { defaultAgent: _oldAgent, ...configRest } = configWithOld;
         const updated: PaperCampConfig = {
-          ...config,
+          ...configRest,
           ...(port !== undefined && { port }),
           ...(projectName !== undefined && { projectName: projectName.trim() }),
-          ...(defaultAgent !== undefined && { defaultAgent }),
+          ...(resolvedDefaultAgents && { defaultAgents: resolvedDefaultAgents }),
         };
         await writeFile(configPath, JSON.stringify(updated, null, 2));
         res.statusCode = 200;

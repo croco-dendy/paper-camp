@@ -6,16 +6,19 @@ import {
   AGENT_LABELS,
   type AgentId,
   type LogEntry,
+  PLAN_STATUSES,
   type PhaseItem,
   type PlanEntry,
+  type PlanStatus,
 } from '@/types/index';
 import { Button, Checkbox, Select, Stamp, Table, Textarea } from '@dendelion/paper-ui';
 import { useState } from 'react';
-import { STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
+import { STATUS_COLOR, STATUS_LABEL } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
 import { AddReviewPhasesButton } from './add-review-phases-button';
 import { AgentStartButton } from './agent-start-button';
 import { AuditPhasesButton } from './audit-phases-button';
+import { ClarifyButton } from './clarify-button';
 import { PhaseCopyButton } from './phase-copy-button';
 import { PlanIdStamp } from './plan-id-stamp';
 import { ProgressBar } from './progress-bar';
@@ -85,6 +88,13 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
   const handleNeedsChanges = async () => {
     setUpdating(true);
     await updatePlan(plan.title, { status: 'in-progress' });
+    await loadPlans();
+    setUpdating(false);
+  };
+
+  const handleSetStatus = async (value: string) => {
+    setUpdating(true);
+    await updatePlan(plan.title, { status: value as PlanStatus });
     await loadPlans();
     setUpdating(false);
   };
@@ -163,13 +173,14 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
           marginBottom: space[4],
         }}
       >
-        <Stamp
+        <Select
           size="small"
-          fillColor={STATUS_STAMP[plan.status].fill}
-          textColor={STATUS_STAMP[plan.status].text}
-        >
-          {STATUS_LABEL[plan.status]}
-        </Stamp>
+          width={140}
+          value={plan.status}
+          onChange={handleSetStatus}
+          disabled={updating}
+          options={PLAN_STATUSES.map((status) => ({ value: status, label: STATUS_LABEL[status] }))}
+        />
         <span className="text-sm" style={{ opacity: 0.45 }}>
           {plan.updated
             ? `updated ${relativeDate(plan.updated)}`
@@ -180,16 +191,6 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
             {tag}
           </Stamp>
         ))}
-        <Select
-          size="small"
-          value={plan.agent ?? ''}
-          onChange={handleSetAgent}
-          disabled={updating}
-          options={[
-            { value: '', label: 'Project default agent' },
-            ...AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] })),
-          ]}
-        />
       </div>
 
       {plan.body && (
@@ -199,6 +200,37 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
         >
           {plan.body}
         </p>
+      )}
+
+      {plan.clarifications && plan.clarifications.length > 0 && (
+        <div style={{ marginBottom: space[5] }}>
+          <h3
+            style={{
+              fontFamily: fontFamily.serif,
+              fontSize: fontSize.sm,
+              fontWeight: 600,
+              margin: `0 0 ${space[3]}`,
+              opacity: 0.65,
+            }}
+          >
+            Clarifications
+          </h3>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: space[2],
+              marginBottom: space[3],
+            }}
+          >
+            {plan.clarifications.map((entry, i) => (
+              <div key={`clar-${entry.date}-${i}`} className="text-sm" style={{ opacity: 0.75 }}>
+                <span style={{ fontWeight: 600, marginRight: space[2] }}>{entry.date}</span>
+                {entry.text}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {progress !== null && (
@@ -213,6 +245,20 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
           </div>
         </div>
       )}
+
+      <div style={{ marginBottom: space[5] }}>
+        <Select
+          size="small"
+          width={220}
+          value={plan.agent ?? ''}
+          onChange={handleSetAgent}
+          disabled={updating}
+          options={[
+            { value: '', label: 'Project default agent' },
+            ...AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] })),
+          ]}
+        />
+      </div>
 
       {plan.phases.length > 0 && (
         <div style={{ marginBottom: space[8] }}>
@@ -240,6 +286,7 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
               {auditRunning && (
                 <span className="spinner" style={{ opacity: 0.6 }} title="Audit running…" />
               )}
+              <ClarifyButton plan={plan} disabled={agentBusy} />
               <AuditPhasesButton plan={plan} disabled={agentBusy} />
               <AddReviewPhasesButton onAdd={handleAddReviewPhases} disabled={updating} />
             </div>

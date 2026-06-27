@@ -1,6 +1,7 @@
-import type { AgentId } from '../../../types/index';
+import type { AgentId, DefaultAgentsMap, TaskKind } from '../../../types/index';
 import * as claudeCode from './claude-code';
 import type { ParsedAgentLine } from './claude-code';
+import * as opencode from './opencode';
 
 export interface AgentAdapter {
   command: string;
@@ -16,9 +17,31 @@ export const AGENTS: Record<AgentId, AgentAdapter> = {
     buildArgs: claudeCode.buildArgs,
     parseLine: claudeCode.parseLine,
   },
+  opencode: {
+    command: 'opencode',
+    buildArgs: opencode.buildArgs,
+    parseLine: opencode.parseLine,
+  },
 };
 
-export function resolveAgent(agentId: AgentId | undefined): { id: AgentId; adapter: AgentAdapter } {
-  const id = agentId && agentId in AGENTS ? agentId : DEFAULT_AGENT_ID;
-  return { id, adapter: AGENTS[id] };
+const TASK_KIND_TO_DEFAULT_KEY: Record<TaskKind, keyof DefaultAgentsMap> = {
+  phase: 'phase',
+  audit: 'phase',
+  draft: 'planDraft',
+  extend: 'ideaExtend',
+};
+
+export function resolveAgent(opts: {
+  agentId: AgentId | undefined;
+  defaultAgents?: DefaultAgentsMap;
+  taskKind?: TaskKind;
+}): { id: AgentId; adapter: AgentAdapter } {
+  const { agentId, defaultAgents, taskKind } = opts;
+  if (agentId && agentId in AGENTS) return { id: agentId, adapter: AGENTS[agentId] };
+  if (taskKind && defaultAgents) {
+    const key = TASK_KIND_TO_DEFAULT_KEY[taskKind];
+    const fallback = defaultAgents[key];
+    if (fallback && fallback in AGENTS) return { id: fallback, adapter: AGENTS[fallback] };
+  }
+  return { id: DEFAULT_AGENT_ID, adapter: AGENTS[DEFAULT_AGENT_ID] };
 }

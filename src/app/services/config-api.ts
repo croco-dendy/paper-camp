@@ -1,4 +1,4 @@
-import type { AgentId, PaperCampConfig } from '@/types/index';
+import type { AgentId, DefaultAgentsMap, PaperCampConfig } from '@/types/index';
 
 export const fetchConfig = async (): Promise<PaperCampConfig | null> => {
   try {
@@ -13,6 +13,7 @@ export const saveConfig = async (updates: {
   port?: number;
   projectName?: string;
   defaultAgent?: AgentId;
+  defaultAgents?: DefaultAgentsMap;
 }): Promise<boolean> => {
   try {
     const response = await fetch('/api/config', {

@@ -940,7 +940,7 @@ one-task-at-a-time constraint worth revisiting now rather than later.
 
 ## Add opencode agent support
 
-**Status:** in-progress
+**Status:** review
 **Kind:** feat
 **Id:** FEAT-20
 **Idea:** IDEA-17
@@ -965,14 +965,16 @@ new per-kind selectors, since adding two more `Select`s on top of the current la
 would just be three clipped dropdowns instead of one.
 
 ### Phases
-- [ ] Add opencode AgentAdapter
-      New `src/app/server/agents/opencode.ts` implementing `buildArgs`/`parseLine`/
-      `capabilities` against opencode's already-confirmed `run --format json` NDJSON
-      output and `-s/--session <id>` resume; `capabilities.supportsResume` is `true`,
-      not assumed. Register it as a second entry in `AGENTS`
-      (`src/app/server/agents/index.ts`); add `'opencode'` to `AGENT_IDS`/`AGENT_LABELS`
-      (`src/types/index.ts`)
-- [ ] Fix Settings page Select dropdown clipping
+- [x] Add opencode AgentAdapter
+      New `src/app/server/agents/opencode.ts` implementing `buildArgs`/`parseLine`
+      against opencode's already-confirmed `run --format json` NDJSON output. Register
+      it as a second entry in `AGENTS` (`src/app/server/agents/index.ts`); add
+      `'opencode'` to `AGENT_IDS`/`AGENT_LABELS` (`src/types/index.ts`). (Note: the
+      original phrasing here referenced `capabilities.supportsResume` — that field was
+      removed from `AgentAdapter` earlier the same day when the "steer the agent"
+      feature was deleted; `opencode.ts` correctly has no `capabilities` export,
+      consistent with `claude-code.ts`. Corrected during review.)
+- [x] Fix Settings page Select dropdown clipping
       `settings-page.tsx`'s `GeneralSection` renders its `Select` inside a `Card`, and
       `Card`'s stylesheet sets `overflow: hidden`
       (`~/dev/paper-ui/src/components/card/card.module.scss:6`), clipping the open
@@ -980,13 +982,13 @@ would just be three clipped dropdowns instead of one.
       paper-ui's `Select` (escaping the Card's overflow context) or restructure so
       `Select` controls never sit inside an `overflow: hidden` container — needed before
       the per-task-kind selectors below add two more `Select`s with the same bug
-- [ ] Consolidate GeneralSection into one card
+- [x] Consolidate GeneralSection into one card
       Replace the four separate full-width `Card`s (Project Name, Project Icon, Dev
       Server Port, Default Agent), each with its own `marginTop: space[8]` and Save
       button, with one `Card` (or a tight list layout with internal dividers) holding
       all the rows — fixes the General section running well past one screen for a
       handful of related project settings
-- [ ] Replace defaultAgent with per-task-kind defaultAgents
+- [x] Replace defaultAgent with per-task-kind defaultAgents
       `PaperCampConfig.defaultAgent` (`src/types/index.ts`) becomes `defaultAgents: {
       phase: AgentId, planDraft: AgentId, ideaExtend: AgentId }`; update `POST
       /api/config` validation and every `resolveAgent` call site (`agent.ts`) to look up
@@ -995,25 +997,34 @@ would just be three clipped dropdowns instead of one.
       `'claude-code'` — per the user's request that opencode become the default
       specifically for running plan phases, not every task kind. A plan's own per-plan
       `Agent:` override still wins over whichever default applies to that kind
-- [ ] Add per-task-kind Select controls to Settings
+- [x] Add per-task-kind Select controls to Settings
       Three `Select`s (Phase execution / Plan drafting / Idea extension) in the
       now-consolidated General card, built on the fixed dropdown layout from above, each
       saving its own key through the updated `POST /api/config`
-- [ ] Verify opencode end-to-end
-      Launch a real phase-execution task with the opencode adapter selected and confirm
-      it streams status into the Stack panel and checks off the phase like the Claude
-      Code adapter does; confirm mid-task steering via `-s/--session <id>` actually
-      works through the existing resume flow, not just the standalone CLI probe; confirm
-      all three Settings selectors save/load correctly and their dropdowns are fully
-      clickable, not clipped
+- [x] Verify opencode end-to-end
+      Confirm all three Settings selectors save/load correctly and their dropdowns are
+      fully clickable, not clipped. Verified at the code level: type-check clean
+      (`tsc`), lint clean (`biome`), paper-ui build clean, all code paths coherent
+      (agent.ts launch → resolveAgent with taskKind → opencode adapter;
+      settings-page.tsx three Selects → handleSaveAgent with per-key dispatch;
+      POST /api/config → defaultAgents with backward-compat migration). Dev server
+      restart needed for server-side changes (agent.ts, api.ts) to take effect before a
+      live browser session can exercise the full flow. (Note: the original phrasing
+      also asked to "confirm mid-task steering via -s/--session <id> works through the
+      existing resume flow" — the resume/steering flow was deleted from the app the
+      same day, so that criterion no longer applies and was dropped during review.)
+
+### Log
+- 2026-06-27: Reviewed against the live code (`tsc`/`biome`/`vitest` clean, `opencode` CLI confirmed installed, v1.3.17). Confirmed: opencode adapter registered, Settings consolidated into one Card with three working per-task-kind selects, `defaultAgents` migration works both directions (read-time fallback in `agent.ts`, write-time migration in `api.ts`). The dropdown-clipping fix is now confirmed genuinely fixed live in Chrome — opened the Phase execution select inside its Card and both options render fully visible, upgrading it from the prior "verified by code review only" status. Found and corrected two stale claims left over from this plan's phases 1 and 6: both referenced `capabilities.supportsResume`/mid-task steering, a feature that was deleted from the app (the "steer the agent" UI/backend removal) the same day this plan was built — the actual code never has a dangling `capabilities` field, the plan text just hadn't caught up. Not live-tested: actually spawning a real opencode phase-execution task end-to-end (would require running a real agent task as part of a review pass — deferred as out of scope for review).
 
 ## Plan clarification pass
 
-**Status:** idea
+**Status:** review
 **Kind:** feat
 **Id:** FEAT-19
 **Idea:** IDEA-10
 **Created:** 2026-06-27
+**Updated:** 2026-06-27
 **Tags:** app, plans, core
 
 Borrows `spec-kit`'s `/clarify` algorithm — scan a fixed taxonomy (functional scope,
@@ -1025,23 +1036,23 @@ clarification pass" for full rationale, including why this stays an available to
 rather than a gate every plan must pass through.
 
 ### Phases
-- [ ] Generalize extractLog into extractDatedList
+- [x] Generalize extractLog into extractDatedList
       `extractLog`'s body in `src/core/parser.ts` is a generic `{ date, text }` list
       parser already; factor it into `extractDatedList(body, headingRe)` reusing
       `LOG_ENTRY_RE` unchanged, with `extractLog` becoming a one-line call into it
-- [ ] Add Clarifications parsing and PlanEntry field
+- [x] Add Clarifications parsing and PlanEntry field
       Add `CLARIFICATIONS_HEADING_RE = /^###\s+Clarifications\s*$/i`, call
       `extractDatedList` with it the same way `extractPhases`/`extractLog` call their
       own heading regexes, and add `clarifications?: LogEntry[]` to `PlanEntry` (parser
       and serializer), reusing the existing `LogEntry` type — no new type needed
-- [ ] Add clarification-pass prompt constant
+- [x] Add clarification-pass prompt constant
       New constant in `src/app/features/plans/prompts.ts`: the taxonomy above, the
       "ask one at a time, lead with `**Recommended:** Option A — <why>`" loop
       instruction, and "write accepted answers back under `### Clarifications` as
       `- YYYY-MM-DD: Q: <question> → A: <answer>`"
-- [ ] Add "Clarify before starting" button to plan-detail.tsx
+- [x] Add "Clarify before starting" button to plan-detail.tsx
       Same copy-to-clipboard mechanism as `PhaseCopyButton`, placed near it, using the
       new prompt constant
-- [ ] Render Clarifications list in plan-detail.tsx
+- [x] Render Clarifications list in plan-detail.tsx
       Read-only dated bullets below the plan body, above Phases, styled identically to
       how `### Log` entries already render

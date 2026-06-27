@@ -5,20 +5,21 @@ import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { parseIdeas, parsePlans } from '../../core/parser';
-import type {
-  AgentId,
-  AgentTaskState,
-  AgentTaskStatus,
-  IdeaEntry,
-  PaperCampConfig,
-  PhaseItem,
-  PlanEntry,
+import {
+  type AgentId,
+  type AgentTaskState,
+  type AgentTaskStatus,
+  DEFAULT_AGENTS,
+  type DefaultAgentsMap,
+  type IdeaEntry,
+  type PaperCampConfig,
+  type PhaseItem,
+  type PlanEntry,
+  type TaskKind,
 } from '../../types/index';
 import { type AgentAdapter, resolveAgent } from './agents';
 
 const MAX_LINES = 50;
-
-type TaskKind = 'phase' | 'audit' | 'draft' | 'extend';
 
 interface AgentTask {
   taskKind: TaskKind;
@@ -41,17 +42,21 @@ interface AgentTask {
   lines: string[];
 }
 
-// Synchronous on purpose: start() must reserve `current` with no `await` between its
-// busy-guard check and the assignment, or two concurrent launches can both pass the
-// guard before either reserves the slot. Reading one small local config file
-// synchronously closes that race entirely instead of working around it.
-function readDefaultAgentId(root: string): AgentId | undefined {
+function readDefaultAgentIds(root: string): DefaultAgentsMap {
   try {
     const raw = readFileSync(join(root, '.paper-camp', 'config.json'), 'utf-8');
-    const config = JSON.parse(raw) as PaperCampConfig;
-    return config.defaultAgent;
+    const config = JSON.parse(raw) as PaperCampConfig & { defaultAgent?: AgentId };
+    if (config.defaultAgents) return config.defaultAgents;
+    if (config.defaultAgent) {
+      return {
+        phase: config.defaultAgent,
+        planDraft: config.defaultAgent,
+        ideaExtend: config.defaultAgent,
+      };
+    }
+    return DEFAULT_AGENTS;
   } catch {
-    return undefined;
+    return DEFAULT_AGENTS;
   }
 }
 
@@ -197,9 +202,12 @@ export function createAgentManager(root: string) {
     if (isBusy()) {
       return { ok: false, error: 'An agent task is already running' };
     }
-    const { id: agentId, adapter } = resolveAgent(
-      identity.agentOverride ?? readDefaultAgentId(root),
-    );
+    const defaultAgents = readDefaultAgentIds(root);
+    const { id: agentId, adapter } = resolveAgent({
+      agentId: identity.agentOverride,
+      defaultAgents,
+      taskKind: scope.taskKind,
+    });
     const proc = spawnAgent(adapter, adapter.buildArgs(prompt));
     const task: AgentTask = {
       planTitle: identity.planTitle,

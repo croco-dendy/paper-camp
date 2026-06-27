@@ -1,5 +1,14 @@
 export type PlanStatus = 'idea' | 'planned' | 'in-progress' | 'review' | 'done' | 'dropped';
 
+export const PLAN_STATUSES: PlanStatus[] = [
+  'idea',
+  'planned',
+  'in-progress',
+  'review',
+  'done',
+  'dropped',
+];
+
 export interface LogEntry {
   date: string;
   text: string;
@@ -9,12 +18,13 @@ export type PlanKind = 'feat' | 'fix' | 'chore' | 'docs' | 'refactor';
 
 export const PLAN_KINDS: PlanKind[] = ['feat', 'fix', 'chore', 'docs', 'refactor'];
 
-export const AGENT_IDS = ['claude-code'] as const;
+export const AGENT_IDS = ['claude-code', 'opencode'] as const;
 
 export type AgentId = (typeof AGENT_IDS)[number];
 
 export const AGENT_LABELS: Record<AgentId, string> = {
   'claude-code': 'Claude Code',
+  opencode: 'OpenCode',
 };
 
 export type DecisionStatus = 'decided' | 'superseded';
@@ -35,6 +45,7 @@ export interface RawEntry {
   body: string;
   phases: PhaseItem[];
   log?: LogEntry[];
+  clarifications?: LogEntry[];
 }
 
 export interface ParseWarning {
@@ -60,6 +71,7 @@ export interface PlanEntry {
   body: string;
   phases: PhaseItem[];
   log?: LogEntry[];
+  clarifications?: LogEntry[];
 }
 
 export interface DecisionEntry {
@@ -111,13 +123,25 @@ export interface EnvEntry {
   value: string;
 }
 
+export interface DefaultAgentsMap {
+  phase: AgentId;
+  planDraft: AgentId;
+  ideaExtend: AgentId;
+}
+
+export const DEFAULT_AGENTS: DefaultAgentsMap = {
+  phase: 'opencode',
+  planDraft: 'claude-code',
+  ideaExtend: 'claude-code',
+};
+
 export interface PaperCampConfig {
   version: string;
   projectName: string;
   initializedAt: string;
   nextId?: Record<PlanKind, number>;
   port?: number;
-  defaultAgent?: AgentId;
+  defaultAgents?: DefaultAgentsMap;
 }
 
 export type CheckStatus = 'stale' | 'running' | 'pass' | 'fail';

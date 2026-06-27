@@ -30,6 +30,36 @@ Your job: explore the current codebase and rewrite this idea's body in place in 
 Write the full updated body — everything below the heading. Make the description more specific and actionable while keeping the same general intent. Do not change the \`### IDEA-N:\` heading line.`;
 }
 
+export function buildClarifyPrompt(plan: PlanEntry): string {
+  return `You're clarifying the plan "${plan.title}" (${plan.id ?? 'no id'}) in papercamp/plans.md.
+
+Plan body: ${plan.body}
+
+Current phases:
+${plan.phases.length > 0 ? plan.phases.map((p, i) => `${i + 1}. [${p.done ? 'x' : ' '}] ${p.text}`).join('\n') : '(none yet)'}
+
+Scan this plan against a fixed taxonomy of potential gaps:
+- **Functional scope** — is what's being built clearly bounded, or could it balloon?
+- **Data model** — are the key entities, their relationships, and persistence boundaries defined?
+- **UX flow** — is the user's interaction path from start to completion clear?
+- **Non-functional attributes** — are performance, security, accessibility, or platform constraints stated?
+- **Edge cases** — what happens when inputs are empty, connections drop, or the happy path breaks?
+- **Terminology** — are domain-specific terms defined consistently?
+- **Completion signals** — is it clear what "done" means for each phase and for the plan as a whole?
+
+Surface at most 5 of the highest-impact gaps. Ask about them **one at a time** — wait for each answer before asking the next. Lead each question with a stated recommendation:
+
+**Recommended:** Option A — <why>
+
+The person answering can say "yes" (accepting the recommendation), suggest a different answer, or ask for clarification. Write accepted answers back under \`### Clarifications\` in plans.md as a new line in this format:
+
+\`\`\`
+- YYYY-MM-DD: Q: <question> → A: <answer>
+\`\`\`
+
+Use today's date (YYYY-MM-DD) for each answer. Only write lines that were actually answered — never write questions without answers. Keep existing \`### Clarifications\` entries intact; only append new ones.`;
+}
+
 export function buildPlanDraftPrompt(idea: IdeaEntry, otherPlans: PlanEntry[]): string {
   const openPlans = otherPlans.filter((p) => p.status !== 'done');
   const plansContext = openPlans.length

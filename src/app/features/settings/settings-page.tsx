@@ -5,11 +5,12 @@ import { fetchConfigFile } from '@/app/services/configs-api';
 import { fetchEnv, saveEnv } from '@/app/services/env-api';
 import { uploadIcon } from '@/app/services/icon-api';
 import { useAppStore } from '@/app/stores/app-store';
-import { color, fontFamily, space } from '@/app/styles/tokens';
+import { color, fontFamily, fontSize, space } from '@/app/styles/tokens';
 import {
   AGENT_IDS,
   AGENT_LABELS,
   type AgentId,
+  DEFAULT_AGENTS,
   type EnvEntry,
   type PaperCampConfig,
 } from '@/types/index';
@@ -41,7 +42,9 @@ const GeneralSection = () => {
   const [nameInput, setNameInput] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
-  const [agentSaved, setAgentSaved] = useState(false);
+  const [agentSavedPhase, setAgentSavedPhase] = useState(false);
+  const [agentSavedDraft, setAgentSavedDraft] = useState(false);
+  const [agentSavedExtend, setAgentSavedExtend] = useState(false);
 
   useEffect(() => {
     fetchConfig().then((c) => {
@@ -51,12 +54,25 @@ const GeneralSection = () => {
     });
   }, []);
 
-  const handleSaveDefaultAgent = async (defaultAgent: string) => {
-    const ok = await saveConfig({ defaultAgent: defaultAgent as AgentId });
+  const handleSaveAgent = async (key: keyof typeof DEFAULT_AGENTS, value: string) => {
+    const current = config?.defaultAgents;
+    const updated: typeof DEFAULT_AGENTS = {
+      phase: current?.phase ?? DEFAULT_AGENTS.phase,
+      planDraft: current?.planDraft ?? DEFAULT_AGENTS.planDraft,
+      ideaExtend: current?.ideaExtend ?? DEFAULT_AGENTS.ideaExtend,
+      [key]: value as AgentId,
+    };
+    const ok = await saveConfig({ defaultAgents: updated });
     if (ok) {
-      setConfig((prev) => (prev ? { ...prev, defaultAgent: defaultAgent as AgentId } : prev));
-      setAgentSaved(true);
-      setTimeout(() => setAgentSaved(false), 2000);
+      setConfig((prev) => (prev ? { ...prev, defaultAgents: updated } : prev));
+      const setter =
+        key === 'phase'
+          ? setAgentSavedPhase
+          : key === 'planDraft'
+            ? setAgentSavedDraft
+            : setAgentSavedExtend;
+      setter(true);
+      setTimeout(() => setter(false), 2000);
     }
   };
 
@@ -117,8 +133,16 @@ const GeneralSection = () => {
         </Alert>
       )}
       {config && (
-        <Card accent accentColor="slate">
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: space[3] }}>
+        <Card size="small">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: space[3],
+              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              paddingBottom: space[3],
+            }}
+          >
             <Input
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
@@ -145,21 +169,28 @@ const GeneralSection = () => {
               </span>
             )}
           </div>
-          <p>
-            <strong>Initialized:</strong> {new Date(config.initializedAt).toLocaleString()}
-          </p>
-        </Card>
-      )}
 
-      <div style={{ marginTop: space[8] }}>
-        <h3 style={{ marginBottom: space[3] }}>Project Icon</h3>
-        <Card>
-          <div className="flex items-center gap-4">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: space[3],
+              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              paddingBottom: space[3],
+              paddingTop: space[3],
+            }}
+          >
             {iconDataUri && (
               <img
                 src={iconDataUri}
                 alt="Project icon"
-                style={{ width: 56, height: 56, objectFit: 'contain', flexShrink: 0 }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  objectFit: 'contain',
+                  flexShrink: 0,
+                  borderRadius: 4,
+                }}
               />
             )}
             <div>
@@ -191,63 +222,115 @@ const GeneralSection = () => {
               )}
               {!identityLoading && !iconDataUri && !saving && (
                 <p className="text-sm" style={{ opacity: 0.45, margin: `${space[1]} 0 0` }}>
-                  No icon set. Upload an SVG, PNG, or JPG.
+                  No icon set.
                 </p>
               )}
             </div>
           </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: space[3],
+              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              paddingBottom: space[3],
+              paddingTop: space[3],
+            }}
+          >
+            <Input
+              type="number"
+              value={portInput}
+              onChange={(e) => setPortInput(e.target.value)}
+              label="Port"
+              helperText="Default for `paper-camp dev`. Does not affect the running server."
+            />
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleSavePort}
+              disabled={portSaving || !portInput}
+            >
+              {portSaving ? 'Saving…' : 'Save'}
+            </Button>
+            {portSaved && (
+              <span className="text-sm" style={{ opacity: 0.6 }}>
+                Saved
+              </span>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: space[3],
+              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              paddingBottom: space[3],
+              paddingTop: space[3],
+            }}
+          >
+            <Select
+              value={config.defaultAgents?.phase ?? DEFAULT_AGENTS.phase}
+              onChange={(v: string) => handleSaveAgent('phase', v)}
+              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
+              label="Phase execution"
+              helperText="Runs a single phase of a plan."
+            />
+            {agentSavedPhase && (
+              <span className="text-sm" style={{ opacity: 0.6 }}>
+                Saved
+              </span>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: space[3],
+              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              paddingBottom: space[3],
+              paddingTop: space[3],
+            }}
+          >
+            <Select
+              value={config.defaultAgents?.planDraft ?? DEFAULT_AGENTS.planDraft}
+              onChange={(v: string) => handleSaveAgent('planDraft', v)}
+              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
+              label="Plan drafting"
+              helperText="Writes a new plan from an idea."
+            />
+            {agentSavedDraft && (
+              <span className="text-sm" style={{ opacity: 0.6 }}>
+                Saved
+              </span>
+            )}
+          </div>
+
+          <div
+            style={{ display: 'flex', alignItems: 'flex-end', gap: space[3], paddingTop: space[3] }}
+          >
+            <Select
+              value={config.defaultAgents?.ideaExtend ?? DEFAULT_AGENTS.ideaExtend}
+              onChange={(v: string) => handleSaveAgent('ideaExtend', v)}
+              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
+              label="Idea extension"
+              helperText="Expands an idea with AI-generated detail."
+            />
+            {agentSavedExtend && (
+              <span className="text-sm" style={{ opacity: 0.6 }}>
+                Saved
+              </span>
+            )}
+          </div>
         </Card>
-      </div>
-
-      {config && (
-        <div style={{ marginTop: space[8] }}>
-          <h3 style={{ marginBottom: space[3] }}>Dev Server Port</h3>
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: space[3] }}>
-              <Input
-                type="number"
-                value={portInput}
-                onChange={(e) => setPortInput(e.target.value)}
-                helperText="Sets the default port for the next time you run `paper-camp dev`. Does not affect the currently running server."
-              />
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={handleSavePort}
-                disabled={portSaving || !portInput}
-              >
-                {portSaving ? 'Saving…' : 'Save'}
-              </Button>
-              {portSaved && (
-                <span className="text-sm" style={{ opacity: 0.6 }}>
-                  Saved
-                </span>
-              )}
-            </div>
-          </Card>
-        </div>
       )}
 
-      {config && (
-        <div style={{ marginTop: space[8] }}>
-          <h3 style={{ marginBottom: space[3] }}>Default Agent</h3>
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: space[3] }}>
-              <Select
-                value={config.defaultAgent ?? AGENT_IDS[0]}
-                onChange={handleSaveDefaultAgent}
-                options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
-                helperText="Used to launch agent sessions on a plan's phases, unless a plan sets its own Agent override."
-              />
-              {agentSaved && (
-                <span className="text-sm" style={{ opacity: 0.6 }}>
-                  Saved
-                </span>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
+      <p style={{ opacity: 0.45, fontSize: fontSize.sm, marginTop: space[4] }}>
+        <strong>Initialized:</strong>{' '}
+        {config ? new Date(config.initializedAt).toLocaleString() : '—'}
+      </p>
     </div>
   );
 };

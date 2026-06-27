@@ -41,6 +41,13 @@ export const paperCampConfigSchema = z.object({
     })
     .optional(),
   defaultAgent: z.enum(AGENT_IDS).optional(),
+  defaultAgents: z
+    .object({
+      phase: z.enum(AGENT_IDS),
+      planDraft: z.enum(AGENT_IDS),
+      ideaExtend: z.enum(AGENT_IDS),
+    })
+    .optional(),
 });
 
 export type PlanFields = z.infer<typeof planFieldsSchema>;

@@ -8,5 +8,10 @@
     "chore": 1,
     "docs": 2,
     "refactor": 5
+  },
+  "defaultAgents": {
+    "phase": "opencode",
+    "planDraft": "opencode",
+    "ideaExtend": "opencode"
   }
 }

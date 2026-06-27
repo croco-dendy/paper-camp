@@ -50,6 +50,7 @@ interface NewPlanInput {
   body?: string;
   phases?: PhaseItem[];
   log?: LogEntry[];
+  clarifications?: LogEntry[];
 }
 
 export function formatPlanEntry(input: NewPlanInput): string {
@@ -63,6 +64,13 @@ export function formatPlanEntry(input: NewPlanInput): string {
   if (input.tags && input.tags.length > 0) lines.push(`**Tags:** ${input.tags.join(', ')}`);
   lines.push('');
   if (input.body) lines.push(input.body, '');
+  if (input.clarifications && input.clarifications.length > 0) {
+    lines.push('### Clarifications');
+    for (const entry of input.clarifications) {
+      lines.push(`- ${entry.date}: ${entry.text}`);
+    }
+    lines.push('');
+  }
   if (input.phases && input.phases.length > 0) {
     lines.push('### Phases');
     for (const phase of input.phases) {
