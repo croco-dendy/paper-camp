@@ -14,9 +14,11 @@ Mark the completed phase `[x]` in `papercamp/plans.md` and keep the plan's `Stat
 
 When all phases of a plan are complete, set its `Status` to `review` — not `done`. The `review` status means a human (or a later agent) needs to approve the work before it's closed. Plans that reach `done` should only get there via an explicit "Approve & close" action, never because the last phase was checked off automatically.
 
-## UI code style
+## UI code style and UX principles
 
-For `src/app` code, also follow `CODE_STYLE.md`.
+For `src/app` code, also follow `CODE_STYLE.md` (how the code is written) and
+`UX_PRINCIPLES.md` (how the UI should feel to use — layout stability, visual
+hierarchy, motion). Read both before making UI changes.
 
 ## Working with the paper-ui sibling repo
 

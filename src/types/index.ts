@@ -143,6 +143,7 @@ export interface AgentTaskState {
   planTitle: string;
   planId?: string;
   phaseIndex?: number;
+  ideaId?: string;
   agentId: AgentId;
   sessionId?: string;
   lines: string[];

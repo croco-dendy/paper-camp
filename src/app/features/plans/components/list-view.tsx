@@ -56,9 +56,14 @@ export const ListView = ({
         <section style={{ marginBottom: space[8] }}>
           <SectionHeading label="Backlog" count={backlog.length} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
-            {backlog.map((p) => (
+            {backlog.map((p, i) => (
               <div key={p.title} ref={wrapRef(p.title)}>
-                <PlanCard plan={p} highlighted={activePlanTitle === p.title} onOpen={onOpenPlan} />
+                <PlanCard
+                  plan={p}
+                  highlighted={activePlanTitle === p.title}
+                  onOpen={onOpenPlan}
+                  rank={i + 1}
+                />
               </div>
             ))}
           </div>

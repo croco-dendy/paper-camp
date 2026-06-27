@@ -1,4 +1,4 @@
-import type { CheckResult } from '@/types/index';
+import type { CheckName, CheckResult } from '@/types/index';
 
 export interface StatusState {
   lint: CheckResult;
@@ -11,6 +11,10 @@ export const fetchStatus = async (): Promise<StatusState> => {
   return response.json();
 };
 
-export const triggerTests = async (): Promise<void> => {
-  await fetch('/api/status/test', { method: 'POST' });
+export const triggerCheck = async (name: CheckName): Promise<void> => {
+  await fetch(`/api/status/check?name=${name}`, { method: 'POST' });
+};
+
+export const triggerQualityFix = async (): Promise<void> => {
+  await fetch('/api/status/fix', { method: 'POST' });
 };

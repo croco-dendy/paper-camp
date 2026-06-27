@@ -1,9 +1,6 @@
-import { updatePlan } from '@/app/services/plans-api';
-import { useAppStore } from '@/app/stores/app-store';
-import { fontSize, lineHeight, space } from '@/app/styles/tokens';
+import { fontFamily, space } from '@/app/styles/tokens';
 import type { PlanEntry } from '@/types/index';
-import { Button, Card, Stamp } from '@dendelion/paper-ui';
-import { useState } from 'react';
+import { Card, Stamp } from '@dendelion/paper-ui';
 import { STATUS_ACCENT, STATUS_COLOR, STATUS_LABEL, STATUS_STAMP } from '../constants';
 import { phaseProgress, relativeDate } from '../helpers';
 import { PlanIdStamp } from './plan-id-stamp';
@@ -13,44 +10,35 @@ interface PlanCardProps {
   plan: PlanEntry;
   highlighted?: boolean;
   onOpen?: (title: string) => void;
+  rank?: number;
 }
 
-export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
-  const loadPlans = useAppStore((s) => s.loadPlans);
-  const setActivePlanTitle = useAppStore((s) => s.setActivePlanTitle);
-  const setActiveIdeaTitle = useAppStore((s) => s.setActiveIdeaTitle);
-  const [updating, setUpdating] = useState(false);
+export const PlanCard = ({ plan, highlighted, onOpen, rank }: PlanCardProps) => {
   const progress = phaseProgress(plan);
-  const inProgress = plan.status === 'in-progress';
-  const underReview = plan.status === 'review';
-
-  const handleStart = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setUpdating(true);
-    await updatePlan(plan.title, { status: 'in-progress' });
-    await loadPlans();
-    setActiveIdeaTitle(null);
-    setActivePlanTitle(plan.title);
-    setUpdating(false);
-  };
-
-  const handleStop = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setUpdating(true);
-    await updatePlan(plan.title, { status: 'planned' });
-    await loadPlans();
-    setUpdating(false);
-  };
 
   return (
     <div
-      style={
-        highlighted
-          ? { outline: '2px solid rgba(200,154,90,0.5)', outlineOffset: 2, borderRadius: 4 }
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen ? () => onOpen(plan.title) : undefined}
+      onKeyDown={
+        onOpen
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpen(plan.title);
+              }
+            }
           : undefined
       }
+      style={{
+        cursor: onOpen ? 'pointer' : undefined,
+        ...(highlighted
+          ? { outline: '2px solid rgba(200,154,90,0.5)', outlineOffset: 2, borderRadius: 4 }
+          : undefined),
+      }}
     >
-      <Card texture="white" accent accentColor={STATUS_ACCENT[plan.status]}>
+      <Card texture="kraft" accent accentColor={STATUS_ACCENT[plan.status]}>
         <div
           style={{
             display: 'flex',
@@ -60,8 +48,10 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
           }}
         >
           <h2
-            className="text-lg"
             style={{
+              fontFamily: fontFamily.serif,
+              fontWeight: 600,
+              fontSize: '1.3rem',
               margin: 0,
               lineHeight: 1.3,
               display: 'flex',
@@ -69,6 +59,11 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
               gap: space[2],
             }}
           >
+            {rank !== undefined && (
+              <span className="text-sm" style={{ opacity: 0.4, fontWeight: 600 }}>
+                {rank}.
+              </span>
+            )}
             <PlanIdStamp id={plan.id} />
             {plan.title}
           </h2>
@@ -102,15 +97,6 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
           ))}
         </div>
 
-        {plan.body && (
-          <p
-            className="text-base"
-            style={{ margin: '0.6rem 0 0', opacity: 0.8, lineHeight: lineHeight.normal }}
-          >
-            {plan.body}
-          </p>
-        )}
-
         {progress !== null && (
           <div style={{ marginTop: space[3] }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
@@ -123,30 +109,6 @@ export const PlanCard = ({ plan, highlighted, onOpen }: PlanCardProps) => {
             </div>
           </div>
         )}
-
-        <div style={{ marginTop: space[3], display: 'flex', gap: space[2] }}>
-          {onOpen && (
-            <Button
-              variant="primary"
-              size="small"
-              className="btn-violet"
-              onClick={() => onOpen(plan.title)}
-            >
-              Open
-            </Button>
-          )}
-          {!underReview && (
-            <Button
-              variant="primary"
-              size="small"
-              className={inProgress ? 'btn-orange' : 'btn-green'}
-              onClick={inProgress ? handleStop : handleStart}
-              disabled={updating}
-            >
-              {inProgress ? 'Stop' : 'Start'}
-            </Button>
-          )}
-        </div>
       </Card>
     </div>
   );

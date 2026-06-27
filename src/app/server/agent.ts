@@ -9,6 +9,7 @@ import type {
   AgentId,
   AgentTaskState,
   AgentTaskStatus,
+  IdeaEntry,
   PaperCampConfig,
   PhaseItem,
   PlanEntry,
@@ -25,6 +26,9 @@ interface AgentTask {
   phaseIndex?: number;
   // Only set for plan-scoped tasks, to check success against: did Phases or Log grow?
   planBaseline?: { phases: number; log: number };
+  // Only set for an idea-drafting task, which has neither planId nor phaseIndex since
+  // the plan doesn't exist yet — success is checked by idea id instead.
+  ideaId?: string;
   status: AgentTaskStatus;
   agentId: AgentId;
   adapter: AgentAdapter;
@@ -89,6 +93,9 @@ export function createAgentManager(root: string) {
     try {
       const raw = await readFile(join(root, 'papercamp', 'plans.md'), 'utf-8');
       const { entries } = parsePlans(raw);
+      if (task.ideaId !== undefined) {
+        return entries.some((p) => p.idea === task.ideaId);
+      }
       const plan =
         entries.find((p) => p.id === task.planId) ??
         entries.find((p) => p.title === task.planTitle);
@@ -112,9 +119,11 @@ export function createAgentManager(root: string) {
     didTaskProgress(task).then((progressed) => {
       if (current === task && progressed === false) {
         const warning =
-          task.phaseIndex !== undefined
-            ? 'Warning: agent finished but did not check off this phase in plans.md — verify manually'
-            : 'Warning: agent finished but appended nothing to Phases or Log — verify manually';
+          task.ideaId !== undefined
+            ? `Warning: agent finished but no plan linking idea: ${task.ideaId} appeared in plans.md — verify manually`
+            : task.phaseIndex !== undefined
+              ? 'Warning: agent finished but did not check off this phase in plans.md — verify manually'
+              : 'Warning: agent finished but appended nothing to Phases or Log — verify manually';
         pushLine(task, warning);
       }
     });
@@ -161,22 +170,24 @@ export function createAgentManager(root: string) {
     return current !== null && current.status !== 'done' && current.status !== 'error';
   }
 
-  // Shared by start()/startForPlan(): synchronous on purpose, same race-avoidance
-  // reasoning as the busy-guard above — no `await` between the guard check and
-  // reserving `current`.
+  // Shared by start()/startForPlan()/startForIdea(): synchronous on purpose, same
+  // race-avoidance reasoning as the busy-guard above — no `await` between the guard
+  // check and reserving `current`.
   function launch(
-    plan: PlanEntry,
+    identity: { planTitle: string; planId?: string; agentOverride?: AgentId },
     prompt: string,
-    scope: Pick<AgentTask, 'phaseIndex' | 'planBaseline'>,
+    scope: Pick<AgentTask, 'phaseIndex' | 'planBaseline' | 'ideaId'>,
   ): Result {
     if (isBusy()) {
       return { ok: false, error: 'An agent task is already running' };
     }
-    const { id: agentId, adapter } = resolveAgent(plan.agent ?? readDefaultAgentId(root));
+    const { id: agentId, adapter } = resolveAgent(
+      identity.agentOverride ?? readDefaultAgentId(root),
+    );
     const proc = spawnAgent(adapter, adapter.buildArgs(prompt));
     const task: AgentTask = {
-      planTitle: plan.title,
-      planId: plan.id,
+      planTitle: identity.planTitle,
+      planId: identity.planId,
       status: 'starting',
       agentId,
       adapter,
@@ -199,15 +210,27 @@ export function createAgentManager(root: string) {
       return { ok: false, error: 'Phase not found' };
     }
     const prompt = buildAgentPrompt(plan, phase, phaseIndex);
-    return launch(plan, prompt, { phaseIndex });
+    return launch({ planTitle: plan.title, planId: plan.id, agentOverride: plan.agent }, prompt, {
+      phaseIndex,
+    });
   }
 
   // Plan-scoped launch mode: no single phase, so success is judged by whether the
   // agent appended anything to Phases or Log rather than whether one checkbox flipped.
   function startForPlan(plan: PlanEntry, prompt: string): Result {
-    return launch(plan, prompt, {
+    return launch({ planTitle: plan.title, planId: plan.id, agentOverride: plan.agent }, prompt, {
       planBaseline: { phases: plan.phases.length, log: plan.log?.length ?? 0 },
     });
+  }
+
+  // Idea-drafting launch mode: there's no plan yet (and so no per-plan agent override
+  // either) — the plan only exists once the agent writes it, so success is judged by
+  // whether a new plan entry linking this idea's id shows up in plans.md.
+  function startForIdea(idea: IdeaEntry, prompt: string): Result {
+    if (!idea.id) {
+      return { ok: false, error: 'Idea has no id to link a drafted plan back to' };
+    }
+    return launch({ planTitle: `Draft plan for ${idea.id}` }, prompt, { ideaId: idea.id });
   }
 
   function resume(message: string): Result {
@@ -234,6 +257,7 @@ export function createAgentManager(root: string) {
       planId: prior.planId,
       phaseIndex: prior.phaseIndex,
       planBaseline: prior.planBaseline,
+      ideaId: prior.ideaId,
       status: 'starting',
       agentId: prior.agentId,
       adapter: prior.adapter,
@@ -271,6 +295,7 @@ export function createAgentManager(root: string) {
       planTitle: current.planTitle,
       planId: current.planId,
       phaseIndex: current.phaseIndex,
+      ideaId: current.ideaId,
       agentId: current.agentId,
       sessionId: current.sessionId,
       lines: [...current.lines],
@@ -280,6 +305,7 @@ export function createAgentManager(root: string) {
   return {
     start,
     startForPlan,
+    startForIdea,
     resume,
     stop,
     getStatus,

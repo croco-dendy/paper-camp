@@ -1,6 +1,7 @@
 import { deriveIdeaStatuses, parseIdeas } from '@/core/parser';
 import type {
   AgentTaskState,
+  CheckName,
   ConsistencyIssue,
   DecisionEntry,
   GitStatusEntry,
@@ -15,6 +16,7 @@ import {
   fetchAgentStatus,
   launchAgent,
   launchPlanAudit,
+  launchPlanDraft,
   resumeAgent,
   stopAgent,
 } from '../services/agent-api';
@@ -29,7 +31,7 @@ import { fetchGitStatus } from '../services/git-api';
 import { fetchIdeas } from '../services/ideas-api';
 import { fetchPlans } from '../services/plans-api';
 import type { StatusState } from '../services/status-api';
-import { fetchStatus, triggerTests } from '../services/status-api';
+import { fetchStatus, triggerCheck, triggerQualityFix } from '../services/status-api';
 
 type AppStore = {
   plans: ParseResult<PlanEntry> | null;
@@ -85,7 +87,8 @@ type AppStore = {
 
   status: StatusState | null;
   loadStatus: () => Promise<void>;
-  runTests: () => Promise<void>;
+  runCheck: (name: CheckName) => Promise<void>;
+  fixQuality: () => Promise<void>;
 
   consistency: ConsistencyIssue[];
   loadConsistency: () => Promise<void>;
@@ -97,6 +100,7 @@ type AppStore = {
   loadAgentStatus: () => Promise<void>;
   launchAgent: (planId: string, phaseIndex: number) => Promise<void>;
   launchPlanAudit: (planId: string, prompt: string) => Promise<void>;
+  launchPlanDraft: (ideaId: string, prompt: string) => Promise<void>;
   resumeAgent: (message: string) => Promise<void>;
   stopAgent: () => Promise<void>;
 };
@@ -222,9 +226,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // keep previous status
     }
   },
-  runTests: async () => {
+  runCheck: async (name) => {
     try {
-      await triggerTests();
+      await triggerCheck(name);
+    } catch {
+      // ignore
+    }
+  },
+  fixQuality: async () => {
+    try {
+      await triggerQualityFix();
     } catch {
       // ignore
     }
@@ -265,6 +276,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   launchPlanAudit: async (planId, prompt) => {
     await launchPlanAudit(planId, prompt);
+    await get().loadAgentStatus();
+  },
+  launchPlanDraft: async (ideaId, prompt) => {
+    await launchPlanDraft(ideaId, prompt);
     await get().loadAgentStatus();
   },
   resumeAgent: async (message) => {

@@ -3,6 +3,7 @@ import type { IdeaEntry, PlanEntry } from '@/types/index';
 import { CheckIcon, Icon, LightbulbIcon, Stamp, Table } from '@dendelion/paper-ui';
 import { useState } from 'react';
 import { STATUS_ACCENT } from '../constants';
+import { DraftPlanButton } from './draft-plan-button';
 
 interface IdeasBoardProps {
   ideas: IdeaEntry[];
@@ -93,6 +94,11 @@ export const IdeasBoard = ({ ideas, plans, onOpenIdea, onOpenPlan }: IdeasBoardP
                   >
                     {isExpanded ? '▾' : '▸'} {links.length}
                   </button>
+                )}
+                {!hasLinks && idea.id && (
+                  <div style={{ flexShrink: 0 }}>
+                    <DraftPlanButton idea={idea} otherPlans={plans} />
+                  </div>
                 )}
               </div>
               {isExpanded && hasLinks && (

@@ -1,6 +1,35 @@
 @tailwind utilities;
 
 /*
+ * paper-ui defaults most text (and buttons) to Luminari via $font-family-serif.
+ * This flips the default to the simpler body font everywhere except page H1s and
+ * markdown headings, which set fontFamily.serif inline and so aren't affected.
+ */
+:root {
+  --paper-font-default: "Cormorant Garamond", Georgia, serif;
+}
+
+/*
+ * paper-ui's Card is a plain block div (borderLayer > textureLayer), so it never
+ * grows to fill a flex parent on its own. Reaching into its two nested divs from
+ * outside lets the Stack panel's Agent/Status/Commit cards stretch to fill the
+ * full height of their section instead of just hugging their content.
+ */
+.stack-card-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stack-card-fill > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/*
  * paper-ui's Button renders its colored fill as an SVG <path> layered behind the
  * label, not a CSS background — so a bright color means recoloring that path
  * directly. !important is needed because paper-ui's own hover/active rules

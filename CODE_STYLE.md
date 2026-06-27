@@ -53,14 +53,26 @@ colors, or transitions in `src/app`.
 
 ### Fonts
 
-Use the paper-ui font families exactly:
+paper-ui's own default for body text/buttons/most components is Luminari
+(`fontFamily.serif`) — paper-camp overrides that default to the simpler body font
+via `--paper-font-default` (set once in `src/app/styles/utilities.css`), so most
+text does not need an explicit `fontFamily` at all.
 
-- Serif/title: `'Luminari', 'Cormorant Garamond', Georgia, serif`
-- Body: `'Cormorant Garamond', Georgia, serif`
-- Handwritten: `'Caveat', cursive`
-- Mono: `'JetBrains Mono', monospace`
+- Serif/title: `'Luminari', 'Cormorant Garamond', Georgia, serif`. Use this
+  explicitly (inline `fontFamily: fontFamily.serif`) only for page H1s
+  (`page-title.tsx`), markdown headings (`markdown.tsx`), and other deliberate
+  "special title" moments — these are the only things still meant to read as
+  Luminari.
+- Body (the project-wide default): `'Cormorant Garamond', Georgia, serif`. Most
+  text gets this for free via `--paper-font-default`; do not add a redundant
+  inline override.
+- Handwritten: `'Caveat', cursive`.
+- Mono: `'JetBrains Mono', monospace`.
 
-Do not omit `Luminari` in some places and not others. Do not invent new stacks.
+Do not invent new stacks. If you need a paper-ui component's default font
+changed project-wide, add to the `--paper-font-default` indirection in the
+sibling `paper-ui` repo (see `globals.scss`/`button.module.scss` for the
+pattern) rather than fighting it with per-instance overrides in `src/app`.
 
 ### Spacing
 
@@ -153,17 +165,21 @@ Rules:
 
 ## 6. Motion
 
-Motion should be restrained and purposeful. Use `framer-motion` for:
+Use `framer-motion` for:
 
 - Route-level page transitions.
 - List/feed items animating in (especially live activity feeds).
 - Panel slide transitions (replacing hand-rolled `translateX` + CSS transition).
 
-Avoid motion for motion's sake. Respect reduced motion via the user's system
-preference.
+For *when* motion is warranted at all and how restrained it should be, see
+"Motion" in [`UX_PRINCIPLES.md`](UX_PRINCIPLES.md).
 
 ## 7. Comments
 
 Prefer self-describing names over comments. When paper-ui has a real gap, note
 it inline. When a workaround exists for an environment quirk (e.g., clipboard
 over non-secure origins), document the "why" in a short block comment.
+
+UX/UI principles (layout stability, visual hierarchy, motion restraint, and so
+on) live in [`UX_PRINCIPLES.md`](UX_PRINCIPLES.md), not here — this file is
+about how the code is written, that one is about how the UI feels to use.

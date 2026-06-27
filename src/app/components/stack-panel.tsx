@@ -2,7 +2,6 @@ import { color, fontFamily, fontSize, layout, lineHeight, space } from '@/app/st
 import {
   AGENT_LABELS,
   type AgentTaskStatus,
-  type CheckName,
   type CheckStatus,
   type ConsistencyIssue,
 } from '@/types/index';
@@ -11,7 +10,6 @@ import {
   Alert,
   Button,
   Card,
-  CodeBlock,
   IconButton,
   Input,
   Stamp,
@@ -23,6 +21,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findFocusPlan } from '../features/plans/helpers';
 import { commitChanges } from '../services/git-api';
 import { useAppStore } from '../stores/app-store';
+import { summarizeQualityFailure, summarizeTestFailure } from '../utils/check-summary';
+import { CopyPromptButton } from './copy-prompt-button';
 
 const CHALKBOARD_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.28 0 0 0 0 0.20 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='1'/%3E%3C/svg%3E")`;
 
@@ -36,11 +36,6 @@ const deskChalk = color.deskChalk;
 interface StackPanelProps {
   open: boolean;
   onToggle: () => void;
-}
-
-interface SseEvent {
-  message: string;
-  timestamp: string;
 }
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -57,7 +52,8 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const loadPlans = useAppStore((s) => s.loadPlans);
   const statusData = useAppStore((s) => s.status);
   const loadStatus = useAppStore((s) => s.loadStatus);
-  const runTests = useAppStore((s) => s.runTests);
+  const runCheck = useAppStore((s) => s.runCheck);
+  const fixQuality = useAppStore((s) => s.fixQuality);
   const consistency = useAppStore((s) => s.consistency);
   const loadConsistency = useAppStore((s) => s.loadConsistency);
   const setActiveDocSection = useAppStore((s) => s.setActiveDocSection);
@@ -71,8 +67,6 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const resumeAgentTask = useAppStore((s) => s.resumeAgent);
   const [steeringMessage, setSteeringMessage] = useState('');
   const [steering, setSteering] = useState(false);
-  const [liveEvents, setLiveEvents] = useState<SseEvent[]>([]);
-  const [expandedFail, setExpandedFail] = useState<CheckName | null>(null);
   const [consistencyExpanded, setConsistencyExpanded] = useState(false);
   const [commitExpanded, setCommitExpanded] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -110,33 +104,13 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
 
   useEffect(() => {
     const es = new EventSource('/api/activity/stream');
-    es.onmessage = (e) => {
-      try {
-        const event: SseEvent = JSON.parse(e.data);
-        setLiveEvents((prev) => {
-          if (prev.length > 0 && prev[0].message === event.message) return prev;
-          return [event, ...prev];
-        });
-        refreshRef.current.loadProgress();
-        refreshRef.current.loadPlans();
-        refreshRef.current.loadStatus();
-        refreshRef.current.loadConsistency();
-        refreshRef.current.loadGitStatus();
-        refreshRef.current.loadAgentStatus();
-      } catch {
-        // ignore malformed events
-      }
-    };
-    es.onerror = () => {
-      setLiveEvents((prev) => {
-        if (prev.length === 0 || prev[0].message !== 'Connection lost, retrying…') {
-          return [
-            { message: 'Connection lost, retrying…', timestamp: new Date().toISOString() },
-            ...prev,
-          ];
-        }
-        return prev;
-      });
+    es.onmessage = () => {
+      refreshRef.current.loadProgress();
+      refreshRef.current.loadPlans();
+      refreshRef.current.loadStatus();
+      refreshRef.current.loadConsistency();
+      refreshRef.current.loadGitStatus();
+      refreshRef.current.loadAgentStatus();
     };
     return () => es.close();
   }, []);
@@ -308,291 +282,25 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
         <div
           style={{
             flex: 1,
-            padding: space[6],
-            overflowY: 'auto',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
             fontFamily: fontFamily.body,
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(200, 210, 195, 0.3) transparent',
           }}
         >
-          <div style={{ marginBottom: space[8] }}>
-            <div style={sectionLabelStyle}>Status</div>
-            <div
-              style={{
-                display: 'flex',
-                gap: space[2],
-                flexWrap: 'wrap',
-                marginBottom: space[4],
-              }}
-            >
-              {(['lint', 'format', 'test'] as CheckName[]).map((name) => {
-                const result = statusData?.[name];
-                const status: CheckStatus = result?.status ?? 'stale';
-                const statusFill: Record<CheckStatus, string> = {
-                  pass: '#2d5a3b',
-                  fail: '#5a2d2d',
-                  running: '#5a4a2d',
-                  stale: 'transparent',
-                };
-                const statusText: Record<CheckStatus, string | undefined> = {
-                  pass: '#b5d6b5',
-                  fail: '#d6a0a0',
-                  running: '#d6c4a0',
-                  stale: undefined,
-                };
-                const label = `${name.charAt(0).toUpperCase() + name.slice(1)}`;
-                const isExpanded = expandedFail === name && status === 'fail';
-                return (
-                  <div key={name}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (status === 'fail') {
-                          setExpandedFail(isExpanded ? null : name);
-                        }
-                      }}
-                      style={{
-                        cursor: status === 'fail' ? 'pointer' : 'default',
-                        display: 'inline-flex',
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                      }}
-                    >
-                      <Stamp
-                        variant="chalkboard"
-                        size="small"
-                        fillColor={statusFill[status]}
-                        textColor={statusText[status]}
-                      >
-                        {label}
-                        {status === 'running' ? '…' : ''}
-                      </Stamp>
-                    </button>
-                    {isExpanded && result && (
-                      <div style={{ marginTop: space[2] }}>
-                        <CodeBlock code={result.output || '(no output)'} variant="chalkboard" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {(() => {
-                const hasIssues = consistency.length > 0;
-                const fillColor = hasIssues ? '#5a2d2d' : '#2d5a3b';
-                const textColor = hasIssues ? '#d6a0a0' : '#b5d6b5';
-                return (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (hasIssues) setConsistencyExpanded((prev) => !prev);
-                      }}
-                      style={{
-                        cursor: hasIssues ? 'pointer' : 'default',
-                        display: 'inline-flex',
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                      }}
-                    >
-                      <Stamp
-                        variant="chalkboard"
-                        size="small"
-                        fillColor={fillColor}
-                        textColor={textColor}
-                      >
-                        Consistency{hasIssues ? ` ${consistency.length}` : ' clean'}
-                      </Stamp>
-                    </button>
-                    {consistencyExpanded && hasIssues && (
-                      <div
-                        style={{
-                          marginTop: space[2],
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: space[2],
-                        }}
-                      >
-                        {consistency.map((issue, i) => (
-                          <div
-                            key={`${issue.kind}-${issue.title}-${i}`}
-                            style={{
-                              fontFamily: fontFamily.mono,
-                              fontSize: fontSize['2xs'],
-                              color: deskTextMuted,
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleFindingClick(issue)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                color: deskChalk,
-                                textDecoration: 'underline',
-                                cursor: 'pointer',
-                                font: 'inherit',
-                                textAlign: 'left',
-                              }}
-                            >
-                              {issue.message}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            <button
-              type="button"
-              onClick={runTests}
-              disabled={statusData?.test?.status === 'running'}
-              style={{
-                fontFamily: fontFamily.handwritten,
-                fontSize: fontSize.sm,
-                color: deskChalk,
-                background: 'rgba(200, 210, 195, 0.1)',
-                border: `1px solid ${deskBorder}`,
-                borderRadius: 4,
-                padding: `${space[1]} ${space[3]}`,
-                cursor: statusData?.test?.status === 'running' ? 'not-allowed' : 'pointer',
-                opacity: statusData?.test?.status === 'running' ? 0.5 : 1,
-              }}
-            >
-              {statusData?.test?.status === 'running' ? 'Running…' : 'Run tests'}
-            </button>
-          </div>
-
-          <div style={{ marginBottom: space[8] }}>
-            <div style={sectionLabelStyle}>Commit</div>
-            {gitStatus && gitStatus.length > 0 ? (
-              <>
-                <Accordion
-                  title={`${gitStatus.length} file${gitStatus.length === 1 ? '' : 's'} changed`}
-                  expanded={commitExpanded}
-                  onToggle={() => setCommitExpanded(!commitExpanded)}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: space[2],
-                      paddingTop: space[2],
-                    }}
-                  >
-                    {gitStatus.map((entry) => (
-                      <label
-                        key={entry.path}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: space[2],
-                          fontFamily: fontFamily.mono,
-                          fontSize: fontSize['2xs'],
-                          color: deskChalk,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedFiles.has(entry.path)}
-                          onChange={() => handleToggleFile(entry.path)}
-                          style={{ accentColor: deskChalk }}
-                        />
-                        <span
-                          style={{
-                            color: entry.staged ? deskChalk : deskTextMuted,
-                            minWidth: 24,
-                          }}
-                        >
-                          {entry.status}
-                        </span>
-                        <span
-                          style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {entry.path}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </Accordion>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[3],
-                    marginTop: space[3],
-                  }}
-                >
-                  <Input
-                    variant="chalkboard"
-                    size="small"
-                    placeholder="Commit title"
-                    value={commitTitle}
-                    onChange={(e) => setCommitTitle(e.currentTarget.value)}
-                  />
-                  <Textarea
-                    variant="chalkboard"
-                    size="small"
-                    placeholder="Commit message (optional)"
-                    value={commitMessage}
-                    onChange={(e) => setCommitMessage(e.currentTarget.value)}
-                    rows={2}
-                  />
-                  {activePlan?.id && (
-                    <label
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: space[2],
-                        fontFamily: fontFamily.handwritten,
-                        fontSize: fontSize.sm,
-                        color: deskChalk,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={addRefs}
-                        onChange={() => setAddRefs(!addRefs)}
-                        style={{ accentColor: deskChalk }}
-                      />
-                      Add Refs: {activePlan.id}
-                    </label>
-                  )}
-                  {commitError && (
-                    <Alert variant="chalkboard" dismissible onDismiss={() => setCommitError(null)}>
-                      {commitError}
-                    </Alert>
-                  )}
-                  <Button
-                    variant="chalkboard"
-                    size="small"
-                    fullWidth
-                    disabled={selectedFiles.size === 0 || !commitTitle.trim() || committing}
-                    onClick={handleCommit}
-                  >
-                    {committing ? 'Committing…' : 'Commit'}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No changed files.</p>
-            )}
-          </div>
-
-          <div style={{ marginBottom: space[8] }}>
+          <div
+            style={{
+              flex: 2,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              padding: space[6],
+              borderBottom: `1px solid ${deskBorder}`,
+            }}
+          >
             <div style={sectionLabelStyle}>Agent</div>
             {agentStatus ? (
-              <Card variant="chalkboard" size="small">
+              <Card variant="chalkboard" size="small" className="stack-card-fill">
                 <div
                   style={{
                     display: 'flex',
@@ -678,9 +386,8 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                           onChange={(e) => setSteeringMessage(e.currentTarget.value)}
                         />
                         <Button
-                          variant="primary"
+                          variant="chalkboard"
                           size="small"
-                          className="btn-violet"
                           onClick={handleSendSteering}
                           disabled={steering || !steeringMessage.trim()}
                         >
@@ -689,9 +396,8 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                       </div>
                     )}
                     <Button
-                      variant="primary"
+                      variant="chalkboard"
                       size="small"
-                      className="btn-orange"
                       onClick={stopAgentTask}
                       disabled={agentStatus.status === 'stopping'}
                     >
@@ -701,90 +407,436 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                 )}
               </Card>
             ) : (
-              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No agent running.</p>
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <p style={{ opacity: 0.5, fontSize: fontSize.xs, margin: 0 }}>No agent running.</p>
+              </div>
             )}
           </div>
 
-          <div style={{ marginBottom: space[8] }}>
-            <div style={sectionLabelStyle}>Active</div>
-            {activePlan ? (
-              <Card variant="chalkboard" size="small">
-                <h3
-                  style={{
-                    fontFamily: fontFamily.serif,
-                    fontWeight: 600,
-                    fontSize: fontSize.sm,
-                    color: deskChalk,
-                    margin: 0,
-                    lineHeight: lineHeight.snug,
-                  }}
-                >
-                  {activePlan.title}
-                </h3>
-                {(() => {
-                  const current = activePlan.phases.find((p) => !p.done);
-                  if (!current) return null;
-                  return (
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              padding: space[6],
+              borderBottom: `1px solid ${deskBorder}`,
+            }}
+          >
+            <div style={sectionLabelStyle}>Status</div>
+            <Card variant="chalkboard" size="small" className="stack-card-fill">
+              {(() => {
+                const statusFill: Record<CheckStatus, string> = {
+                  pass: '#2d5a3b',
+                  fail: '#5a2d2d',
+                  running: '#5a4a2d',
+                  stale: 'transparent',
+                };
+                const statusText: Record<CheckStatus, string | undefined> = {
+                  pass: '#b5d6b5',
+                  fail: '#d6a0a0',
+                  running: '#d6c4a0',
+                  stale: undefined,
+                };
+                const lintStatus = statusData?.lint?.status ?? 'stale';
+                const formatStatus = statusData?.format?.status ?? 'stale';
+                const testStatus = statusData?.test?.status ?? 'stale';
+                const qualityStatus: CheckStatus =
+                  lintStatus === 'running' || formatStatus === 'running'
+                    ? 'running'
+                    : lintStatus === 'fail' || formatStatus === 'fail'
+                      ? 'fail'
+                      : lintStatus === 'stale' && formatStatus === 'stale'
+                        ? 'stale'
+                        : 'pass';
+                const anyRunning = qualityStatus === 'running' || testStatus === 'running';
+                const hasIssues = consistency.length > 0;
+
+                const qualityFixPrompt = `Fix the failing lint/format checks in this repo.\n\nLint output:\n${statusData?.lint?.output || '(none)'}\n\nFormat output:\n${statusData?.format?.output || '(none)'}`;
+                const testFixPrompt = `Fix the failing tests in this repo. Output from the last test run:\n\n${statusData?.test?.output || '(no output captured)'}`;
+
+                return (
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      gap: space[3],
+                    }}
+                  >
                     <div
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
                         gap: space[2],
-                        fontFamily: fontFamily.handwritten,
-                        fontSize: fontSize.lg,
-                        fontWeight: 400,
-                        lineHeight: lineHeight.tight,
-                        color: deskText,
-                        opacity: 0.9,
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
                       }}
                     >
-                      <span style={{ flexShrink: 0, width: 14, textAlign: 'center' }}>○</span>
-                      <span>{current.text}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!anyRunning) {
+                            runCheck('lint');
+                            runCheck('format');
+                          }
+                        }}
+                        disabled={anyRunning}
+                        style={{
+                          cursor: anyRunning ? 'not-allowed' : 'pointer',
+                          opacity: anyRunning && qualityStatus !== 'running' ? 0.5 : 1,
+                          display: 'inline-flex',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                        }}
+                      >
+                        <Stamp
+                          variant="chalkboard"
+                          size="small"
+                          fillColor={statusFill[qualityStatus]}
+                          textColor={statusText[qualityStatus]}
+                        >
+                          Quality
+                          <span
+                            style={{
+                              visibility: qualityStatus === 'running' ? 'visible' : 'hidden',
+                            }}
+                          >
+                            …
+                          </span>
+                        </Stamp>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!anyRunning) runCheck('test');
+                        }}
+                        disabled={anyRunning}
+                        style={{
+                          cursor: anyRunning ? 'not-allowed' : 'pointer',
+                          opacity: anyRunning && testStatus !== 'running' ? 0.5 : 1,
+                          display: 'inline-flex',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                        }}
+                      >
+                        <Stamp
+                          variant="chalkboard"
+                          size="small"
+                          fillColor={statusFill[testStatus]}
+                          textColor={statusText[testStatus]}
+                        >
+                          Tests
+                          <span
+                            style={{ visibility: testStatus === 'running' ? 'visible' : 'hidden' }}
+                          >
+                            …
+                          </span>
+                        </Stamp>
+                      </button>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (hasIssues) setConsistencyExpanded((prev) => !prev);
+                          }}
+                          style={{
+                            cursor: hasIssues ? 'pointer' : 'default',
+                            display: 'inline-flex',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                          }}
+                        >
+                          <Stamp
+                            variant="chalkboard"
+                            size="small"
+                            fillColor={hasIssues ? '#5a2d2d' : '#2d5a3b'}
+                            textColor={hasIssues ? '#d6a0a0' : '#b5d6b5'}
+                          >
+                            Consistency
+                          </Stamp>
+                        </button>
+                        {consistencyExpanded && hasIssues && (
+                          <div
+                            style={{
+                              marginTop: space[2],
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: space[2],
+                            }}
+                          >
+                            {consistency.map((issue, i) => (
+                              <div
+                                key={`${issue.kind}-${issue.title}-${i}`}
+                                style={{
+                                  fontFamily: fontFamily.mono,
+                                  fontSize: fontSize['2xs'],
+                                  color: deskTextMuted,
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleFindingClick(issue)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: 0,
+                                    color: deskChalk,
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    font: 'inherit',
+                                    textAlign: 'left',
+                                  }}
+                                >
+                                  {issue.message}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  );
-                })()}
-              </Card>
-            ) : (
-              <p style={{ opacity: 0.5, fontSize: fontSize.xs }}>No active plan.</p>
-            )}
+                    {(() => {
+                      // Exactly one (primaryLine, secondaryLine) pair per state, so this
+                      // slot is always exactly two lines tall — never fewer, never more —
+                      // and the stamps row above never recenters when state changes.
+                      let primaryLine: React.ReactNode;
+                      let secondaryLine: React.ReactNode = null;
+                      if (anyRunning) {
+                        primaryLine = <span style={{ color: deskTextMuted }}>Running checks…</span>;
+                      } else if (qualityStatus === 'fail') {
+                        primaryLine = (
+                          <span style={{ color: deskTextMuted }}>
+                            {summarizeQualityFailure(
+                              statusData?.lint?.output ?? '',
+                              statusData?.format?.output ?? '',
+                            )}
+                          </span>
+                        );
+                        secondaryLine = (
+                          <button
+                            type="button"
+                            onClick={fixQuality}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: deskChalk,
+                              textDecoration: 'underline',
+                              cursor: 'pointer',
+                              font: 'inherit',
+                            }}
+                          >
+                            Suggested fix: run biome --write
+                          </button>
+                        );
+                      } else if (testStatus === 'fail') {
+                        primaryLine = (
+                          <span style={{ color: deskTextMuted }}>
+                            {summarizeTestFailure(statusData?.test?.output ?? '')}
+                          </span>
+                        );
+                        secondaryLine = (
+                          <span style={{ color: deskChalk }}>
+                            Suggested fix:{' '}
+                            <CopyPromptButton
+                              prompt={testFixPrompt}
+                              label="copy a fix prompt"
+                              variant="link"
+                            />
+                          </span>
+                        );
+                      } else if (qualityStatus === 'pass' && testStatus === 'pass') {
+                        primaryLine = <span style={{ color: '#b5d6b5' }}>All checks passing.</span>;
+                      } else {
+                        primaryLine = (
+                          <span style={{ color: deskTextMuted, opacity: 0.6 }}>
+                            Checks haven't run yet.
+                          </span>
+                        );
+                      }
+                      return (
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: space[1],
+                            fontFamily: fontFamily.handwritten,
+                            fontSize: fontSize.sm,
+                          }}
+                        >
+                          {primaryLine}
+                          <span style={{ visibility: secondaryLine ? 'visible' : 'hidden' }}>
+                            {secondaryLine ?? ' '}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
+            </Card>
           </div>
 
-          {liveEvents.length > 0 && (
-            <div style={{ marginBottom: space[8] }}>
-              <div style={sectionLabelStyle}>Live</div>
-              <Card variant="chalkboard" size="small">
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[3],
-                  }}
-                >
-                  {liveEvents.map((ev, i) => (
-                    <motion.div
-                      key={`${ev.timestamp}-${i}`}
-                      initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: shouldReduceMotion ? 0 : 0.2,
-                        ease: 'easeOut',
-                        delay: shouldReduceMotion ? 0 : i * 0.03,
-                      }}
+          <div
+            style={{
+              flex: 2,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              padding: space[6],
+            }}
+          >
+            <div style={sectionLabelStyle}>Commit</div>
+            <Card variant="chalkboard" size="small" className="stack-card-fill">
+              {gitStatus && gitStatus.length > 0 ? (
+                <>
+                  <Accordion
+                    title={`${gitStatus.length} file${gitStatus.length === 1 ? '' : 's'} changed`}
+                    expanded={commitExpanded}
+                    onToggle={() => setCommitExpanded(!commitExpanded)}
+                  >
+                    <div
                       style={{
-                        fontFamily: fontFamily.handwritten,
-                        fontSize: fontSize.lg,
-                        fontWeight: 400,
-                        lineHeight: lineHeight.tight,
-                        color: deskChalk,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: space[2],
+                        paddingTop: space[2],
                       }}
                     >
-                      {ev.message}
-                    </motion.div>
-                  ))}
+                      {gitStatus.map((entry) => (
+                        <label
+                          key={entry.path}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: space[2],
+                            fontFamily: fontFamily.mono,
+                            fontSize: fontSize['2xs'],
+                            color: deskChalk,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedFiles.has(entry.path)}
+                            onChange={() => handleToggleFile(entry.path)}
+                            style={{ accentColor: deskChalk }}
+                          />
+                          <span
+                            style={{
+                              color: entry.staged ? deskChalk : deskTextMuted,
+                              minWidth: 24,
+                            }}
+                          >
+                            {entry.status}
+                          </span>
+                          <span
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {entry.path}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </Accordion>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: space[3],
+                      marginTop: space[3],
+                    }}
+                  >
+                    <Input
+                      variant="chalkboard"
+                      size="small"
+                      placeholder="Commit title"
+                      value={commitTitle}
+                      onChange={(e) => setCommitTitle(e.currentTarget.value)}
+                    />
+                    <Textarea
+                      variant="chalkboard"
+                      size="small"
+                      placeholder="Commit message (optional)"
+                      value={commitMessage}
+                      onChange={(e) => setCommitMessage(e.currentTarget.value)}
+                      rows={2}
+                    />
+                    {activePlan?.id && (
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: space[2],
+                          fontFamily: fontFamily.handwritten,
+                          fontSize: fontSize.sm,
+                          color: deskChalk,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={addRefs}
+                          onChange={() => setAddRefs(!addRefs)}
+                          style={{ accentColor: deskChalk }}
+                        />
+                        Add Refs: {activePlan.id}
+                      </label>
+                    )}
+                    {commitError && (
+                      <Alert
+                        variant="chalkboard"
+                        dismissible
+                        onDismiss={() => setCommitError(null)}
+                      >
+                        {commitError}
+                      </Alert>
+                    )}
+                    <Button
+                      variant="chalkboard"
+                      size="small"
+                      fullWidth
+                      disabled={selectedFiles.size === 0 || !commitTitle.trim() || committing}
+                      onClick={handleCommit}
+                    >
+                      {committing ? 'Committing…' : 'Commit'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <p style={{ opacity: 0.5, fontSize: fontSize.xs, margin: 0 }}>
+                    No changed files.
+                  </p>
                 </div>
-              </Card>
-            </div>
-          )}
+              )}
+            </Card>
+          </div>
         </div>
       </motion.div>
     </>

@@ -5,6 +5,7 @@ import { applyEnvEntries, parseEnv } from '../../core/env';
 import {
   findConsistencyIssues,
   parseDecisions,
+  parseIdeas,
   parseOpenQuestions,
   parsePlans,
   parseProgress,
@@ -440,9 +441,26 @@ export function createApiMiddleware(root: string): ApiMiddleware {
       return;
     }
 
-    // POST /api/status/test — trigger a one-off test run
-    if (req.method === 'POST' && pathname === '/api/status/test') {
-      status.runCheck('test');
+    // POST /api/status/check?name=lint|format|test — trigger a one-off check run
+    if (req.method === 'POST' && pathname === '/api/status/check') {
+      const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`);
+      const name = url.searchParams.get('name');
+      if (name !== 'lint' && name !== 'format' && name !== 'test') {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'name must be lint, format, or test' }));
+        return;
+      }
+      status.runCheck(name);
+      res.statusCode = 202;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // POST /api/status/fix — run `biome check . --write` to auto-fix lint/format issues
+    if (req.method === 'POST' && pathname === '/api/status/fix') {
+      status.runQualityFix();
       res.statusCode = 202;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ ok: true }));
@@ -528,6 +546,43 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           return;
         }
         const result = agent.startForPlan(plan, prompt);
+        if (!result.ok) {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: result.error }));
+          return;
+        }
+        res.statusCode = 202;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/agent/launch-draft — start a headless agent that drafts a new plan from an idea
+    if (req.method === 'POST' && pathname === '/api/agent/launch-draft') {
+      try {
+        const body = await readBody(req);
+        const { ideaId, prompt } = JSON.parse(body) as { ideaId?: string; prompt?: string };
+        if (!ideaId || !prompt) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'ideaId and prompt are required' }));
+          return;
+        }
+        const ideas = parseIdeas(await readMaybe(campFile(root, 'ideas.md')));
+        const idea = ideas.find((i) => i.id === ideaId);
+        if (!idea) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'idea not found' }));
+          return;
+        }
+        const result = agent.startForIdea(idea, prompt);
         if (!result.ok) {
           res.statusCode = 409;
           res.setHeader('Content-Type', 'application/json');

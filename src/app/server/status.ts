@@ -89,6 +89,29 @@ export function createStatusManager(root: string) {
     });
   }
 
+  function runQualityFix() {
+    if (running.has('lint') || running.has('format')) return;
+    setResult('lint', 'running', 'Applying automatic fixes…');
+    setResult('format', 'running', 'Applying automatic fixes…');
+
+    const proc = spawn('npx biome check . --write', {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
+    });
+
+    proc.on('close', () => {
+      runCheck('lint');
+      runCheck('format');
+    });
+
+    proc.on('error', (err) => {
+      const message = `Failed to spawn fix process: ${err.message}`;
+      setResult('lint', 'fail', message);
+      setResult('format', 'fail', message);
+    });
+  }
+
   const srcDir = join(root, 'src');
   let srcTimer: ReturnType<typeof setTimeout> | null = null;
   try {
@@ -112,6 +135,7 @@ export function createStatusManager(root: string) {
       };
     },
     runCheck,
+    runQualityFix,
     subscribe(res: ServerResponse) {
       clients.add(res);
       for (const name of ['lint', 'format', 'test'] as CheckName[]) {

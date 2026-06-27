@@ -1,3 +1,33 @@
+## Plan-drafting agent writes plans.md directly, same as phase execution
+
+**Date:** 2026-06-27
+**Status:** decided
+
+**Context:** `IDEA-15`/`FEAT-17`'s plan-drafting agent (reads an idea, writes a new
+`plans.md` entry) left open whether it should write `plans.md` directly — like
+`IDEA-4`/`FEAT-10`'s phase-execution agent does — or produce a draft requiring
+approval before anything lands in the file. Drafting an entire plan from a one-
+paragraph idea is a looser instruction than executing one named phase, with more
+room to misjudge scope, so this wasn't assumed by default.
+
+**Decision:** Write directly, with no separate draft/approval step. The agent's
+new entry (and any existing-plan reordering it judges necessary) is written with
+`Status: idea`, exactly like `POST /api/plans`'s existing convention for any
+newly-created plan — landing it in the Backlog section, not auto-promoted to
+`in-progress`. A human reviews it there using the CRUD the Backlog already has
+(edit, delete, or promote via the existing Start button); nothing new needs to
+be built for review.
+
+**Rationale:** The codebase's existing idiom is "write directly, then gate
+follow-on action behind status" — `FEAT-10`'s phase agent writes directly and
+relies on `Status: review` (not an auto-`done`) as the after-the-fact human gate;
+`POST /api/plans` already writes a brand-new plan straight to the file at
+`Status: idea` with zero approval step, because Backlog's full CRUD is itself
+the review surface. Building a separate propose/approve flow (draft storage,
+diff view, accept/reject actions) would duplicate that surface for no added
+safety, since the agent's output is just another `Status: idea` Backlog entry —
+exactly as inspectable and discardable as one a human typed in by hand.
+
 ## Confirm Claude Code's headless stream-json shape before writing the adapter
 
 **Date:** 2026-06-25
