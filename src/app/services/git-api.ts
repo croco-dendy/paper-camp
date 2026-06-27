@@ -1,6 +1,6 @@
-import type { GitStatusEntry } from '@/types/index';
+import type { GitStatusResponse } from '@/types/index';
 
-export const fetchGitStatus = async (): Promise<GitStatusEntry[]> => {
+export const fetchGitStatus = async (): Promise<GitStatusResponse> => {
   const response = await fetch('/api/git/status');
   return response.json();
 };

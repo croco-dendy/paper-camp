@@ -72,7 +72,10 @@ Plan context: ${plan.body}
 Do only this phase. When done, check it off in plans.md (- [ ] -> - [x]) and append what you did to progress.md. If this was the last unchecked phase, set the plan's Status to \`review\`, not \`done\`, per this repo's AGENTS.md.`;
 }
 
-export function createAgentManager(root: string) {
+export function createAgentManager(
+  root: string,
+  ensureBranch: (plan: PlanEntry) => void = () => {},
+) {
   const clients = new Set<ServerResponse>();
   let current: AgentTask | null = null;
 
@@ -232,6 +235,9 @@ export function createAgentManager(root: string) {
     const phase = plan.phases[phaseIndex];
     if (!phase) {
       return { ok: false, error: 'Phase not found' };
+    }
+    if (phaseIndex === 0) {
+      ensureBranch(plan);
     }
     const prompt = buildAgentPrompt(plan, phase, phaseIndex);
     return launch({ planTitle: plan.title, planId: plan.id, agentOverride: plan.agent }, prompt, {

@@ -1110,7 +1110,7 @@ rather than a gate every plan must pass through.
 
 ## GitHub CI/CD automation
 
-**Status:** in-progress
+**Status:** done
 **Kind:** feat
 **Id:** FEAT-22
 **Idea:** IDEA-18
@@ -1128,22 +1128,145 @@ on release, and a PR-per-feature workflow tied to this repo's own
 FEAT-N/FIX-N naming scheme.
 
 ### Phases
-- [ ] Add CI workflow for tests, quality, and commitlint
+- [x] Add CI workflow for tests, quality, and commitlint
       A `.github/workflows/ci.yml` running `pnpm install`, then
       `pnpm run check-types`/`pnpm run lint`/`pnpm test` on push and PR,
       plus `commitlint --from <base> --to <head>` against the PR's commits
       to finally give `.commitlintrc.json` a real job.
-- [ ] Configure release-please for automated versioning
-      Decide whether `refactor` commits should bump patch (given how much of
-      this repo's work is `refactor`), add `release-please` with
-      `changelog-sections` matching this repo's Conventional Commits types,
-      and wire it to maintain a standing release PR on `main`.
-- [ ] Add npm publish workflow
+- [x] Configure release-please for automated versioning
+      Decision: `refactor` bumps patch — this repo treats refactoring as a
+      first-class deliverable (4 REFACTOR plans). Since release-please
+      doesn't support custom type-to-bump mappings natively, `refactor`
+      appears in `changelog-sections` under "Code Refactoring" and rides
+      along with the next feat/fix release. To make refactor trigger
+      independent patch releases, toggle `versioning` to `always-bump-patch`
+      or add a custom release-please versioning plugin.
+- [x] Add npm publish workflow
       Triggered on the GitHub Release created by release-please: runs
       `pnpm run build` and `npm publish` using an `NPM_TOKEN` repo secret.
-- [ ] Adopt per-feature branch workflow
+- [x] Adopt per-feature branch workflow
       Define a branch-naming convention (e.g. `feat/feat-N-title`), a PR
       creation mechanism, and decide when a PR opens and whether `main`
       stays directly pushable. Resolve the open question about how
       per-branch work affects IDEA-4's agent writing directly to
       `plans.md`/`progress.md`.
+- [x] Split CI into named jobs: Quality, Tests and Consistency
+      Split `ci.yml`'s single `ci` job into three parallel jobs
+      (`quality`: `check-types` + `lint`, `tests`: `vitest`,
+      `consistency`: `commitlint`) so each appears as its own
+      named check on PRs per the log entry.
+- [x] Make refactor commits trigger independent patch releases
+      The decision in phase 2 says `refactor` bumps patch. After
+      verifying: release-please's `DefaultVersioningStrategy` already
+      maps `refactor` → patch under `"versioning": "default"` — its
+      `determineReleaseType` fallback returns `PatchVersionUpdate` for
+      every non-breaking, non-feat commit type. The changelog section
+      was already configured; only the understanding needed updating.
+- [x] Add explicit job/step names and lock down `main`
+      Audit found job ids (`quality`/`tests`/`consistency`) had no `name:`
+      field, so GitHub showed the lowercase id rather than the intended
+      "Quality"/"Tests"/"Consistency" labels; same gap on every step across
+      all 4 workflows (no `name:`, just bare `run:`/`uses:`). Added explicit
+      `name:` to every job and step. Live-repo audit via `gh api` also found
+      `main` had zero branch protection (a broken commit could merge via PR
+      with no required checks) and no `NPM_TOKEN` secret (publish.yml would
+      fail on first release). Branch protection added requiring
+      Quality/Tests/Consistency to pass before merge, without blocking direct
+      pushes (`enforce_admins`/restrictions off) per the existing "main stays
+      pushable" decision. `NPM_TOKEN` left for the user to set directly
+      (secret value, not something an agent should generate or see).
+- [x] Adopt `type(scope): description` commit convention
+      Scope is the plan/idea number with no kind prefix (e.g. `feat(22): ...`
+      for `FEAT-22`); non-plan commits use a short area name instead (e.g.
+      `chore(deps): ...`). Added `scope-empty: [2, "never"]` to
+      `.commitlintrc.json` to require a scope on every commit. While testing
+      against this repo's real commit history, found that `subject-case`
+      (inherited from `@commitlint/config-conventional`) rejects the
+      capitalized subjects this repo has always used (e.g. "Settings config
+      workspace") — the `consistency` CI check would have failed on every
+      existing-style commit the first time it ran on a real PR. Disabled
+      `subject-case` (`[2, "never", []]`) to match the established style
+      instead of forcing a lowercase-first-word rewrite. Documented the full
+      convention in `AGENTS.md`.
+- [x] Rename release-please and create-pr workflows for clarity
+      `release-please.yml`/job `release-please` tied the file name to the
+      underlying tool rather than what it does — renamed to `release.yml`/job
+      `release` (workflow display name "Release"). `create-pr.yml`/job
+      `create-pr` was too generic (sounds like it handles any PR creation,
+      not specifically the auto-draft-on-first-push behavior) — renamed to
+      `draft-pr.yml`/job `draft-pr` (display name "Draft PR"). Did not merge
+      the two workflows: they trigger on disjoint events (`release.yml` only
+      on push to `main`; `draft-pr.yml` only on push to feature branches) and
+      serve unrelated concerns, so one file per concern stays clearer.
+      `.github/release-please-config.json` and
+      `.github/.release-please-manifest.json` keep their tool-specific names
+      — those are release-please's own expected config files, recognizable
+      to anyone who knows the tool; only the workflow/job display names
+      (which show up as GitHub UI labels) needed to be generic. Updated
+      references in `AGENTS.md` and `decisions.md`.
+- [x] Auto-create branch when a plan's first phase starts
+      `agent.start(plan, phaseIndex)` in `src/app/server/agent.ts` is the
+      single entry point the Stack panel's Play button calls. The trigger is
+      the **first phase actually being launched** (`phaseIndex === 0`), not
+      the plan's `Status` flipping to `in-progress` — a plan can sit
+      `in-progress` with zero phases started and zero branch yet. When phase
+      0 launches, derive the branch name from the existing
+      `<kind>/<lowercase-id>-<kebab-title>` convention and create+check it
+      out off `main` before spawning the agent (extend `createGitManager()`
+      in `src/app/server/git.ts` with an `ensureBranch(plan)` alongside its
+      existing `commit()`). No-op if already on that branch. Only covers
+      phase starts launched through the agent UI — direct edits outside that
+      flow still need a manual branch.
+- [x] Block switching to another plan while a branch is in flight
+      Once a plan has a branch (created by the phase above), the working
+      tree is checked out to that branch — starting agent work on a
+      *different* plan would mean switching branches mid-flight with
+      uncommitted/unmerged work sitting on the first. Block launching agent
+      work on any other plan while the current plan's branch exists and the
+      plan hasn't reached `done`. Show the user a message naming the
+      in-flight plan and telling them to finish it first (e.g. "Finish
+      `FEAT-22` — GitHub CI/CD automation — before starting another plan").
+      This is stricter than the existing one-task-at-a-time guard in
+      `agent.ts`: that only blocks concurrent *agent processes*; this blocks
+      switching plans even between agent runs, for as long as the branch is
+      unfinished.
+- [x] Auto-create branch and finalize commit on plan approval
+      On the "Approve & close" action (the one that flips a plan's `Status`
+      to `done`), check whether the plan currently has an associated branch.
+      If none exists (e.g. work happened straight on `main`), create one at
+      that point via the same `ensureBranch(plan)`. Commit any outstanding
+      changes with a `type(scope): description` message (per the convention
+      from phase 8) whose body lists every phase's title as a bullet, so the
+      commit doubles as a changelog of what shipped for that plan. This is
+      also the point that lifts the "block switching plans" restriction from
+      the phase above, since the plan is now `done`.
+- [x] Show branch name in the commit card
+      The commit section at the top of the Stack panel's card
+      (`src/app/components/stack-panel.tsx:689`) shows staged files and a
+      commit title/message form, but never says which branch the commit
+      will land on. `git.ts` already has `getCurrentBranch()` (line 142) but
+      it isn't exposed via `/api/git/status` — add it to that response and
+      render it (e.g. a small label/Stamp next to the "Commit" heading) so
+      it's obvious at a glance which plan's branch is checked out before
+      committing.
+- [x] Fix approval-time branch guard and empty-scope commit
+      Review found two bugs in the approval flow (`PATCH /api/plans`,
+      `status: 'done'`, `src/app/server/api.ts`). (1) It called
+      `git.ensureBranch()`/`git.commitAll()` without first checking
+      `checkBranchConflictForPlan()` — the guard phase 11 added — so
+      approving plan B while plan A's branch had uncommitted work would
+      checkout/create plan B's branch carrying plan A's dirty changes along,
+      then commit them under plan B's message. Added the same conflict check
+      before the write, returning 409 if another plan's branch is still in
+      flight. (2) `finalEntry.id?.replace(...) ?? ''` produced an empty
+      commit scope (`chore(): Title`) for plans with no `Id`, violating the
+      `scope-empty` rule from phase 8. Added a kebab-title fallback scope for
+      that case.
+
+### Log
+- 2026-06-27: I want to have 3 steps in PR visible for each check - Quality, Tests and Consistency
+- 2026-06-27: Phase 4 — Adopted per-feature branch workflow: documented branch-naming convention in AGENTS.md (`<kind>/<lowercase-id>-<kebab-title>`), added `.github/workflows/create-pr.yml` (auto-creates a draft PR on first push to any `feat/*`/`fix/*`/`refactor/*`/`chore/*`/`docs/*` branch, idempotent), updated `ci.yml` to also trigger on pushes to feature branches (not just `main`+PRs), and resolved the IDEA-4 impact question (agents write to whichever branch is checked out — no behavioral change needed, merge conflicts from two branches touching `plans.md` accepted until IDEA-20). `main` stays pushable for agent progress writes, tiny fixes, and config changes. All decisions recorded in `decisions.md`.
+- 2026-06-27: Audit found two missing phases: (1) `ci.yml` has one job → PRs show one check, not three; split into Quality/Tests/Consistency jobs per log entry. (2) `release-please-config.json` still on `"default"` versioning so `refactor` doesn't trigger releases despite the phase-2 decision.
+- 2026-06-27: Asked whether branch creation can be automated for "start a plan's first phase" since this is our own app, not a third party — we can wire it directly into the agent-launch code path. Also want a check on plan approval: if the plan has no branch yet, create one then, and commit with a proper `type(scope)` name whose body lists all the phase titles. Appended two phases for this (not implementing yet, just scoping them).
+- 2026-06-27: Clarified the trigger is the first phase actually starting, not the plan merely reaching `in-progress` status with nothing started. Also want plan-switching blocked once a branch exists for an unfinished plan — show the user a message to finish the current feature first. Appended a phase for the block; not implementing yet.
+- 2026-06-27: Also want the branch name shown in the commit section at the top of the Stack panel's card, so it's obvious which branch a commit is about to land on. Appended a phase for it.
