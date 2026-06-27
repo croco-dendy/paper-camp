@@ -1,3 +1,36 @@
+## Settings config workspace
+
+**Status:** done
+**Kind:** feat
+**Id:** FEAT-21
+**Idea:** IDEA-2
+**Created:** 2026-06-27
+**Updated:** 2026-06-27
+**Tags:** app, settings
+
+Turns Settings from a single static info+icon page into a real sidebar-driven
+configuration workspace, scoped to what this repo's stack actually has — auto-discovered
+config files, structured package.json rendering, and editable project identity.
+Built across FEAT-5 (sidebar layout + config discovery) and FEAT-9 (package.json table +
+editable project name). The original write-path for biome.json/tsconfig.json/etc. was
+deliberately dropped (those are editor/LSP-backed files) and split into IDEA-13.
+
+### Phases
+- [x] Add Settings sidebar layout
+      Sidebar layout — a left rail of sections mirroring PlansSidebar's structure,
+      main area showing whichever section is selected; "General" is the default
+      landing section
+- [x] Add dynamic configs endpoint
+      GET /api/configs scanning the repo root for config files that actually exist
+      (biome.json, tsconfig.json, tailwind.config.ts, vite.config.ts, vite.app.config.ts,
+      postcss.config.js, package.json) and returns only hits
+- [x] Add structured package.json rendering
+      ConfigEditorSection special-cases package.json into a name → command table
+      instead of a raw CodeBlock
+- [x] Make project name editable
+      The General card's project name becomes an editable Input, saved through
+      POST /api/config
+
 ## Build core library
 
 **Status:** done
@@ -1074,3 +1107,43 @@ rather than a gate every plan must pass through.
 - 2026-06-27: If you in audit check latest 2 logs about button, and add phases to fix it!!! And remove this log if you got it!
 - 2026-06-27: Audit appended missing rename phase (button label still says "Clarify before starting" per log #3); icon/text layout per log #4 is already correct
 - 2026-06-27: but what about icon position? I dont see phase to fix icon position in this button
+
+## GitHub CI/CD automation
+
+**Status:** in-progress
+**Kind:** feat
+**Id:** FEAT-22
+**Idea:** IDEA-18
+**Created:** 2026-06-27
+**Updated:** 2026-06-27
+**Tags:** ci, cd, github
+
+This repo has zero `.github/` workflows today — no CI runs tsc/biome/vitest
+on push or PR, no automated npm publish, and every commit goes straight to
+`main`. One piece of groundwork already exists unused: `.commitlintrc.json`
+enforces Conventional Commits but nothing runs it. Wires up real CI/CD around
+what's already there: CI on push/PR, automated versioning via release-please
+(with an explicit decision on whether `refactor` bumps patch), npm publish
+on release, and a PR-per-feature workflow tied to this repo's own
+FEAT-N/FIX-N naming scheme.
+
+### Phases
+- [ ] Add CI workflow for tests, quality, and commitlint
+      A `.github/workflows/ci.yml` running `pnpm install`, then
+      `pnpm run check-types`/`pnpm run lint`/`pnpm test` on push and PR,
+      plus `commitlint --from <base> --to <head>` against the PR's commits
+      to finally give `.commitlintrc.json` a real job.
+- [ ] Configure release-please for automated versioning
+      Decide whether `refactor` commits should bump patch (given how much of
+      this repo's work is `refactor`), add `release-please` with
+      `changelog-sections` matching this repo's Conventional Commits types,
+      and wire it to maintain a standing release PR on `main`.
+- [ ] Add npm publish workflow
+      Triggered on the GitHub Release created by release-please: runs
+      `pnpm run build` and `npm publish` using an `NPM_TOKEN` repo secret.
+- [ ] Adopt per-feature branch workflow
+      Define a branch-naming convention (e.g. `feat/feat-N-title`), a PR
+      creation mechanism, and decide when a PR opens and whether `main`
+      stays directly pushable. Resolve the open question about how
+      per-branch work affects IDEA-4's agent writing directly to
+      `plans.md`/`progress.md`.
