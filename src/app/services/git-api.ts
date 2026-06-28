@@ -2,6 +2,10 @@ import type { GitStatusResponse } from '@/types/index';
 
 export const fetchGitStatus = async (): Promise<GitStatusResponse> => {
   const response = await fetch('/api/git/status');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Failed to load git status' }));
+    throw new Error(err.error);
+  }
   return response.json();
 };
 

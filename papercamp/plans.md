@@ -1,3 +1,53 @@
+## Plan storage architecture
+
+**Status:** idea
+**Kind:** feat
+**Id:** FEAT-24
+**Idea:** IDEA-20
+**Created:** 2026-06-28
+**Tags:** core, cli, plans, ideas
+
+Replace the single monolithic plans.md/ideas.md files with one file per plan/idea, each using YAML frontmatter for metadata instead of the current ad-hoc line grammar. This eliminates cross-branch merge conflicts (two branches editing two plans now touch two files, not two regions of one), speeds up agent reads (one small file per plan instead of a 1000-entry monster), and replaces the fragile hand-rolled line parser with a real YAML parser feeding into the existing zod schemas. Also folds .paper-camp/ (config/assets) into the visible papercamp/ directory. See ideas.md's IDEA-20 for the full rationale.
+
+### Phases
+- [ ] Design per-file schema, directory layout, and migration plan
+      Finalize the YAML frontmatter metadata format, directory structure (papercamp/plans/, papercamp/ideas/, archive/), filename convention (id-only vs id+slug), and config migration from .paper-camp/ into papercamp/. Document the spec in about.md, generated from zod schemas via zod-to-json-schema.
+- [ ] Build frontmatter parser/serializer
+      Replace the hand-rolled line grammar in core/parser.ts with a real YAML frontmatter parser feeding into the existing zod schemas. Update serializer.ts and schemas.ts. Generate the frontmatter spec from zod schemas as the single source of truth.
+- [ ] Generate index files
+      Build index generators for papercamp/plans/index.md and papercamp/ideas/index.md (id, title, status, tags only), regenerated on every write.
+- [ ] Implement archive as file move
+      A plan moving to done/dropped moves its file from papercamp/plans/ to papercamp/plans/archive/ — no parse-and-re-serialize step.
+- [ ] Update CLI and dashboard API routes
+      Update CLI commands (init, add plan) and every API route (/api/plans, /api/ideas, etc.) to read/write per-file entries instead of the monolithic files.
+- [ ] Move .paper-camp/ config and assets into papercamp/
+      Move config.json and assets from .paper-camp/ into papercamp/, update all code references across the entire codebase.
+- [ ] Write and run one-time migration script
+      Split the current plans.md and ideas.md into individual per-file entries under the new layout, preserving every entry and its full content.
+
+## Resolve open questions from Docs
+
+**Status:** idea
+**Kind:** feat
+**Id:** FEAT-23
+**Idea:** IDEA-19
+**Created:** 2026-06-28
+**Tags:** app, docs
+
+The Docs page's open-question detail view is read-only today — it shows the question, its `open`/`resolved` `Stamp`, and a click-through to whatever `decisions.md` entry resolved it, but there's no way to actually answer one from the app. The serializer half is already written (`formatDecisionEntry`/`formatOpenQuestionEntry`/`appendBlock` in `src/core/serializer.ts`) but nothing calls it — this plan wires up the missing route and UI. The reverse link from a decision back to the questions it answers already exists in `DecisionDetail` and needs zero changes.
+
+### Phases
+- [ ] Add `formatOpenQuestions` serializer
+      The plural formatter needed by the resolve endpoint to rewrite the full `open-questions.md` file after flipping an entry's status — mirrors `formatPlanEntry`'s per-entry join in the existing `formatPlans`.
+- [ ] Add resolve API endpoint
+      `POST /api/open-questions/resolve?title=<question title>` with `{ decision, rationale? }`. Writes the new decision entry to `decisions.md` first (via `formatDecisionEntry`/`appendBlock`), then flips the matched question entry to `status: 'resolved'` with `Resolved-by` set — order matters so `findConsistencyIssues` never sees a dangling `Resolved-by`.
+- [ ] Add resolve action UI to OpenQuestionDetail
+      A "Resolve" `Button` on `open-question-detail.tsx` (gated on `question.status === 'open'`) opens a `Modal` with a short **Decision** `Input` and optional **Rationale** `Textarea`, following `add-idea-modal.tsx`'s controlled `open`/`onClose`/`onAdd` pattern with local `loading` state.
+- [ ] Wire frontend API and store refresh
+      Add `resolveOpenQuestion(title, decision, rationale?)` to `src/app/services/docs-api.ts`. On success, re-call the store's `loadDecisions`/`loadOpenQuestions` — the same refetch-after-mutation pattern the Stack panel already uses.
+- [ ] Verify reverse linking end-to-end
+      Confirm that newly resolved questions appear in the existing `DecisionDetail`'s `resolvedQuestions` filter (already built at `decision-detail.tsx:16`) without changes.
+
 ## Settings config workspace
 
 **Status:** done
@@ -1110,7 +1160,7 @@ rather than a gate every plan must pass through.
 
 ## GitHub CI/CD automation
 
-**Status:** done
+**Status:** review
 **Kind:** feat
 **Id:** FEAT-22
 **Idea:** IDEA-18
@@ -1339,6 +1389,63 @@ FEAT-N/FIX-N naming scheme.
       hunting — CodeRabbit was picked over Greptile (pricier, noisier,
       overkill for a solo project) and Qodo Merge (more configurable but
       requires self-hosting the Action and managing your own LLM key).
+- [x] Open draft PRs as a named GitHub App bot, not `github-actions[bot]`
+      `draft-pr.yml` ran `gh pr create` with `secrets.GITHUB_TOKEN`, so every
+      auto-created draft PR showed up authored by `github-actions[bot]`. User
+      created a GitHub App named **Scout** (`pull_requests: read/write`, no
+      webhook) under the `adooone` org and installed it on this repo, then
+      set `SCOUT_APP_ID`/`SCOUT_PRIVATE_KEY` as repo secrets themselves (`gh
+      secret set`) so the private key never touched this chat. Along the
+      way: `gh secret set` echoed back `croco-dendy/paper-camp` instead of
+      `adooone/paper-camp` — turned out to be the same repo (same numeric
+      id), a leftover redirect from when the repo was transferred from the
+      personal account into the org; the secret landed correctly either way,
+      but updated the local `origin` remote to the canonical
+      `adooone/paper-camp` URL to stop the confusion going forward. Added a
+      `Generate Scout app token` step to `draft-pr.yml` using
+      `actions/create-github-app-token@v1` with those two secrets, and
+      pointed the `Create draft PR` step's `GITHUB_TOKEN` env at
+      `steps.app-token.outputs.token` instead of `secrets.GITHUB_TOKEN`.
+      YAML re-parses clean, `biome` clean.
+- [x] Triage and fix CodeRabbit's first review pass
+      CodeRabbit posted 9 actionable comments on PR #1. Fixed the
+      clear-cut ones: (1) `draft-pr.yml` interpolated `github.ref_name`
+      directly into the shell script (`BRANCH="${{ github.ref_name }}"`) — a
+      real GitHub Actions injection risk; moved it into `env: BRANCH:` and
+      read `$BRANCH` at runtime instead. (2) Added `persist-credentials:
+      false` to all 4 checkout steps across `ci.yml`/`draft-pr.yml` so the
+      token isn't left in git config during later `pnpm install` script
+      execution. (3) `git.ts`'s `ensureBranch()` silently continued past a
+      failed `checkout -b`/fallback `checkout`, assuming any `-b` failure
+      meant "branch already exists" — now throws with the real git stderr
+      if either checkout actually fails, instead of proceeding on the wrong
+      branch. (4) `git-api.ts`'s `fetchGitStatus()` didn't check
+      `response.ok` before parsing, so a `{ error: ... }` failure response
+      would overwrite the store with `undefined`s — now throws on non-OK,
+      matching the pattern `commitChanges` already used in the same file.
+      (5) `decisions.md`'s "Per-feature branch workflow" rationale said
+      branch protection "isn't configured," contradicting the later
+      decision that added it — reworded to say it gates merges, not pushes.
+      (6) Merged a duplicate `## 2026-06-27` heading in `progress.md` into
+      the section above it. Also caught and fixed the plan-level issue
+      CodeRabbit flagged: this plan's `Status` was `done` instead of
+      `review`, violating `AGENTS.md`'s own rule that only an explicit
+      "Approve & close" sets `done` — reverted to `review`. Skipped
+      CodeRabbit's suggestion to call `ensureBranch()` on every phase launch
+      (not just `phaseIndex === 0`) — that contradicts this plan's own
+      earlier scoping decision and needs a real discussion, not a drive-by
+      fix. `tsc`/`biome`/`vitest` all clean (35 tests), all 4 workflow YAMLs
+      re-parse clean.
+- [x] Call `ensureBranch()` on every phase, not just phase 0
+      Reopened the disagreement flagged in the phase above: after weighing
+      it, decided CodeRabbit's edge case is real (a plan resumed mid-flight
+      after someone manually switched branches would silently run on the
+      wrong one) and the fix is free — `ensureBranch()` is already
+      idempotent, a no-op when already on the right branch. Changed
+      `agent.ts`'s `start()` from `if (phaseIndex === 0) { ensureBranch(plan)
+      }` to an unconditional `ensureBranch(plan)` call before every phase
+      launch. Supersedes the original "first phase only" scoping decision.
+      `tsc`/`biome`/`vitest` all clean (35 tests).
 
 ### Log
 - 2026-06-27: I want to have 3 steps in PR visible for each check - Quality, Tests and Consistency
@@ -1352,3 +1459,6 @@ FEAT-N/FIX-N naming scheme.
 - 2026-06-27: Reported a second CI failure right after — `Cannot find module '@dendelion/paper-ui'` cascading across every file. Root cause was the `link:../paper-ui` dependency, which only resolves on the dev machine. Confirmed the deeper problem (this would break a real `npm install` too, since the package is already published to npm), and chose to publish the pending paper-ui work as `0.2.0` and switch paper-camp to depend on the registry version, with `pnpm link` documented for local co-development.
 - 2026-06-27: Noticed duplicated CI jobs — once for `push`, once for `pull_request` — on the same feature-branch commit. Root cause was `ci.yml` triggering on both events for feature branches; fixed by dropping the feature-branch `push` trigger now that `draft-pr.yml` guarantees a PR exists from the first push onward.
 - 2026-06-27: Asked about adding automated PR review beyond the local Claude-based `/code-review` skill, specifically a tool different from Claude to double-check code style/rule fit. Compared CodeRabbit, Greptile, Qodo Merge, Sourcery; picked CodeRabbit (free for public repos, lowest setup friction, low false-positive rate) over Greptile (pricier/noisier) and Qodo Merge (more configurable but self-hosted). Appended a phase; not implementing yet.
+- 2026-06-27: Noticed draft PRs are authored by `github-actions[bot]` and wants a custom-named bot identity instead. Discussed GitHub App vs. dedicated bot account; went with a GitHub App. Named it **Scout** after rejecting "Ranger" and a few other camp-themed options (Sherpa, Lookout, Quartermaster, Trailblazer, Camp Scribe). User is creating the App now; appended a phase to wire it into `draft-pr.yml` once the App ID/private key are available.
+- 2026-06-28: Asked to check CodeRabbit's review comments on the live PR and think through how PR review fits the plan-status methodology. Triaged 9 comments; fixed the clear-cut ones (injection risk, error-swallowing in `ensureBranch`, unchecked response in `fetchGitStatus`, persist-credentials hardening, a self-contradicting `decisions.md` paragraph, a duplicate `progress.md` heading), and separately fixed the `Status: done` → `review` mismatch CodeRabbit also caught. Recommendation: treat CodeRabbit's findings as a pre-approval checklist, not a `review`-status gate — `review` still just means "phases done," and skimming/triaging bot comments happens before clicking Approve & close, not before.
+- 2026-06-28: Reopened the one disagreement with CodeRabbit — decided a "quick check we're on the right branch" before every phase is worth it, not just at phase 0. Reversed the earlier "first phase only" decision; appended a phase.

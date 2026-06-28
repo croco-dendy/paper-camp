@@ -236,9 +236,7 @@ export function createAgentManager(
     if (!phase) {
       return { ok: false, error: 'Phase not found' };
     }
-    if (phaseIndex === 0) {
-      ensureBranch(plan);
-    }
+    ensureBranch(plan);
     const prompt = buildAgentPrompt(plan, phase, phaseIndex);
     return launch({ planTitle: plan.title, planId: plan.id, agentOverride: plan.agent }, prompt, {
       taskKind: 'phase',

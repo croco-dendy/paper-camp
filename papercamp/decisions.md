@@ -290,9 +290,12 @@ how the branch workflow affects IDEA-4's agents that write directly to
   review" state. The PR is the workspace; promoting it to ready is the human
   signal that review should happen.
 - Main stays pushable because the solo workflow has legitimate use cases for
-  direct-to-main commits (agent progress writes, hotfixes), and GitHub branch
-  protection rules aren't configured for this repo. The convention is enforced
-  by code review, not CI gate.
+  direct-to-main commits (agent progress writes, hotfixes). `main` does have
+  branch protection (added later — see "Branch protection on main requires
+  checks but stays push-friendly" above), but it only gates the PR merge
+  button via required status checks; it does not restrict direct pushes. The
+  convention itself (when to push to `main` vs. open a PR) is enforced by
+  code review, not a CI gate.
 - The per-branch agent impact is minimal because IDEA-4's agents already write
   to the working tree regardless of branch. No agent behavioral change is
   needed — just awareness that branch context matters for where writes land.

@@ -86,13 +86,25 @@ export function createGitManager(root: string) {
     const branch = `${kind}/${id}-${title}`;
 
     const currentResult = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
+    if (currentResult.status !== 0) {
+      throw new Error(
+        currentResult.stderr.toString().trim() || 'Unable to read current git branch',
+      );
+    }
     const currentBranch = currentResult.stdout.toString().trim();
     if (currentBranch === branch) return;
 
     const result = spawnSync('git', ['checkout', '-b', branch, 'main'], { cwd: root });
     if (result.status !== 0) {
       // Branch already exists — just check it out
-      spawnSync('git', ['checkout', branch], { cwd: root });
+      const checkoutResult = spawnSync('git', ['checkout', branch], { cwd: root });
+      if (checkoutResult.status !== 0) {
+        throw new Error(
+          checkoutResult.stderr.toString().trim() ||
+            result.stderr.toString().trim() ||
+            `Unable to check out ${branch}`,
+        );
+      }
     }
   }
 

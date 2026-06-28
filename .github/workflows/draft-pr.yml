@@ -20,13 +20,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Generate Scout app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SCOUT_APP_ID }}
+          private-key: ${{ secrets.SCOUT_PRIVATE_KEY }}
 
       - name: Create draft PR if not exists
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          BRANCH="${{ github.ref_name }}"
-
           PLAN_ID=$(echo "$BRANCH" | grep -oP '[a-z]+-\d+' || true)
           if [ -z "$PLAN_ID" ]; then
             echo "Branch '$BRANCH' does not match plan-ID pattern — skipping PR creation"

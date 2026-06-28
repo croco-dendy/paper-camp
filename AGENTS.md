@@ -98,7 +98,11 @@ directly on `main`. A draft PR is auto-created on first push.
 
 - **PRs:** A `.github/workflows/draft-pr.yml` workflow auto-creates a **draft**
   PR on the first push to any feature branch. The PR stays draft until human
-  review is ready. CI runs on the PR via the existing `ci.yml`.
+  review is ready. CI runs on the PR via the existing `ci.yml`. The PR is
+  authored by the **Scout** GitHub App (`scout[bot]`), not
+  `github-actions[bot]` — `draft-pr.yml` mints a short-lived installation
+  token via `actions/create-github-app-token`, using the `SCOUT_APP_ID`/
+  `SCOUT_PRIVATE_KEY` repo secrets.
 
 - **`main` stays pushable.** Direct pushes to `main` are allowed but
   *conventionally* reserved for:
