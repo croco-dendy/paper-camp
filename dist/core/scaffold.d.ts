@@ -7,8 +7,10 @@ export interface InitOptions {
     intent?: string;
 }
 /**
- * Scaffolds .paper-camp/config.json and papercamp/*.md. Never overwrites existing
- * files — a project's memory is never something `init` should clobber.
+ * Scaffolds papercamp/config.json and papercamp/ directory structure.
+ * Creates per-file plan/idea directories and index files, plus monolithic
+ * files for the remaining sections (progress, decisions, open-questions).
+ * Never overwrites existing files.
  */
 export declare function initProject(targetDir: string, options: InitOptions): Promise<void>;
 //# sourceMappingURL=scaffold.d.ts.map

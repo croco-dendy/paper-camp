@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export declare const dateString: z.ZodString;
 export declare const planFieldsSchema: z.ZodObject<{
     status: z.ZodEnum<{
         idea: "idea";
@@ -42,6 +43,37 @@ export declare const openQuestionFieldsSchema: z.ZodObject<{
     'resolved-by': z.ZodOptional<z.ZodString>;
     blocks: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
+export declare const planFrontmatterSchema: z.ZodObject<{
+    id: z.ZodString;
+    title: z.ZodString;
+    kind: z.ZodEnum<{
+        feat: "feat";
+        fix: "fix";
+        chore: "chore";
+        docs: "docs";
+        refactor: "refactor";
+    }>;
+    status: z.ZodEnum<{
+        idea: "idea";
+        planned: "planned";
+        "in-progress": "in-progress";
+        review: "review";
+        done: "done";
+        dropped: "dropped";
+    }>;
+    idea: z.ZodOptional<z.ZodString>;
+    agent: z.ZodOptional<z.ZodEnum<{
+        "claude-code": "claude-code";
+        opencode: "opencode";
+    }>>;
+    created: z.ZodString;
+    updated: z.ZodOptional<z.ZodString>;
+    tags: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export declare const ideaFrontmatterSchema: z.ZodObject<{
+    id: z.ZodString;
+    title: z.ZodString;
+}, z.core.$strip>;
 export declare const paperCampConfigSchema: z.ZodObject<{
     version: z.ZodString;
     projectName: z.ZodString;
@@ -75,4 +107,6 @@ export declare const paperCampConfigSchema: z.ZodObject<{
 export type PlanFields = z.infer<typeof planFieldsSchema>;
 export type DecisionFields = z.infer<typeof decisionFieldsSchema>;
 export type OpenQuestionFields = z.infer<typeof openQuestionFieldsSchema>;
+export type PlanFrontmatter = z.infer<typeof planFrontmatterSchema>;
+export type IdeaFrontmatter = z.infer<typeof ideaFrontmatterSchema>;
 //# sourceMappingURL=schemas.d.ts.map

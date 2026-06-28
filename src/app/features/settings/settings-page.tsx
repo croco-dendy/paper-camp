@@ -128,7 +128,7 @@ const GeneralSection = () => {
       </div>
       {config === undefined && <p>Loading…</p>}
       {config === null && (
-        <Alert variant="warning" title="No .paper-camp/config.json found">
+        <Alert variant="warning" title="No papercamp/config.json found">
           Run <code>paper-camp init</code> in this directory first.
         </Alert>
       )}

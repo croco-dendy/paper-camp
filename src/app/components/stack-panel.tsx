@@ -117,10 +117,25 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
 
   const activePlan = useMemo(() => findFocusPlan(plans?.entries), [plans?.entries]);
 
+  const suggestedScope = useMemo(() => {
+    if (!activePlan) return '';
+    if (activePlan.id) return activePlan.id.replace(/^[A-Z]+-/, '');
+    return activePlan.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30);
+  }, [activePlan]);
+
   const suggestedTitle = useMemo(() => {
     if (!activePlan) return '';
     const kind = activePlan.kind ?? 'feat';
-    return `${kind}: ${activePlan.title}`;
+    return `${kind}(${suggestedScope}): ${activePlan.title}`;
+  }, [activePlan, suggestedScope]);
+
+  const suggestedMessage = useMemo(() => {
+    if (!activePlan?.phases.length) return '';
+    return activePlan.phases.map((phase) => `- ${phase.text}`).join('\n');
   }, [activePlan]);
 
   useEffect(() => {
@@ -128,6 +143,12 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
       setCommitTitle(suggestedTitle);
     }
   }, [suggestedTitle, commitTitle]);
+
+  useEffect(() => {
+    if (suggestedMessage && !commitMessage) {
+      setCommitMessage(suggestedMessage);
+    }
+  }, [suggestedMessage, commitMessage]);
 
   useEffect(() => {
     if (gitStatus) {

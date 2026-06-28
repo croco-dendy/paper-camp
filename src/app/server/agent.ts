@@ -4,7 +4,12 @@ import { readFile } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { parseIdeas, parsePlans } from '../../core/parser';
+import {
+  readAllIdeaFiles,
+  readAllPlanFiles,
+  readIdeasMerged,
+  readPlansMerged,
+} from '../../core/parser';
 import {
   type AgentId,
   type AgentTaskState,
@@ -44,7 +49,7 @@ interface AgentTask {
 
 function readDefaultAgentIds(root: string): DefaultAgentsMap {
   try {
-    const raw = readFileSync(join(root, '.paper-camp', 'config.json'), 'utf-8');
+    const raw = readFileSync(join(root, 'papercamp', 'config.json'), 'utf-8');
     const config = JSON.parse(raw) as PaperCampConfig & { defaultAgent?: AgentId };
     if (config.defaultAgents) return config.defaultAgents;
     if (config.defaultAgent) {
@@ -104,21 +109,30 @@ export function createAgentManager(
   async function didTaskProgress(task: AgentTask): Promise<boolean | null> {
     try {
       if (task.taskKind === 'extend') {
-        const raw = await readFile(join(root, 'papercamp', 'ideas.md'), 'utf-8');
-        const entries = parseIdeas(raw);
-        const idea = entries.find((e) => e.id === task.ideaId);
-        if (!idea) return null;
+        const ideasDir = join(root, 'papercamp', 'ideas');
+        const ideas = await readAllIdeaFiles(ideasDir);
+        const idea = ideas.entries.find((e) => e.id === task.ideaId);
+        if (!idea) {
+          const mono = await readFile(join(root, 'papercamp', 'ideas.md'), 'utf-8').catch(() => '');
+          const { parseIdeas } = await import('../../core/parser');
+          const monoIdea = parseIdeas(mono).find(
+            (e: { id: string | null }) => e.id === task.ideaId,
+          );
+          if (!monoIdea) return null;
+          if (task.ideaBodyBaseline === undefined) return null;
+          return monoIdea.body !== task.ideaBodyBaseline;
+        }
         if (task.ideaBodyBaseline === undefined) return null;
         return idea.body !== task.ideaBodyBaseline;
       }
-      const raw = await readFile(join(root, 'papercamp', 'plans.md'), 'utf-8');
-      const { entries } = parsePlans(raw);
+      const plansDir = join(root, 'papercamp', 'plans');
+      const { entries } = await readAllPlanFiles(plansDir);
       if (task.ideaId !== undefined) {
-        return entries.some((p) => p.idea === task.ideaId);
+        return entries.some((p: { idea?: string }) => p.idea === task.ideaId);
       }
       const plan =
-        entries.find((p) => p.id === task.planId) ??
-        entries.find((p) => p.title === task.planTitle);
+        entries.find((p: { id?: string }) => p.id === task.planId) ??
+        entries.find((p: { title: string }) => p.title === task.planTitle);
       if (!plan) return null;
       if (task.phaseIndex !== undefined) {
         return plan.phases[task.phaseIndex]?.done ?? null;

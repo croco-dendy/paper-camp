@@ -1,150 +1,161 @@
 #!/usr/bin/env node
-import { join as O, dirname as ct, extname as dt, basename as pt, resolve as Y } from "node:path";
-import { Command as ut } from "commander";
-import { t as nt, r as z, m as Q, s as k, q as M, j as Z, c as at, i as it, w as B, a as ot, n as V, b as lt, f as ft, P as gt, l as mt, A as yt } from "../chunks/serializer.D1Ts_p8h.js";
-import { DEFAULT_AGENTS as X, PLAN_KINDS as F, AGENT_IDS as U } from "../types/index.js";
-import { readFile as $, writeFile as I, mkdir as ht, stat as st } from "node:fs/promises";
-import { createServer as Ct } from "node:http";
-import { fileURLToPath as wt } from "node:url";
-import { watch as G, readFileSync as St } from "node:fs";
-import { spawn as K, spawnSync as L } from "node:child_process";
-import { createInterface as Tt } from "node:readline";
-const E = (n, c) => O(n, "papercamp", c), _ = (n) => $(n, "utf-8").catch(() => "");
-async function q(n) {
-  const [c, o, s, u] = await Promise.all([
-    _(E(n, "plans.md")),
-    _(E(n, "decisions.md")),
-    _(E(n, "open-questions.md")),
-    _(E(n, "progress.md"))
+import { readFile as A, unlink as Tt, mkdir as P, writeFile as $, stat as ot } from "node:fs/promises";
+import { join as C, dirname as Nt, extname as Ot, basename as jt, resolve as R } from "node:path";
+import { Command as bt } from "commander";
+import { D as mt, z as nt, u as at, C as K, H as _, I as k, d as yt, m as G, M as Q, B as ct, c as Jt, i as ht, y as it, v as pt, b as vt, K as st, J as wt, o as rt, j as Ct, g as $t, P as It, r as xt, A as Ht } from "../chunks/serializer.DEl5Ryp3.js";
+import { DEFAULT_AGENTS as lt, PLAN_KINDS as Y, AGENT_IDS as tt } from "../types/index.js";
+import { createServer as kt } from "node:http";
+import { fileURLToPath as Pt } from "node:url";
+import { watch as Z, readFileSync as At } from "node:fs";
+import { spawn as V, spawnSync as U } from "node:child_process";
+import { createInterface as Dt } from "node:readline";
+function St(e, d) {
+  return e.map((s) => {
+    if (!s.id)
+      return { ...s, status: "planned" };
+    const o = d.filter((h) => h.idea === s.id);
+    if (o.length === 0)
+      return { ...s, status: "planned" };
+    const u = o.every((h) => h.status === "done" || h.status === "dropped");
+    return { ...s, status: u ? "done" : "planned" };
+  });
+}
+const M = (e, d) => C(e, "papercamp", d), z = (e) => A(e, "utf-8").catch(() => "");
+async function ut(e) {
+  const [d, s, o, u] = await Promise.all([
+    z(M(e, "plans.md")),
+    z(M(e, "decisions.md")),
+    z(M(e, "open-questions.md")),
+    z(M(e, "progress.md"))
   ]);
   return {
-    plans: k(c).entries,
-    decisions: Q(o).entries,
-    openQuestions: z(s).entries,
-    progress: nt(u)
+    plans: K(d).entries,
+    decisions: at(s).entries,
+    openQuestions: nt(o).entries,
+    progress: mt(u)
   };
 }
-function Nt(n, c) {
-  const o = [], s = (/* @__PURE__ */ new Date()).toISOString(), u = new Map(n.plans.map((e) => [e.title, e])), y = new Map(c.plans.map((e) => [e.title, e]));
-  for (const [e, d] of y) {
-    const f = u.get(e);
+function Et(e, d) {
+  const s = [], o = (/* @__PURE__ */ new Date()).toISOString(), u = new Map(e.plans.map((a) => [a.title, a])), h = new Map(d.plans.map((a) => [a.title, a]));
+  for (const [a, p] of h) {
+    const f = u.get(a);
     if (!f)
-      o.push({ message: `New plan added: ${e}`, timestamp: s });
-    else if (f.status !== d.status)
-      o.push({ message: `Plan "${e}" marked ${d.status}`, timestamp: s });
+      s.push({ message: `New plan added: ${a}`, timestamp: o });
+    else if (f.status !== p.status)
+      s.push({ message: `Plan "${a}" marked ${p.status}`, timestamp: o });
     else
-      for (let p = 0; p < d.phases.length; p++) {
-        const l = f.phases[p], m = d.phases[p];
-        l && l.done !== m.done && o.push({
-          message: m.done ? `Phase ${p + 1}/${d.phases.length} checked off in "${e}"` : `Phase ${p + 1}/${d.phases.length} unchecked in "${e}"`,
-          timestamp: s
+      for (let g = 0; g < p.phases.length; g++) {
+        const l = f.phases[g], c = p.phases[g];
+        l && l.done !== c.done && s.push({
+          message: c.done ? `Phase ${g + 1}/${p.phases.length} checked off in "${a}"` : `Phase ${g + 1}/${p.phases.length} unchecked in "${a}"`,
+          timestamp: o
         });
       }
   }
-  for (const [e] of u)
-    y.has(e) || o.push({ message: `Plan removed: ${e}`, timestamp: s });
-  const r = new Map(n.decisions.map((e) => [e.title, e])), t = new Map(c.decisions.map((e) => [e.title, e]));
-  for (const [e] of t)
-    r.has(e) || o.push({ message: `New decision: ${e}`, timestamp: s });
-  const b = new Map(n.openQuestions.map((e) => [e.title, e])), C = new Map(c.openQuestions.map((e) => [e.title, e]));
-  for (const [e] of C)
-    b.has(e) || o.push({ message: `New open question: ${e}`, timestamp: s });
-  const S = new Map(n.progress.map((e) => [e.date, e])), i = new Map(c.progress.map((e) => [e.date, e]));
-  for (const [e] of i)
-    S.has(e) || o.push({ message: `Progress logged: ${e}`, timestamp: s });
-  return o;
+  for (const [a] of u)
+    h.has(a) || s.push({ message: `Plan removed: ${a}`, timestamp: o });
+  const r = new Map(e.decisions.map((a) => [a.title, a])), t = new Map(d.decisions.map((a) => [a.title, a]));
+  for (const [a] of t)
+    r.has(a) || s.push({ message: `New decision: ${a}`, timestamp: o });
+  const j = new Map(e.openQuestions.map((a) => [a.title, a])), w = new Map(d.openQuestions.map((a) => [a.title, a]));
+  for (const [a] of w)
+    j.has(a) || s.push({ message: `New open question: ${a}`, timestamp: o });
+  const N = new Map(e.progress.map((a) => [a.date, a])), i = new Map(d.progress.map((a) => [a.date, a]));
+  for (const [a] of i)
+    N.has(a) || s.push({ message: `Progress logged: ${a}`, timestamp: o });
+  return s;
 }
-function Ot(n) {
-  const c = /* @__PURE__ */ new Set();
-  let o = null, s = null;
+function Rt(e) {
+  const d = /* @__PURE__ */ new Set();
+  let s = null, o = null;
   const u = ["plans.md", "decisions.md", "open-questions.md", "progress.md"];
-  async function y() {
+  async function h() {
     try {
-      const r = await q(n);
-      if (o) {
-        const t = Nt(o, r);
-        for (const b of t) {
-          const C = `data: ${JSON.stringify(b)}
+      const r = await ut(e);
+      if (s) {
+        const t = Et(s, r);
+        for (const j of t) {
+          const w = `data: ${JSON.stringify(j)}
 
 `;
-          for (const S of c)
+          for (const N of d)
             try {
-              S.write(C);
+              N.write(w);
             } catch {
-              c.delete(S);
+              d.delete(N);
             }
         }
       }
-      o = r;
+      s = r;
     } catch {
     }
   }
   for (const r of u) {
-    const t = E(n, r);
+    const t = M(e, r);
     try {
-      G(t, () => {
-        s && clearTimeout(s), s = setTimeout(y, 300);
+      Z(t, () => {
+        o && clearTimeout(o), o = setTimeout(h, 300);
       });
     } catch {
     }
   }
-  return q(n).then((r) => {
-    o = r;
+  return ut(e).then((r) => {
+    s = r;
   }), {
     subscribe(r) {
-      c.add(r);
+      d.add(r);
       const t = JSON.stringify({
         message: "Watching for changes…",
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
       r.write(`data: ${t}
 
-`), r.on("close", () => c.delete(r));
+`), r.on("close", () => d.delete(r));
     }
   };
 }
-function jt(n) {
-  return ["-p", n, "--output-format", "stream-json", "--verbose", "--permission-mode", "auto"];
+function Bt(e) {
+  return ["-p", e, "--output-format", "stream-json", "--verbose", "--permission-mode", "auto"];
 }
-function bt(n) {
-  let c;
+function Ft(e) {
+  let d;
   try {
-    c = JSON.parse(n);
+    d = JSON.parse(e);
   } catch {
     return null;
   }
-  switch (c.type) {
+  switch (d.type) {
     case "system":
-      return c.subtype === "init" ? { text: "Agent session started" } : c.subtype === "post_turn_summary" && typeof c.status_detail == "string" ? { text: c.status_detail } : null;
+      return d.subtype === "init" ? { text: "Agent session started" } : d.subtype === "post_turn_summary" && typeof d.status_detail == "string" ? { text: d.status_detail } : null;
     case "rate_limit_event":
       return null;
     case "assistant": {
-      const o = c.message, s = (o == null ? void 0 : o.content) ?? [];
-      for (const u of s) {
-        const y = u;
-        if (y.type === "tool_use")
-          return { text: `Running ${y.name ?? "a tool"}…` };
-        if (y.type === "text" && typeof y.text == "string" && y.text.trim())
-          return { text: y.text.trim() };
+      const s = d.message, o = (s == null ? void 0 : s.content) ?? [];
+      for (const u of o) {
+        const h = u;
+        if (h.type === "tool_use")
+          return { text: `Running ${h.name ?? "a tool"}…` };
+        if (h.type === "text" && typeof h.text == "string" && h.text.trim())
+          return { text: h.text.trim() };
       }
       return null;
     }
     case "user": {
-      const o = c.message, s = o == null ? void 0 : o.content, u = Array.isArray(s) ? s[0] : void 0;
+      const s = d.message, o = s == null ? void 0 : s.content, u = Array.isArray(o) ? o[0] : void 0;
       return u != null && u.is_error ? { text: `Error: ${typeof u.content == "string" ? u.content : "Tool call failed"}`, error: !0 } : { text: "Tool finished" };
     }
     case "result": {
-      const o = !!c.is_error;
-      return { text: (typeof c.result == "string" ? c.result.trim() : "") || (o ? "Agent run failed" : "Agent run finished"), done: !0, error: o };
+      const s = !!d.is_error;
+      return { text: (typeof d.result == "string" ? d.result.trim() : "") || (s ? "Agent run failed" : "Agent run finished"), done: !0, error: s };
     }
     default:
       return { text: "Agent is working…" };
   }
 }
-function Jt(n) {
-  return ["run", n, "--format", "json"];
+function Lt(e) {
+  return ["run", e, "--format", "json"];
 }
-const vt = {
+const Mt = {
   bash: "Running command",
   read: "Reading file",
   edit: "Editing file",
@@ -155,422 +166,428 @@ const vt = {
   webfetch: "Fetching URL",
   question: "Asking for input"
 };
-function Ht(n) {
-  let c;
+function _t(e) {
+  let d;
   try {
-    c = JSON.parse(n);
+    d = JSON.parse(e);
   } catch {
     return null;
   }
-  const o = c.type, s = c.part;
-  if (!o || !s) return null;
-  switch (o) {
+  const s = d.type, o = d.part;
+  if (!s || !o) return null;
+  switch (s) {
     case "step_start":
       return null;
     case "text": {
-      const u = s.text;
+      const u = o.text;
       return u != null && u.trim() ? { text: u.trim() } : null;
     }
     case "tool_use": {
-      const u = s.tool, y = s.state ? s.state.input : void 0, r = y ? y.description : void 0, t = u ? vt[u] : "Running tool", b = typeof r == "string" && r.trim() ? `: ${r.trim()}` : "";
-      return u ? { text: `${t}${b}…` } : null;
+      const u = o.tool, h = o.state ? o.state.input : void 0, r = h ? h.description : void 0, t = u ? Mt[u] : "Running tool", j = typeof r == "string" && r.trim() ? `: ${r.trim()}` : "";
+      return u ? { text: `${t}${j}…` } : null;
     }
     case "step_finish": {
-      const u = s.reason, y = u === "tool-calls" ? null : u === "stop" ? "Done" : "Step finished";
-      return y ? { text: y } : null;
+      const u = o.reason, h = u === "tool-calls" ? null : u === "stop" ? "Done" : "Step finished";
+      return h ? { text: h } : null;
     }
     default:
       return null;
   }
 }
-const tt = "claude-code", P = {
+const ft = "claude-code", L = {
   "claude-code": {
     command: "claude",
-    buildArgs: jt,
-    parseLine: bt
+    buildArgs: Bt,
+    parseLine: Ft
   },
   opencode: {
     command: "opencode",
-    buildArgs: Jt,
-    parseLine: Ht
+    buildArgs: Lt,
+    parseLine: _t
   }
-}, xt = {
+}, Gt = {
   phase: "phase",
   audit: "phase",
   draft: "planDraft",
   extend: "ideaExtend"
 };
-function kt(n) {
-  const { agentId: c, defaultAgents: o, taskKind: s } = n;
-  if (c && c in P) return { id: c, adapter: P[c] };
-  if (s && o) {
-    const u = xt[s], y = o[u];
-    if (y && y in P) return { id: y, adapter: P[y] };
+function Kt(e) {
+  const { agentId: d, defaultAgents: s, taskKind: o } = e;
+  if (d && d in L) return { id: d, adapter: L[d] };
+  if (o && s) {
+    const u = Gt[o], h = s[u];
+    if (h && h in L) return { id: h, adapter: L[h] };
   }
-  return { id: tt, adapter: P[tt] };
+  return { id: ft, adapter: L[ft] };
 }
-const $t = 50;
-function It(n) {
+const Ut = 50;
+function zt(e) {
   try {
-    const c = St(O(n, ".paper-camp", "config.json"), "utf-8"), o = JSON.parse(c);
-    return o.defaultAgents ? o.defaultAgents : o.defaultAgent ? {
-      phase: o.defaultAgent,
-      planDraft: o.defaultAgent,
-      ideaExtend: o.defaultAgent
-    } : X;
+    const d = At(C(e, "papercamp", "config.json"), "utf-8"), s = JSON.parse(d);
+    return s.defaultAgents ? s.defaultAgents : s.defaultAgent ? {
+      phase: s.defaultAgent,
+      planDraft: s.defaultAgent,
+      ideaExtend: s.defaultAgent
+    } : lt;
   } catch {
-    return X;
+    return lt;
   }
 }
-function Pt(n, c, o) {
-  return `You're working on phase ${o + 1} ("${c.text}") of the plan "${n.title}" (${n.id ?? "no id"}) in papercamp/plans.md.
+function Wt(e, d, s) {
+  return `You're working on phase ${s + 1} ("${d.text}") of the plan "${e.title}" (${e.id ?? "no id"}) in papercamp/plans.md.
 
-${c.description ?? ""}
+${d.description ?? ""}
 
-Plan context: ${n.body}
+Plan context: ${e.body}
 
 Do only this phase. When done, check it off in plans.md (- [ ] -> - [x]) and append what you did to progress.md. If this was the last unchecked phase, set the plan's Status to \`review\`, not \`done\`, per this repo's AGENTS.md.`;
 }
-function At(n, c = () => {
+function Qt(e, d = () => {
 }) {
-  const o = /* @__PURE__ */ new Set();
-  let s = null;
-  function u(a) {
-    const g = `data: ${JSON.stringify({ message: a, timestamp: (/* @__PURE__ */ new Date()).toISOString(), type: "agent" })}
+  const s = /* @__PURE__ */ new Set();
+  let o = null;
+  function u(n) {
+    const y = `data: ${JSON.stringify({ message: n, timestamp: (/* @__PURE__ */ new Date()).toISOString(), type: "agent" })}
 
 `;
-    for (const w of o)
+    for (const S of s)
       try {
-        w.write(g);
+        S.write(y);
       } catch {
-        o.delete(w);
+        s.delete(S);
       }
   }
-  function y(a, g) {
-    a.lines.push(g), a.lines.length > $t && a.lines.shift(), u(g);
+  function h(n, y) {
+    n.lines.push(y), n.lines.length > Ut && n.lines.shift(), u(y);
   }
-  function r(a, g) {
-    a.status = g, u(`agent: ${g}`);
+  function r(n, y) {
+    n.status = y, u(`agent: ${y}`);
   }
-  async function t(a) {
-    var g, w;
+  async function t(n) {
+    var y, S;
     try {
-      if (a.taskKind === "extend") {
-        const x = await $(O(n, "papercamp", "ideas.md"), "utf-8"), W = M(x).find((rt) => rt.id === a.ideaId);
-        return !W || a.ideaBodyBaseline === void 0 ? null : W.body !== a.ideaBodyBaseline;
+      if (n.taskKind === "extend") {
+        const I = C(e, "papercamp", "ideas"), F = (await _(I)).entries.find((x) => x.id === n.ideaId);
+        if (!F) {
+          const x = await A(C(e, "papercamp", "ideas.md"), "utf-8").catch(() => ""), { parseIdeas: X } = await import("../chunks/serializer.DEl5Ryp3.js").then((q) => q.N), dt = X(x).find(
+            (q) => q.id === n.ideaId
+          );
+          return !dt || n.ideaBodyBaseline === void 0 ? null : dt.body !== n.ideaBodyBaseline;
+        }
+        return n.ideaBodyBaseline === void 0 ? null : F.body !== n.ideaBodyBaseline;
       }
-      const T = await $(O(n, "papercamp", "plans.md"), "utf-8"), { entries: j } = k(T);
-      if (a.ideaId !== void 0)
-        return j.some((x) => x.idea === a.ideaId);
-      const v = j.find((x) => x.id === a.planId) ?? j.find((x) => x.title === a.planTitle);
-      return v ? a.phaseIndex !== void 0 ? ((g = v.phases[a.phaseIndex]) == null ? void 0 : g.done) ?? null : a.planBaseline ? v.phases.length > a.planBaseline.phases || (((w = v.log) == null ? void 0 : w.length) ?? 0) > a.planBaseline.log : null : null;
+      const T = C(e, "papercamp", "plans"), { entries: b } = await k(T);
+      if (n.ideaId !== void 0)
+        return b.some((I) => I.idea === n.ideaId);
+      const v = b.find((I) => I.id === n.planId) ?? b.find((I) => I.title === n.planTitle);
+      return v ? n.phaseIndex !== void 0 ? ((y = v.phases[n.phaseIndex]) == null ? void 0 : y.done) ?? null : n.planBaseline ? v.phases.length > n.planBaseline.phases || (((S = v.log) == null ? void 0 : S.length) ?? 0) > n.planBaseline.log : null : null;
     } catch {
       return null;
     }
   }
-  function b(a, g) {
-    r(a, g ? "error" : "done"), !g && t(a).then((w) => {
-      if (s === a && w === !1) {
-        const T = a.taskKind === "extend" ? `Warning: agent finished but the idea body for ${a.ideaId} did not change — verify manually` : a.ideaId !== void 0 ? `Warning: agent finished but no plan linking idea: ${a.ideaId} appeared in plans.md — verify manually` : a.phaseIndex !== void 0 ? "Warning: agent finished but did not check off this phase in plans.md — verify manually" : "Warning: agent finished but appended nothing to Phases or Log — verify manually";
-        y(a, T);
+  function j(n, y) {
+    r(n, y ? "error" : "done"), !y && t(n).then((S) => {
+      if (o === n && S === !1) {
+        const T = n.taskKind === "extend" ? `Warning: agent finished but the idea body for ${n.ideaId} did not change — verify manually` : n.ideaId !== void 0 ? `Warning: agent finished but no plan linking idea: ${n.ideaId} appeared in plans.md — verify manually` : n.phaseIndex !== void 0 ? "Warning: agent finished but did not check off this phase in plans.md — verify manually" : "Warning: agent finished but appended nothing to Phases or Log — verify manually";
+        h(n, T);
       }
     });
   }
-  function C(a) {
-    if (!a.proc.stdout) return;
-    Tt({ input: a.proc.stdout }).on("line", (w) => {
-      if (s !== a || !w.trim()) return;
-      const T = a.adapter.parseLine(w);
-      T && (y(a, T.text), T.done && b(a, !!T.error));
-    }), a.proc.on("close", (w) => {
-      s === a && (a.status === "starting" || a.status === "running" ? b(a, w !== 0) : a.status === "stopping" && r(a, "done"));
-    }), a.proc.on("error", (w) => {
-      s === a && (y(a, `Failed to spawn agent: ${w.message}`), r(a, "error"));
+  function w(n) {
+    if (!n.proc.stdout) return;
+    Dt({ input: n.proc.stdout }).on("line", (S) => {
+      if (o !== n || !S.trim()) return;
+      const T = n.adapter.parseLine(S);
+      T && (h(n, T.text), T.done && j(n, !!T.error));
+    }), n.proc.on("close", (S) => {
+      o === n && (n.status === "starting" || n.status === "running" ? j(n, S !== 0) : n.status === "stopping" && r(n, "done"));
+    }), n.proc.on("error", (S) => {
+      o === n && (h(n, `Failed to spawn agent: ${S.message}`), r(n, "error"));
     });
   }
-  function S(a, g) {
-    return K(a.command, g, {
-      cwd: n,
+  function N(n, y) {
+    return V(n.command, y, {
+      cwd: e,
       stdio: ["ignore", "pipe", "pipe"]
     });
   }
   function i() {
-    return s !== null && s.status !== "done" && s.status !== "error";
+    return o !== null && o.status !== "done" && o.status !== "error";
   }
-  function e(a, g, w) {
+  function a(n, y, S) {
     if (i())
       return { ok: !1, error: "An agent task is already running" };
-    const T = It(n), { id: j, adapter: v } = kt({
-      agentId: a.agentOverride,
+    const T = zt(e), { id: b, adapter: v } = Kt({
+      agentId: n.agentOverride,
       defaultAgents: T,
-      taskKind: w.taskKind
-    }), x = S(v, v.buildArgs(g)), R = {
-      planTitle: a.planTitle,
-      planId: a.planId,
+      taskKind: S.taskKind
+    }), I = N(v, v.buildArgs(y)), D = {
+      planTitle: n.planTitle,
+      planId: n.planId,
       status: "starting",
-      agentId: j,
+      agentId: b,
       adapter: v,
-      proc: x,
+      proc: I,
       lines: [],
-      ...w
+      ...S
     };
-    return s = R, C(R), r(R, "running"), { ok: !0 };
+    return o = D, w(D), r(D, "running"), { ok: !0 };
   }
-  function d(a, g) {
+  function p(n, y) {
     if (i())
       return { ok: !1, error: "An agent task is already running" };
-    const w = a.phases[g];
-    if (!w)
+    const S = n.phases[y];
+    if (!S)
       return { ok: !1, error: "Phase not found" };
-    c(a);
-    const T = Pt(a, w, g);
-    return e({ planTitle: a.title, planId: a.id, agentOverride: a.agent }, T, {
+    d(n);
+    const T = Wt(n, S, y);
+    return a({ planTitle: n.title, planId: n.id, agentOverride: n.agent }, T, {
       taskKind: "phase",
-      phaseIndex: g
+      phaseIndex: y
     });
   }
-  function f(a, g) {
-    var w;
-    return e({ planTitle: a.title, planId: a.id, agentOverride: a.agent }, g, {
+  function f(n, y) {
+    var S;
+    return a({ planTitle: n.title, planId: n.id, agentOverride: n.agent }, y, {
       taskKind: "audit",
-      planBaseline: { phases: a.phases.length, log: ((w = a.log) == null ? void 0 : w.length) ?? 0 }
+      planBaseline: { phases: n.phases.length, log: ((S = n.log) == null ? void 0 : S.length) ?? 0 }
     });
   }
-  function p(a, g) {
-    return a.id ? e({ planTitle: `Draft plan for ${a.id}` }, g, {
+  function g(n, y) {
+    return n.id ? a({ planTitle: `Draft plan for ${n.id}` }, y, {
       taskKind: "draft",
-      ideaId: a.id
+      ideaId: n.id
     }) : { ok: !1, error: "Idea has no id to link a drafted plan back to" };
   }
-  function l(a, g) {
-    return a.id ? e({ planTitle: `Extend ${a.id}` }, g, {
+  function l(n, y) {
+    return n.id ? a({ planTitle: `Extend ${n.id}` }, y, {
       taskKind: "extend",
-      ideaId: a.id,
-      ideaBodyBaseline: a.body
+      ideaId: n.id,
+      ideaBodyBaseline: n.body
     }) : { ok: !1, error: "Idea has no id to extend" };
   }
-  function m() {
-    if (!s)
+  function c() {
+    if (!o)
       return { ok: !1, error: "No agent task running" };
-    const a = s;
-    return r(a, "stopping"), a.proc.killed || a.proc.kill("SIGTERM"), setTimeout(() => {
-      s === a && a.status === "stopping" && a.proc.kill("SIGKILL");
+    const n = o;
+    return r(n, "stopping"), n.proc.killed || n.proc.kill("SIGTERM"), setTimeout(() => {
+      o === n && n.status === "stopping" && n.proc.kill("SIGKILL");
     }, 5e3), { ok: !0 };
   }
-  function h() {
-    return s ? {
-      status: s.status,
-      taskKind: s.taskKind,
-      planTitle: s.planTitle,
-      planId: s.planId,
-      phaseIndex: s.phaseIndex,
-      ideaId: s.ideaId,
-      agentId: s.agentId,
-      lines: [...s.lines]
+  function m() {
+    return o ? {
+      status: o.status,
+      taskKind: o.taskKind,
+      planTitle: o.planTitle,
+      planId: o.planId,
+      phaseIndex: o.phaseIndex,
+      ideaId: o.ideaId,
+      agentId: o.agentId,
+      lines: [...o.lines]
     } : null;
   }
   return {
-    start: d,
+    start: p,
     startForPlan: f,
-    startForIdea: p,
+    startForIdea: g,
     startForIdeaExtend: l,
-    stop: m,
-    getStatus: h,
-    subscribe(a) {
-      o.add(a), a.on("close", () => o.delete(a));
+    stop: c,
+    getStatus: m,
+    subscribe(n) {
+      s.add(n), n.on("close", () => s.delete(n));
     },
     killCurrent() {
-      s != null && s.proc && !s.proc.killed && s.proc.kill();
+      o != null && o.proc && !o.proc.killed && o.proc.kill();
     }
   };
 }
-function Et(n) {
-  const c = /* @__PURE__ */ new Set();
-  function o(p) {
-    const l = `data: ${JSON.stringify(p)}
+function Yt(e) {
+  const d = /* @__PURE__ */ new Set();
+  function s(g) {
+    const l = `data: ${JSON.stringify(g)}
 
 `;
-    for (const m of c)
+    for (const c of d)
       try {
-        m.write(l);
+        c.write(l);
       } catch {
-        c.delete(m);
+        d.delete(c);
       }
   }
-  function s(p) {
+  function o(g) {
     const l = [];
-    for (const m of p.split(`
+    for (const c of g.split(`
 `)) {
-      if (!m.trim()) continue;
-      const h = m[0] ?? " ", a = m[1] ?? " ", g = m.slice(3), w = g.split(" -> ").pop() ?? g;
+      if (!c.trim()) continue;
+      const m = c[0] ?? " ", n = c[1] ?? " ", y = c.slice(3), S = y.split(" -> ").pop() ?? y;
       l.push({
-        path: w,
-        status: `${h}${a}`,
-        staged: h !== " " && h !== "?"
+        path: S,
+        status: `${m}${n}`,
+        staged: m !== " " && m !== "?"
       });
     }
     return l;
   }
-  function u(p) {
-    return new Promise((l, m) => {
-      var w, T;
-      const h = K("git", p, {
-        cwd: n,
+  function u(g) {
+    return new Promise((l, c) => {
+      var S, T;
+      const m = V("git", g, {
+        cwd: e,
         stdio: ["ignore", "pipe", "pipe"]
       });
-      let a = "", g = "";
-      (w = h.stdout) == null || w.on("data", (j) => {
-        a += j.toString();
-      }), (T = h.stderr) == null || T.on("data", (j) => {
-        g += j.toString();
-      }), h.on("close", (j) => {
-        j === 0 ? l(a) : m(new Error(g || `git ${p[0]} exited with code ${j}`));
-      }), h.on("error", m);
+      let n = "", y = "";
+      (S = m.stdout) == null || S.on("data", (b) => {
+        n += b.toString();
+      }), (T = m.stderr) == null || T.on("data", (b) => {
+        y += b.toString();
+      }), m.on("close", (b) => {
+        b === 0 ? l(n) : c(new Error(y || `git ${g[0]} exited with code ${b}`));
+      }), m.on("error", c);
     });
   }
-  function y() {
-    return u(["status", "--porcelain=v1"]).then(s);
+  function h() {
+    return u(["status", "--porcelain=v1"]).then(o);
   }
-  async function r(p, l, m) {
-    p.length > 0 && await u(["add", "--", ...p]);
-    const h = ["commit", "-m", l];
-    m && h.push("-m", m), await u(h);
+  async function r(g, l, c) {
+    g.length > 0 && await u(["add", "--", ...g]);
+    const m = ["commit", "-m", l];
+    c && m.push("-m", c), await u(m);
   }
-  function t(p) {
-    if (!p.kind || !p.id) return;
-    const l = p.kind.toLowerCase(), m = p.id.toLowerCase(), h = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""), a = `${l}/${m}-${h}`, g = L("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: n });
-    if (g.status !== 0)
+  function t(g) {
+    if (!g.kind || !g.id) return;
+    const l = g.kind.toLowerCase(), c = g.id.toLowerCase(), m = g.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""), n = `${l}/${c}-${m}`, y = U("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: e });
+    if (y.status !== 0)
       throw new Error(
-        g.stderr.toString().trim() || "Unable to read current git branch"
+        y.stderr.toString().trim() || "Unable to read current git branch"
       );
-    if (g.stdout.toString().trim() === a) return;
-    const T = L("git", ["checkout", "-b", a, "main"], { cwd: n });
+    if (y.stdout.toString().trim() === n) return;
+    const T = U("git", ["checkout", "-b", n, "main"], { cwd: e });
     if (T.status !== 0) {
-      const j = L("git", ["checkout", a], { cwd: n });
-      if (j.status !== 0)
+      const b = U("git", ["checkout", n], { cwd: e });
+      if (b.status !== 0)
         throw new Error(
-          j.stderr.toString().trim() || T.stderr.toString().trim() || `Unable to check out ${a}`
+          b.stderr.toString().trim() || T.stderr.toString().trim() || `Unable to check out ${n}`
         );
     }
   }
-  async function b() {
+  async function j() {
     try {
-      await y(), o({
+      await h(), s({
         message: "Working tree status updated",
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
     } catch {
     }
   }
-  const C = O(n, ".git");
-  let S = null;
+  const w = C(e, ".git");
+  let N = null;
   try {
-    G(C, { recursive: !0 }, (p, l) => {
-      l === "index" && (S && clearTimeout(S), S = setTimeout(b, 500));
+    Z(w, { recursive: !0 }, (g, l) => {
+      l === "index" && (N && clearTimeout(N), N = setTimeout(j, 500));
     });
   } catch {
   }
-  const i = O(n, "src");
-  let e = null;
+  const i = C(e, "src");
+  let a = null;
   try {
-    G(i, { recursive: !0 }, () => {
-      e && clearTimeout(e), e = setTimeout(b, 500);
+    Z(i, { recursive: !0 }, () => {
+      a && clearTimeout(a), a = setTimeout(j, 500);
     });
   } catch {
   }
-  function d() {
-    return L("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: n }).stdout.toString().trim();
+  function p() {
+    return U("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: e }).stdout.toString().trim();
   }
   function f() {
-    const l = d().match(/^[a-z]+\/([a-z]+-\d+)-/);
+    const l = p().match(/^[a-z]+\/([a-z]+-\d+)-/);
     return l ? l[1].toUpperCase() : null;
   }
   return {
     async getStatus() {
-      return y();
+      return h();
     },
-    getCurrentBranch: d,
+    getCurrentBranch: p,
     commit: r,
     ensureBranch: t,
     getFeatureBranchPlanId: f,
-    subscribe(p) {
-      c.add(p), p.on("close", () => c.delete(p));
+    subscribe(g) {
+      d.add(g), g.on("close", () => d.delete(g));
     }
   };
 }
-const Dt = {
+const Zt = {
   lint: "npx biome lint .",
   format: "npx biome format .",
   test: "npx vitest run"
 };
-function Rt(n) {
-  const c = /* @__PURE__ */ new Set(), o = {
+function Vt(e) {
+  const d = /* @__PURE__ */ new Set(), s = {
     lint: { status: "stale", lastRun: null, output: "" },
     format: { status: "stale", lastRun: null, output: "" },
     test: { status: "stale", lastRun: null, output: "" }
-  }, s = /* @__PURE__ */ new Set(), u = /* @__PURE__ */ new Set();
-  function y(i) {
-    const e = `data: ${JSON.stringify(i)}
+  }, o = /* @__PURE__ */ new Set(), u = /* @__PURE__ */ new Set();
+  function h(i) {
+    const a = `data: ${JSON.stringify(i)}
 
 `;
-    for (const d of c)
+    for (const p of d)
       try {
-        d.write(e);
+        p.write(a);
       } catch {
-        c.delete(d);
+        d.delete(p);
       }
   }
-  function r(i, e, d) {
-    o[i] = { status: e, lastRun: (/* @__PURE__ */ new Date()).toISOString(), output: d }, y({
-      message: `${i}: ${e}`,
-      timestamp: o[i].lastRun
-    }), e !== "running" && u.has(i) && (u.delete(i), t(i));
+  function r(i, a, p) {
+    s[i] = { status: a, lastRun: (/* @__PURE__ */ new Date()).toISOString(), output: p }, h({
+      message: `${i}: ${a}`,
+      timestamp: s[i].lastRun
+    }), a !== "running" && u.has(i) && (u.delete(i), t(i));
   }
   function t(i) {
-    var l, m;
-    if (s.has(i)) {
+    var l, c;
+    if (o.has(i)) {
       u.add(i);
       return;
     }
-    s.add(i), r(i, "running", "");
-    const e = Dt[i], d = K(e, {
-      cwd: n,
+    o.add(i), r(i, "running", "");
+    const a = Zt[i], p = V(a, {
+      cwd: e,
       stdio: ["ignore", "pipe", "pipe"],
       shell: !0
     });
-    let f = "", p = "";
-    (l = d.stdout) == null || l.on("data", (h) => {
-      f += h.toString();
-    }), (m = d.stderr) == null || m.on("data", (h) => {
-      p += h.toString();
-    }), d.on("close", (h) => {
-      s.delete(i);
-      const a = f + p;
-      h === 0 ? r(i, "pass", a) : r(i, "fail", a);
-    }), d.on("error", (h) => {
-      s.delete(i), r(i, "fail", `Failed to spawn process: ${h.message}`);
+    let f = "", g = "";
+    (l = p.stdout) == null || l.on("data", (m) => {
+      f += m.toString();
+    }), (c = p.stderr) == null || c.on("data", (m) => {
+      g += m.toString();
+    }), p.on("close", (m) => {
+      o.delete(i);
+      const n = f + g;
+      m === 0 ? r(i, "pass", n) : r(i, "fail", n);
+    }), p.on("error", (m) => {
+      o.delete(i), r(i, "fail", `Failed to spawn process: ${m.message}`);
     });
   }
-  function b() {
-    if (s.has("lint") || s.has("format")) return;
+  function j() {
+    if (o.has("lint") || o.has("format")) return;
     r("lint", "running", "Applying automatic fixes…"), r("format", "running", "Applying automatic fixes…");
-    const i = K("npx biome check . --write", {
-      cwd: n,
+    const i = V("npx biome check . --write", {
+      cwd: e,
       stdio: ["ignore", "pipe", "pipe"],
       shell: !0
     });
     i.on("close", () => {
       t("lint"), t("format");
-    }), i.on("error", (e) => {
-      const d = `Failed to spawn fix process: ${e.message}`;
-      r("lint", "fail", d), r("format", "fail", d);
+    }), i.on("error", (a) => {
+      const p = `Failed to spawn fix process: ${a.message}`;
+      r("lint", "fail", p), r("format", "fail", p);
     });
   }
-  const C = O(n, "src");
-  let S = null;
+  const w = C(e, "src");
+  let N = null;
   try {
-    G(C, { recursive: !0 }, () => {
-      S && clearTimeout(S), S = setTimeout(() => {
+    Z(w, { recursive: !0 }, () => {
+      N && clearTimeout(N), N = setTimeout(() => {
         t("lint"), t("format");
       }, 1e3);
     });
@@ -579,51 +596,51 @@ function Rt(n) {
   return {
     getStatus() {
       return {
-        lint: { ...o.lint },
-        format: { ...o.format },
-        test: { ...o.test }
+        lint: { ...s.lint },
+        format: { ...s.format },
+        test: { ...s.test }
       };
     },
     runCheck: t,
-    runQualityFix: b,
+    runQualityFix: j,
     subscribe(i) {
-      c.add(i);
-      for (const e of ["lint", "format", "test"]) {
-        const d = o[e];
-        d.status !== "stale" && i.write(
-          `data: ${JSON.stringify({ message: `${e}: ${d.status}`, timestamp: d.lastRun })}
+      d.add(i);
+      for (const a of ["lint", "format", "test"]) {
+        const p = s[a];
+        p.status !== "stale" && i.write(
+          `data: ${JSON.stringify({ message: `${a}: ${p.status}`, timestamp: p.lastRun })}
 
 `
         );
       }
-      i.on("close", () => c.delete(i));
+      i.on("close", () => d.delete(i));
     }
   };
 }
-async function N(n) {
+async function J(e) {
   try {
-    return await $(n, "utf-8");
-  } catch (c) {
-    if (c.code === "ENOENT") return "";
-    throw c;
+    return await A(e, "utf-8");
+  } catch (d) {
+    if (d.code === "ENOENT") return "";
+    throw d;
   }
 }
-async function et(n) {
+async function et(e) {
   try {
-    return await st(n), !0;
+    return await ot(e), !0;
   } catch {
     return !1;
   }
 }
-async function H(n) {
-  return new Promise((c, o) => {
-    let s = "";
-    n.on("data", (u) => {
-      s += u;
-    }), n.on("end", () => c(s)), n.on("error", o);
+async function H(e) {
+  return new Promise((d, s) => {
+    let o = "";
+    e.on("data", (u) => {
+      o += u;
+    }), e.on("end", () => d(o)), e.on("error", s);
   });
 }
-const J = (n, c) => O(n, "papercamp", c), Lt = [
+const O = (e, d) => C(e, "papercamp", d), Xt = [
   "biome.json",
   "tsconfig.json",
   "tailwind.config.ts",
@@ -632,22 +649,37 @@ const J = (n, c) => O(n, "papercamp", c), Lt = [
   "postcss.config.js",
   "package.json"
 ];
-async function A(n, c, o) {
-  const s = c.getFeatureBranchPlanId();
-  if (!s || o && s === o) return null;
-  const u = await N(J(n, "plans.md"));
-  if (!u) return null;
-  const { entries: y } = k(u), r = y.find((t) => t.id === s);
-  return !r || r.status === "done" || r.status === "dropped" ? null : `Finish \`${s}\` — ${r.title} — before starting another plan`;
+async function E(e, d, s) {
+  const o = d.getFeatureBranchPlanId();
+  if (!o || s && o === s) return null;
+  const u = O(e, "plans"), { entries: h } = await k(u), r = h.find((t) => t.id === o);
+  if (!r || r.status === "done" || r.status === "dropped") return null;
+  if (!r) {
+    const t = await J(O(e, "plans.md"));
+    if (!t) return null;
+    const j = K(t).entries.find((w) => w.id === o);
+    return !j || j.status === "done" || j.status === "dropped" ? null : `Finish \`${o}\` — ${j.title} — before starting another plan`;
+  }
+  return `Finish \`${o}\` — ${r.title} — before starting another plan`;
 }
-const _t = [
+async function W(e) {
+  const d = O(e, "plans"), s = O(e, "ideas"), [o, u] = await Promise.all([
+    st(d, O(e, "plans.md")),
+    wt(s, O(e, "ideas.md"))
+  ]), h = St(u.entries, o.entries);
+  await P(d, { recursive: !0 }), await P(s, { recursive: !0 }), await Promise.all([
+    $(C(d, "index.md"), rt(o.entries)),
+    $(C(s, "index.md"), Ct(h))
+  ]);
+}
+const qt = [
   {
     path: "/api/package-name",
-    handler: async (n) => {
-      const c = await N(O(n, "package.json"));
-      if (!c) return null;
+    handler: async (e) => {
+      const d = await J(C(e, "package.json"));
+      if (!d) return null;
       try {
-        return JSON.parse(c).name ?? null;
+        return JSON.parse(d).name ?? null;
       } catch {
         return null;
       }
@@ -655,61 +687,59 @@ const _t = [
   },
   {
     path: "/api/plans",
-    handler: async (n) => k(await N(J(n, "plans.md")))
+    handler: async (e) => st(O(e, "plans"), O(e, "plans.md"))
   },
   {
     path: "/api/progress",
-    handler: async (n) => ({
-      entries: nt(await N(J(n, "progress.md")))
+    handler: async (e) => ({
+      entries: mt(await J(O(e, "progress.md")))
     })
   },
   {
     path: "/api/decisions",
-    handler: async (n) => Q(await N(J(n, "decisions.md")))
+    handler: async (e) => at(await J(O(e, "decisions.md")))
   },
   {
     path: "/api/open-questions",
-    handler: async (n) => z(await N(J(n, "open-questions.md")))
+    handler: async (e) => nt(await J(O(e, "open-questions.md")))
   },
   {
     path: "/api/ideas",
-    handler: async (n) => ({
-      content: await N(J(n, "ideas.md"))
-    })
+    handler: async (e) => wt(O(e, "ideas"), O(e, "ideas.md"))
   },
   {
     path: "/api/consistency",
-    handler: async (n) => {
-      const [c, o, s] = await Promise.all([
-        N(J(n, "decisions.md")),
-        N(J(n, "open-questions.md")),
-        N(J(n, "plans.md"))
-      ]), u = Q(c), y = z(o), r = k(s);
-      return ft(u.entries, y.entries, r.entries);
+    handler: async (e) => {
+      const [d, s, o] = await Promise.all([
+        J(O(e, "decisions.md")),
+        J(O(e, "open-questions.md")),
+        st(O(e, "plans"), O(e, "plans.md"))
+      ]), u = at(d), h = nt(s);
+      return $t(u.entries, h.entries, o.entries);
     }
   },
   {
     path: "/api/config",
-    handler: async (n) => {
-      const c = await N(O(n, ".paper-camp", "config.json"));
-      return c ? JSON.parse(c) : null;
+    handler: async (e) => {
+      const d = await J(C(e, "papercamp", "config.json"));
+      return d ? JSON.parse(d) : null;
     }
   },
   {
     path: "/api/docs",
-    handler: async (n) => {
-      const c = ["MAIN.md", "README.md", "CHANGELOG.md", "LICENSE"], o = [];
-      for (const s of c) {
-        const u = await N(O(n, s));
-        u && o.push({ name: s, content: u });
+    handler: async (e) => {
+      const d = ["MAIN.md", "README.md", "CHANGELOG.md", "LICENSE"], s = [];
+      for (const o of d) {
+        const u = await J(C(e, o));
+        u && s.push({ name: o, content: u });
       }
-      return { files: o };
+      return { files: s };
     }
   },
   {
     path: "/api/configs",
-    handler: async (n) => {
-      const c = [
+    handler: async (e) => {
+      const d = [
         "biome.json",
         "tsconfig.json",
         "tailwind.config.ts",
@@ -717,95 +747,158 @@ const _t = [
         "vite.app.config.ts",
         "postcss.config.js",
         "package.json"
-      ], o = [];
-      for (const s of c)
-        await N(O(n, s)) && o.push(s);
-      return { files: o };
+      ], s = [];
+      for (const o of d)
+        await J(C(e, o)) && s.push(o);
+      return { files: s };
     }
   }
 ];
-function Mt(n) {
-  const c = Ot(n), o = Et(n), s = Rt(n), u = At(n, (r) => o.ensureBranch(r)), y = async (r, t, b) => {
-    const C = (r.url ?? "").split("?")[0];
-    if (r.method === "DELETE" && C === "/api/plans") {
+function te(e) {
+  const d = Rt(e), s = Yt(e), o = Vt(e), u = Qt(e, (r) => s.ensureBranch(r)), h = async (r, t, j) => {
+    const w = (r.url ?? "").split("?")[0];
+    if (r.method === "DELETE" && w === "/api/plans") {
       try {
-        const e = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("title");
-        if (!(e != null && e.trim())) {
+        const a = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("title");
+        if (!(a != null && a.trim())) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const d = J(n, "plans.md"), f = k(await N(d)), p = e.trim(), l = f.entries.filter((m) => m.title !== p);
-        if (l.length === f.entries.length) {
-          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
+        const p = O(e, "plans"), f = a.trim(), { entries: g } = await k(p), l = g.find((m) => m.title === f || m.id === f);
+        if (!(l != null && l.id)) {
+          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found in per-file storage" }));
           return;
         }
-        await I(d, Z(l)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        const c = C(p, `${l.id}.md`);
+        if (!await et(c)) {
+          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan file not found" }));
+          return;
+        }
+        await Tt(c), await W(e), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/plans") {
+    if (r.method === "POST" && w === "/api/plans") {
       try {
-        const i = await H(r), { title: e, content: d, kind: f } = JSON.parse(i);
-        if (!(e != null && e.trim())) {
+        const i = await H(r), { title: a, content: p, kind: f } = JSON.parse(i);
+        if (!(a != null && a.trim())) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const p = f && F.includes(f) ? f : "feat", l = O(n, ".paper-camp", "config.json"), m = await at(l, p), h = it({
-          title: e.trim(),
+        const g = f && Y.includes(f) ? f : "feat", l = C(e, "papercamp", "config.json"), c = await yt(l, g);
+        if (!c) {
+          t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "could not assign plan ID" }));
+          return;
+        }
+        const m = O(e, "plans");
+        await P(m, { recursive: !0 });
+        const n = G({
+          id: c,
+          title: a.trim(),
+          kind: g,
           status: "idea",
-          kind: p,
-          id: m,
-          created: B(),
-          body: d == null ? void 0 : d.trim()
+          created: Q(),
+          body: p == null ? void 0 : p.trim()
         });
-        await ot(J(n, "plans.md"), h), t.statusCode = 201, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0, id: m }));
+        await $(C(m, `${c}.md`), `${n}
+`, "utf-8"), await W(e), t.statusCode = 201, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0, id: c }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "PATCH" && C === "/api/plans") {
+    if (r.method === "PATCH" && w === "/api/plans") {
       try {
-        const e = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("title");
-        if (!(e != null && e.trim())) {
+        const a = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("title");
+        if (!(a != null && a.trim())) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const d = await H(r), f = JSON.parse(d);
-        if (f.agent && !U.includes(f.agent)) {
+        const p = await H(r), f = JSON.parse(p);
+        if (f.agent && !tt.includes(f.agent)) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "agent must be a known agent id" }));
           return;
         }
-        const p = J(n, "plans.md"), l = k(await N(p)), m = e.trim();
-        let h = !1;
-        const a = l.entries.map((g) => g.title === m ? (h = !0, {
-          ...g,
+        const g = O(e, "plans"), { entries: l } = await k(g), c = a.trim(), m = l.find((v) => v.title === c || v.id === c);
+        if (!(m != null && m.id)) {
+          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
+          return;
+        }
+        const n = C(g, `${m.id}.md`), y = await J(n);
+        if (!y) {
+          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan file not found" }));
+          return;
+        }
+        const S = ct(y);
+        if (S.entries.length === 0) {
+          t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "failed to parse plan file" }));
+          return;
+        }
+        const T = {
+          ...S.entries[0],
           ...f.status !== void 0 && { status: f.status },
           ...f.phases !== void 0 && { phases: f.phases },
           ...f.log !== void 0 && { log: f.log },
           ...f.agent !== void 0 && { agent: f.agent ?? void 0 },
-          updated: B()
-        }) : f.status === "in-progress" && g.status === "in-progress" ? { ...g, status: "planned", updated: B() } : g);
-        if (!h) {
-          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
-          return;
-        }
-        if (f.status === "done") {
-          const g = l.entries.find((T) => T.title === m), w = await A(n, o, g == null ? void 0 : g.id);
-          if (w) {
-            t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: w }));
+          updated: Q()
+        };
+        if (f.status === "done" || f.status === "dropped") {
+          const v = await E(e, s, m.id);
+          if (v) {
+            t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: v }));
             return;
           }
         }
-        if (await I(p, Z(a)), f.status === "done") {
-          const g = a.find((w) => w.title === m);
-          if (g)
-            try {
-              o.ensureBranch(g);
-            } catch {
+        if (f.status === "in-progress") {
+          const v = await k(g);
+          for (const I of v.entries)
+            if (I.id !== m.id && I.status === "in-progress") {
+              const D = C(g, `${I.id}.md`), F = await J(D);
+              if (F) {
+                const x = ct(F);
+                if (x.entries.length > 0) {
+                  const X = {
+                    id: x.entries[0].id ?? I.id,
+                    title: x.entries[0].title,
+                    kind: x.entries[0].kind ?? "feat",
+                    status: "planned",
+                    created: x.entries[0].created,
+                    updated: Q(),
+                    body: x.entries[0].body,
+                    phases: x.entries[0].phases,
+                    log: x.entries[0].log,
+                    clarifications: x.entries[0].clarifications
+                  };
+                  await $(D, `${G(X)}
+`, "utf-8");
+                }
+              }
             }
+        }
+        const b = {
+          id: T.id ?? m.id,
+          title: T.title,
+          kind: T.kind ?? "feat",
+          status: T.status,
+          idea: T.idea,
+          agent: T.agent,
+          created: T.created,
+          updated: T.updated,
+          tags: T.tags,
+          body: T.body,
+          phases: T.phases,
+          log: T.log,
+          clarifications: T.clarifications
+        };
+        if (await $(n, `${G(b)}
+`, "utf-8"), await W(e), f.status === "done" || f.status === "dropped") {
+          await Jt(e, m.id);
+          try {
+            s.ensureBranch(T);
+          } catch {
+          }
         }
         t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (i) {
@@ -813,35 +906,35 @@ function Mt(n) {
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/ideas") {
+    if (r.method === "POST" && w === "/api/ideas") {
       try {
-        const i = await H(r), { title: e, content: d } = JSON.parse(i);
-        if (!(e != null && e.trim())) {
+        const i = await H(r), { title: a, content: p } = JSON.parse(i);
+        if (!(a != null && a.trim())) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        const f = J(n, "ideas.md"), p = await N(f), h = `IDEA-${M(p).reduce((T, j) => {
-          if (j.id) {
-            const v = Number.parseInt(j.id.replace("IDEA-", ""), 10);
-            return Number.isNaN(v) ? T : Math.max(T, v);
+        const f = O(e, "ideas"), c = `IDEA-${(await _(f)).entries.reduce((n, y) => {
+          if (y.id) {
+            const S = Number.parseInt(y.id.replace("IDEA-", ""), 10);
+            return Number.isNaN(S) ? n : Math.max(n, S);
           }
-          return T;
-        }, 0) + 1}`, a = `### ${h}: ${e.trim()}
-
-${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ? "" : `
-
----
-
-`;
-        await I(f, `${g}${w}${a}
-`), t.statusCode = 201, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0, id: h }));
+          return n;
+        }, 0) + 1}`;
+        await P(f, { recursive: !0 });
+        const m = ht({
+          id: c,
+          title: a.trim(),
+          body: p == null ? void 0 : p.trim()
+        });
+        await $(C(f, `${c}.md`), `${m}
+`, "utf-8"), await W(e), t.statusCode = 201, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0, id: c }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "GET" && C === "/api/icon") {
-      const i = O(n, ".paper-camp", "assets"), e = {
+    if (r.method === "GET" && w === "/api/icon") {
+      const i = C(e, "papercamp", "assets"), a = {
         svg: "image/svg+xml",
         png: "image/png",
         jpg: "image/jpeg",
@@ -849,100 +942,115 @@ ${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ?
         gif: "image/gif",
         webp: "image/webp"
       };
-      for (const [d, f] of Object.entries(e))
+      for (const [p, f] of Object.entries(a))
         try {
-          const p = await $(O(i, `icon.${d}`));
-          t.statusCode = 200, t.setHeader("Content-Type", f), t.setHeader("Cache-Control", "no-cache"), t.end(p);
+          const g = await A(C(i, `icon.${p}`));
+          t.statusCode = 200, t.setHeader("Content-Type", f), t.setHeader("Cache-Control", "no-cache"), t.end(g);
           return;
         } catch {
         }
       t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "no icon uploaded" }));
       return;
     }
-    if (r.method === "POST" && C === "/api/icon") {
+    if (r.method === "POST" && w === "/api/icon") {
       try {
-        const i = await H(r), { dataUri: e } = JSON.parse(i);
-        if (!e) {
+        const i = await H(r), { dataUri: a } = JSON.parse(i);
+        if (!a) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "dataUri is required" }));
           return;
         }
-        const d = e.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/);
-        if (!d) {
+        const p = a.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/);
+        if (!p) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "invalid data URI" }));
           return;
         }
-        const f = d[1], p = f === "image/svg+xml" ? "svg" : f.split("/")[1], l = Buffer.from(d[2], "base64"), m = O(n, ".paper-camp", "assets");
-        await ht(m, { recursive: !0 }), await I(O(m, `icon.${p}`), l), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        const f = p[1], g = f === "image/svg+xml" ? "svg" : f.split("/")[1], l = Buffer.from(p[2], "base64"), c = C(e, "papercamp", "assets");
+        await P(c, { recursive: !0 }), await $(C(c, `icon.${g}`), l), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "GET" && C === "/api/git/status") {
+    if (r.method === "GET" && w === "/api/git/status") {
       try {
-        const i = await o.getStatus(), e = o.getCurrentBranch();
-        t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ branch: e, entries: i }));
+        const i = await s.getStatus(), a = s.getCurrentBranch();
+        t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ branch: a, entries: i }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/git/commit") {
+    if (r.method === "POST" && w === "/api/git/commit") {
       try {
-        const i = await H(r), { files: e, title: d, message: f } = JSON.parse(i);
-        if (!(d != null && d.trim())) {
+        const i = await H(r), { files: a, title: p, message: f } = JSON.parse(i);
+        if (!(p != null && p.trim())) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "title is required" }));
           return;
         }
-        await o.commit(e ?? [], d.trim(), f == null ? void 0 : f.trim()), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        await s.commit(a ?? [], p.trim(), f == null ? void 0 : f.trim()), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (i) {
         t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "GET" && C === "/api/status") {
-      t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify(s.getStatus()));
+    if (r.method === "GET" && w === "/api/status") {
+      t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify(o.getStatus()));
       return;
     }
-    if (r.method === "POST" && C === "/api/status/check") {
-      const e = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("name");
-      if (e !== "lint" && e !== "format" && e !== "test") {
+    if (r.method === "POST" && w === "/api/status/check") {
+      const a = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("name");
+      if (a !== "lint" && a !== "format" && a !== "test") {
         t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "name must be lint, format, or test" }));
         return;
       }
-      s.runCheck(e), t.statusCode = 202, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+      o.runCheck(a), t.statusCode = 202, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       return;
     }
-    if (r.method === "POST" && C === "/api/status/fix") {
-      s.runQualityFix(), t.statusCode = 202, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+    if (r.method === "POST" && w === "/api/status/fix") {
+      o.runQualityFix(), t.statusCode = 202, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       return;
     }
-    if (r.method === "GET" && C === "/api/activity/stream") {
-      t.statusCode = 200, t.setHeader("Content-Type", "text/event-stream"), t.setHeader("Cache-Control", "no-cache"), t.setHeader("Connection", "keep-alive"), t.flushHeaders(), c.subscribe(t), o.subscribe(t), s.subscribe(t), u.subscribe(t);
+    if (r.method === "GET" && w === "/api/activity/stream") {
+      t.statusCode = 200, t.setHeader("Content-Type", "text/event-stream"), t.setHeader("Cache-Control", "no-cache"), t.setHeader("Connection", "keep-alive"), t.flushHeaders(), d.subscribe(t), s.subscribe(t), o.subscribe(t), u.subscribe(t);
       return;
     }
-    if (r.method === "GET" && C === "/api/agent/status") {
+    if (r.method === "GET" && w === "/api/agent/status") {
       t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify(u.getStatus()));
       return;
     }
-    if (r.method === "POST" && C === "/api/agent/launch") {
+    if (r.method === "POST" && w === "/api/agent/launch") {
       try {
-        const i = await H(r), { planId: e, phaseIndex: d } = JSON.parse(i);
-        if (!e || typeof d != "number") {
+        const i = await H(r), { planId: a, phaseIndex: p } = JSON.parse(i);
+        if (!a || typeof p != "number") {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "planId and phaseIndex are required" }));
           return;
         }
-        const p = k(await N(J(n, "plans.md"))).entries.find((h) => h.id === e);
-        if (!p) {
-          t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
+        const f = O(e, "plans"), l = (await k(f)).entries.find((n) => n.id === a);
+        if (!l) {
+          const y = K(await J(O(e, "plans.md"))).entries.find((b) => b.id === a);
+          if (!y) {
+            t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
+            return;
+          }
+          const S = await E(e, s, y.id);
+          if (S) {
+            t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: S }));
+            return;
+          }
+          const T = await u.start(y, p);
+          if (!T.ok) {
+            t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: T.error }));
+            return;
+          }
+          t.statusCode = 202, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
           return;
         }
-        const l = await A(n, o, p.id);
-        if (l) {
-          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: l }));
+        const c = await E(e, s, l.id);
+        if (c) {
+          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: c }));
           return;
         }
-        const m = await u.start(p, d);
+        const m = await u.start(l, p);
         if (!m.ok) {
           t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: m.error }));
           return;
@@ -953,24 +1061,25 @@ ${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ?
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/agent/launch-audit") {
+    if (r.method === "POST" && w === "/api/agent/launch-audit") {
       try {
-        const i = await H(r), { planId: e, prompt: d } = JSON.parse(i);
-        if (!e || !d) {
+        const i = await H(r), { planId: a, prompt: p } = JSON.parse(i);
+        if (!a || !p) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "planId and prompt are required" }));
           return;
         }
-        const p = k(await N(J(n, "plans.md"))).entries.find((h) => h.id === e);
-        if (!p) {
+        const f = O(e, "plans");
+        let l = (await k(f)).entries.find((n) => n.id === a);
+        if (l || (l = K(await J(O(e, "plans.md"))).entries.find((y) => y.id === a)), !l) {
           t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "plan not found" }));
           return;
         }
-        const l = await A(n, o, p.id);
-        if (l) {
-          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: l }));
+        const c = await E(e, s, l.id);
+        if (c) {
+          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: c }));
           return;
         }
-        const m = u.startForPlan(p, d);
+        const m = u.startForPlan(l, p);
         if (!m.ok) {
           t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: m.error }));
           return;
@@ -981,24 +1090,25 @@ ${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ?
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/agent/launch-draft") {
+    if (r.method === "POST" && w === "/api/agent/launch-draft") {
       try {
-        const i = await H(r), { ideaId: e, prompt: d } = JSON.parse(i);
-        if (!e || !d) {
+        const i = await H(r), { ideaId: a, prompt: p } = JSON.parse(i);
+        if (!a || !p) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "ideaId and prompt are required" }));
           return;
         }
-        const p = M(await N(J(n, "ideas.md"))).find((h) => h.id === e);
-        if (!p) {
+        const f = O(e, "ideas");
+        let l = (await _(f)).entries.find((n) => n.id === a);
+        if (l || (l = it(await J(O(e, "ideas.md"))).find((y) => y.id === a)), !l) {
           t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "idea not found" }));
           return;
         }
-        const l = await A(n, o);
-        if (l) {
-          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: l }));
+        const c = await E(e, s);
+        if (c) {
+          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: c }));
           return;
         }
-        const m = u.startForIdea(p, d);
+        const m = u.startForIdea(l, p);
         if (!m.ok) {
           t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: m.error }));
           return;
@@ -1009,24 +1119,25 @@ ${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ?
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/agent/launch-extend") {
+    if (r.method === "POST" && w === "/api/agent/launch-extend") {
       try {
-        const i = await H(r), { ideaId: e, prompt: d } = JSON.parse(i);
-        if (!e || !d) {
+        const i = await H(r), { ideaId: a, prompt: p } = JSON.parse(i);
+        if (!a || !p) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "ideaId and prompt are required" }));
           return;
         }
-        const p = M(await N(J(n, "ideas.md"))).find((h) => h.id === e);
-        if (!p) {
+        const f = O(e, "ideas");
+        let l = (await _(f)).entries.find((n) => n.id === a);
+        if (l || (l = it(await J(O(e, "ideas.md"))).find((y) => y.id === a)), !l) {
           t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "idea not found" }));
           return;
         }
-        const l = await A(n, o);
-        if (l) {
-          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: l }));
+        const c = await E(e, s);
+        if (c) {
+          t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: c }));
           return;
         }
-        const m = u.startForIdeaExtend(p, d);
+        const m = u.startForIdeaExtend(l, p);
         if (!m.ok) {
           t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: m.error }));
           return;
@@ -1037,7 +1148,7 @@ ${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ?
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/agent/stop") {
+    if (r.method === "POST" && w === "/api/agent/stop") {
       const i = u.stop();
       if (!i.ok) {
         t.statusCode = 409, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.error }));
@@ -1046,118 +1157,118 @@ ${(d == null ? void 0 : d.trim()) ?? ""}`, g = p.trimEnd(), w = g.length === 0 ?
       t.statusCode = 202, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       return;
     }
-    if (r.method === "POST" && C === "/api/config") {
+    if (r.method === "POST" && w === "/api/config") {
       try {
-        const i = O(n, ".paper-camp", "config.json"), e = await N(i);
-        if (!e) {
+        const i = C(e, "papercamp", "config.json"), a = await J(i);
+        if (!a) {
           t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "config not found" }));
           return;
         }
-        const d = await H(r), { port: f, projectName: p, defaultAgent: l, defaultAgents: m } = JSON.parse(d);
+        const p = await H(r), { port: f, projectName: g, defaultAgent: l, defaultAgents: c } = JSON.parse(p);
         if (f !== void 0 && (!Number.isInteger(f) || f <= 0)) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "port must be a positive integer" }));
           return;
         }
-        if (p !== void 0 && p.trim().length === 0) {
+        if (g !== void 0 && g.trim().length === 0) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "projectName must not be empty" }));
           return;
         }
-        if (l !== void 0 && !U.includes(l)) {
+        if (l !== void 0 && !tt.includes(l)) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "defaultAgent must be a known agent id" }));
           return;
         }
-        if (m !== void 0) {
+        if (c !== void 0) {
           for (const v of ["phase", "planDraft", "ideaExtend"])
-            if (!U.includes(m[v])) {
+            if (!tt.includes(c[v])) {
               t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: `defaultAgents.${v} must be a known agent id` }));
               return;
             }
         }
-        const h = JSON.parse(e), a = m ?? (l !== void 0 ? { phase: l, planDraft: l, ideaExtend: l } : void 0), g = h, { defaultAgent: w, ...T } = g, j = {
+        const m = JSON.parse(a), n = c ?? (l !== void 0 ? { phase: l, planDraft: l, ideaExtend: l } : void 0), y = m, { defaultAgent: S, ...T } = y, b = {
           ...T,
           ...f !== void 0 && { port: f },
-          ...p !== void 0 && { projectName: p.trim() },
-          ...a && { defaultAgents: a }
+          ...g !== void 0 && { projectName: g.trim() },
+          ...n && { defaultAgents: n }
         };
-        await I(i, JSON.stringify(j, null, 2)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        await $(i, JSON.stringify(b, null, 2)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "GET" && C === "/api/env") {
+    if (r.method === "GET" && w === "/api/env") {
       try {
-        const i = O(n, ".env"), e = O(n, ".env.example"), [d, f] = await Promise.all([
+        const i = C(e, ".env"), a = C(e, ".env.example"), [p, f] = await Promise.all([
           et(i),
-          et(e)
-        ]), p = d ? V(await N(i)) : [], l = f ? V(await N(e)).map((a) => a.key) : [], m = new Set(p.map((a) => a.key)), h = l.filter((a) => !m.has(a));
-        t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ exists: d, exampleExists: f, entries: p, missingKeys: h }));
+          et(a)
+        ]), g = p ? pt(await J(i)) : [], l = f ? pt(await J(a)).map((n) => n.key) : [], c = new Set(g.map((n) => n.key)), m = l.filter((n) => !c.has(n));
+        t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ exists: p, exampleExists: f, entries: g, missingKeys: m }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "POST" && C === "/api/env") {
+    if (r.method === "POST" && w === "/api/env") {
       try {
-        const i = await H(r), { entries: e } = JSON.parse(i);
-        if (!Array.isArray(e)) {
+        const i = await H(r), { entries: a } = JSON.parse(i);
+        if (!Array.isArray(a)) {
           t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "entries is required" }));
           return;
         }
-        const d = /* @__PURE__ */ new Set();
-        for (const l of e) {
+        const p = /* @__PURE__ */ new Set();
+        for (const l of a) {
           if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(l.key)) {
             t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: `invalid key: ${l.key}` }));
             return;
           }
-          if (d.has(l.key)) {
+          if (p.has(l.key)) {
             t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: `duplicate key: ${l.key}` }));
             return;
           }
-          d.add(l.key);
+          p.add(l.key);
         }
-        const f = O(n, ".env"), p = await N(f);
-        await I(f, lt(p, e)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
+        const f = C(e, ".env"), g = await J(f);
+        await $(f, vt(g, a)), t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ ok: !0 }));
       } catch (i) {
         t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
       }
       return;
     }
-    if (r.method === "GET" && C === "/api/configs") {
-      const e = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("name");
-      if (e)
+    if (r.method === "GET" && w === "/api/configs") {
+      const a = new URL(r.url ?? "", `http://${r.headers.host ?? "localhost"}`).searchParams.get("name");
+      if (a)
         try {
-          if (!Lt.includes(e)) {
+          if (!Xt.includes(a)) {
             t.statusCode = 400, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "invalid config file name" }));
             return;
           }
-          const d = await N(O(n, e));
-          if (!d) {
+          const p = await J(C(e, a));
+          if (!p) {
             t.statusCode = 404, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: "config file not found" }));
             return;
           }
-          t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ name: e, content: d }));
+          t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ name: a, content: p }));
           return;
-        } catch (d) {
-          t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: d.message }));
+        } catch (p) {
+          t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: p.message }));
           return;
         }
     }
-    const S = _t.find((i) => i.path === C);
-    if (!S) {
-      b();
+    const N = qt.find((i) => i.path === w);
+    if (!N) {
+      j();
       return;
     }
     try {
-      const i = await S.handler(n);
+      const i = await N.handler(e);
       t.statusCode = 200, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify(i));
     } catch (i) {
       t.statusCode = 500, t.setHeader("Content-Type", "application/json"), t.end(JSON.stringify({ error: i.message }));
     }
   };
-  return y.agent = u, y;
+  return h.agent = u, h;
 }
-const Bt = {
+const ee = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8",
@@ -1170,81 +1281,165 @@ const Bt = {
   ".woff": "font/woff",
   ".woff2": "font/woff2"
 };
-function Ft() {
-  return O(ct(wt(import.meta.url)), "..", "app");
+function ne() {
+  return C(Nt(Pt(import.meta.url)), "..", "app");
 }
-async function Gt({ root: n, port: c }) {
-  const o = Ft(), s = O(o, "index.html"), u = await $(s, "utf-8").catch(() => null);
+async function ae({ root: e, port: d }) {
+  const s = ne(), o = C(s, "index.html"), u = await A(o, "utf-8").catch(() => null);
   if (u === null)
     throw new Error(
-      `Dashboard assets not found at ${o}. Run \`pnpm build\` (or reinstall the package) so dist/app exists.`
+      `Dashboard assets not found at ${s}. Run \`pnpm build\` (or reinstall the package) so dist/app exists.`
     );
-  const y = Mt(n);
-  async function r(C, S) {
-    const i = decodeURIComponent((C.url ?? "/").split("?")[0]), e = O(o, i === "/" ? "index.html" : i);
+  const h = te(e);
+  async function r(w, N) {
+    const i = decodeURIComponent((w.url ?? "/").split("?")[0]), a = C(s, i === "/" ? "index.html" : i);
     try {
-      if ((await st(e)).isFile()) {
-        S.statusCode = 200, S.setHeader("Content-Type", Bt[dt(e)] ?? "application/octet-stream"), S.end(await $(e));
+      if ((await ot(a)).isFile()) {
+        N.statusCode = 200, N.setHeader("Content-Type", ee[Ot(a)] ?? "application/octet-stream"), N.end(await A(a));
         return;
       }
     } catch {
     }
-    S.statusCode = 200, S.setHeader("Content-Type", "text/html; charset=utf-8"), S.end(u);
+    N.statusCode = 200, N.setHeader("Content-Type", "text/html; charset=utf-8"), N.end(u);
   }
-  const t = Ct((C, S) => {
-    y(C, S, () => {
-      r(C, S).catch((i) => {
-        S.statusCode = 500, S.end(String(i));
+  const t = kt((w, N) => {
+    h(w, N, () => {
+      r(w, N).catch((i) => {
+        N.statusCode = 500, N.end(String(i));
       });
     });
-  }), b = () => {
-    y.agent.killCurrent(), process.exit(0);
+  }), j = () => {
+    h.agent.killCurrent(), process.exit(0);
   };
-  process.on("SIGINT", b), process.on("SIGTERM", b), await new Promise((C) => t.listen(c, C));
+  process.on("SIGINT", j), process.on("SIGTERM", j), await new Promise((w) => t.listen(d, w));
 }
-const D = new ut();
-D.name("paper-camp").description("Local-first, AI-native project companion.").version(gt);
-D.command("init [project-name]").description("Initialize Paper Camp in the current directory").option("-i, --intent <text>", "one-line description of what you are building").action(async (n, c) => {
-  const o = process.cwd(), s = n ?? pt(o);
+async function gt(e) {
   try {
-    await mt(o, { projectName: s, intent: c.intent }), console.log(`Initialized Paper Camp in ${o}`), console.log("  .paper-camp/config.json"), console.log("  papercamp/ideas.md, plans.md, progress.md, decisions.md, open-questions.md");
+    return await ot(e), !0;
+  } catch {
+    return !1;
+  }
+}
+const B = new bt();
+B.name("paper-camp").description("Local-first, AI-native project companion.").version(It);
+B.command("init [project-name]").description("Initialize Paper Camp in the current directory").option("-i, --intent <text>", "one-line description of what you are building").action(async (e, d) => {
+  const s = process.cwd(), o = e ?? jt(s);
+  try {
+    await xt(s, { projectName: o, intent: d.intent }), console.log(`Initialized Paper Camp in ${s}`), console.log("  papercamp/config.json"), console.log("  papercamp/plans/          (per-file plan entries)"), console.log("  papercamp/plans/index.md"), console.log("  papercamp/plans/archive/"), console.log("  papercamp/ideas/          (per-file idea entries)"), console.log("  papercamp/ideas/index.md"), console.log("  papercamp/progress.md, decisions.md, open-questions.md");
   } catch (u) {
-    if (u instanceof yt) {
+    if (u instanceof Ht) {
       console.error(u.message), process.exitCode = 1;
       return;
     }
     throw u;
   }
 });
-D.command("dev").description("Start the local dashboard").option("-p, --port <number>", "port to listen on", "3333").action(async (n) => {
-  const c = Number(n.port), o = process.cwd();
+B.command("dev").description("Start the local dashboard").option("-p, --port <number>", "port to listen on", "3333").action(async (e) => {
+  const d = Number(e.port), s = process.cwd();
   try {
-    await Gt({ root: o, port: c }), console.log(`Paper Camp dashboard running at http://localhost:${c}`);
-  } catch (s) {
-    console.error(s.message), process.exitCode = 1;
+    await ae({ root: s, port: d }), console.log(`Paper Camp dashboard running at http://localhost:${d}`);
+  } catch (o) {
+    console.error(o.message), process.exitCode = 1;
   }
 });
-D.command("add <type> [name]").description("Add a new entry (currently supports: plan)").option("-k, --kind <kind>", `plan kind (${F.join("|")})`, "feat").action(async (n, c, o) => {
-  if (n !== "plan") {
-    console.error(`Unknown type "${n}". Supported types: plan`), process.exitCode = 1;
+B.command("add <type> [name]").description("Add a new entry (currently supports: plan)").option("-k, --kind <kind>", `plan kind (${Y.join("|")})`, "feat").action(async (e, d, s) => {
+  if (e !== "plan") {
+    console.error(`Unknown type "${e}". Supported types: plan`), process.exitCode = 1;
     return;
   }
-  if (!c) {
+  if (!d) {
     console.error("Usage: paper-camp add plan <name> [--kind feat|fix|chore|docs|refactor]"), process.exitCode = 1;
     return;
   }
-  if (!F.includes(o.kind)) {
-    console.error(`Unknown kind "${o.kind}". Supported kinds: ${F.join(", ")}`), process.exitCode = 1;
+  if (!Y.includes(s.kind)) {
+    console.error(`Unknown kind "${s.kind}". Supported kinds: ${Y.join(", ")}`), process.exitCode = 1;
     return;
   }
-  const s = o.kind, u = Y(process.cwd(), ".paper-camp", "config.json"), y = await at(u, s), r = Y(process.cwd(), "papercamp", "plans.md"), t = it({
-    title: c,
+  const o = s.kind, u = process.cwd(), h = R(u, "papercamp", "config.json"), r = await yt(h, o);
+  if (!r) {
+    console.error("Could not assign plan ID — is the project initialized?"), process.exitCode = 1;
+    return;
+  }
+  const t = R(u, "papercamp", "plans");
+  await P(t, { recursive: !0 });
+  const j = G({
+    id: r,
+    title: d,
+    kind: o,
     status: "idea",
-    kind: s,
-    id: y,
-    created: B()
+    created: Q()
   });
-  await ot(r, t), console.log(`Added plan "${c}"${y ? ` (${y})` : ""} to papercamp/plans.md`);
+  await $(C(t, `${r}.md`), `${j}
+`, "utf-8");
+  const { entries: w } = await k(t);
+  await $(C(t, "index.md"), rt(w), "utf-8"), console.log(`Added plan "${d}" (${r}) to papercamp/plans/${r}.md`);
 });
-D.parseAsync(process.argv);
+B.command("migrate").description(
+  "One-time migration: split monolithic plans.md/ideas.md into per-file YAML frontmatter entries"
+).action(async () => {
+  const e = process.cwd(), d = R(e, "papercamp", "plans"), s = C(d, "archive"), o = R(e, "papercamp", "ideas");
+  await P(s, { recursive: !0 }), await P(o, { recursive: !0 });
+  const u = R(e, "papercamp", "plans.md"), h = R(e, "papercamp", "ideas.md");
+  let r = 0, t = 0;
+  const j = await A(u, "utf-8").catch(() => "");
+  if (j.trim()) {
+    const { entries: g, warnings: l } = K(j);
+    for (const c of l)
+      console.warn(`  warning: ${c.title}: ${c.message}`);
+    for (const c of g) {
+      if (!c.id) {
+        console.warn(`  skipping plan "${c.title}" — no Id assigned, cannot migrate`), t++;
+        continue;
+      }
+      const m = c.status === "done" || c.status === "dropped" ? s : d, n = C(m, `${c.id}.md`);
+      if (await gt(n)) {
+        t++;
+        continue;
+      }
+      const y = G({
+        id: c.id,
+        title: c.title,
+        kind: c.kind ?? "feat",
+        status: c.status,
+        idea: c.idea,
+        agent: c.agent,
+        created: c.created,
+        updated: c.updated,
+        tags: c.tags,
+        body: c.body,
+        phases: c.phases,
+        log: c.log,
+        clarifications: c.clarifications
+      });
+      await $(n, `${y}
+`, "utf-8"), r++;
+    }
+  }
+  let w = 0, N = 0;
+  const i = await A(h, "utf-8").catch(() => "");
+  if (i.trim()) {
+    const g = it(i);
+    for (const l of g) {
+      if (!l.id) {
+        console.warn(`  skipping idea "${l.title}" — no Id assigned, cannot migrate`), N++;
+        continue;
+      }
+      const c = C(o, `${l.id}.md`);
+      if (await gt(c)) {
+        N++;
+        continue;
+      }
+      const m = ht({ id: l.id, title: l.title, body: l.body });
+      await $(c, `${m}
+`, "utf-8"), w++;
+    }
+  }
+  const { entries: a } = await k(d);
+  await $(C(d, "index.md"), rt(a), "utf-8");
+  const { entries: p } = await _(o), f = St(p, a);
+  await $(C(o, "index.md"), Ct(f), "utf-8"), r > 0 && t === 0 && await $(u, "", "utf-8"), w > 0 && N === 0 && await $(h, "", "utf-8"), console.log(
+    `Migrated ${r} plans (${t} skipped), ${w} ideas (${N} skipped).`
+  );
+});
+B.parseAsync(process.argv);
 //# sourceMappingURL=index.js.map

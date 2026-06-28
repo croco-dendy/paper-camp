@@ -1,4 +1,4 @@
-import { deriveIdeaStatuses, parseIdeas } from '@/core/parser';
+import { deriveIdeaStatuses } from '@/core/idea-status';
 import type {
   AgentTaskState,
   CheckName,
@@ -40,7 +40,6 @@ type AppStore = {
   plansError: string | null;
   loadPlans: () => Promise<void>;
 
-  ideasContent: string | null;
   ideaEntries: IdeaEntry[];
   loadIdeas: () => Promise<void>;
 
@@ -127,19 +126,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  ideasContent: null,
   ideaEntries: [],
   loadIdeas: async () => {
     try {
-      const content = await fetchIdeas();
-      const parsed = content.trim() ? parseIdeas(content) : [];
+      const result = await fetchIdeas();
       const { plans } = get();
       set({
-        ideasContent: content,
-        ideaEntries: deriveIdeaStatuses(parsed, plans?.entries ?? []),
+        ideaEntries: deriveIdeaStatuses(result.entries, plans?.entries ?? []),
       });
     } catch {
-      set({ ideasContent: null, ideaEntries: [] });
+      set({ ideaEntries: [] });
     }
   },
 
