@@ -1115,7 +1115,7 @@ rather than a gate every plan must pass through.
 **Id:** FEAT-22
 **Idea:** IDEA-18
 **Created:** 2026-06-27
-**Updated:** 2026-06-27
+**Updated:** 2026-06-28
 **Tags:** ci, cd, github
 
 This repo has zero `.github/` workflows today — no CI runs tsc/biome/vitest
@@ -1314,6 +1314,31 @@ FEAT-N/FIX-N naming scheme.
       alone now covers every feature-branch commit, since a PR exists from
       the first push onward (created within seconds by `draft-pr.yml`), so
       there's no coverage gap.
+- [x] Fix dev server breaking after the paper-ui registry switch
+      User reported the app wouldn't load: `SyntaxError: The requested
+      module .../react-dom/index.js does not provide an export named
+      'createPortal'`. Root cause: `vite.app.config.ts` had
+      `optimizeDeps: { exclude: ['@dendelion/paper-ui'] }`, set up for the
+      old `link:../paper-ui` symlink workflow so Vite always read the live
+      symlinked `dist/` fresh. With `@dendelion/paper-ui` now a normal
+      registry-installed package, that exclude meant Vite never crawled into
+      it to discover its `react-dom` import, so `react-dom`'s CJS module got
+      served without ESM interop — hence the missing named export. Removed
+      the `optimizeDeps.exclude` entry; restarted the dev server with a
+      cleared `node_modules/.vite` cache. Verified live in the browser via
+      Claude in Chrome: Plans and Settings pages render fully, zero console
+      errors, branch-name `Stamp` in the Stack panel still shows correctly.
+- [x] Add CodeRabbit for automated PR review
+      Install the CodeRabbit GitHub App on this repo (free for public repos,
+      no API key/secret needed — separate from the Claude-based local
+      `/code-review` skill, giving every PR a second, independent pass).
+      Add a `.coderabbit.yaml` pointing it at this repo's actual conventions
+      (`AGENTS.md`, `CODE_STYLE.md`, `UX_PRINCIPLES.md`) so review comments
+      check against real repo rules instead of generic defaults. Goal is a
+      lightweight "does this fit the repo's style/rules" pass, not deep bug
+      hunting — CodeRabbit was picked over Greptile (pricier, noisier,
+      overkill for a solo project) and Qodo Merge (more configurable but
+      requires self-hosting the Action and managing your own LLM key).
 
 ### Log
 - 2026-06-27: I want to have 3 steps in PR visible for each check - Quality, Tests and Consistency
@@ -1326,3 +1351,4 @@ FEAT-N/FIX-N naming scheme.
 - 2026-06-27: Reported a real CI failure: `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` then "this version of pnpm requires at least Node.js v22.13". Root cause was `pnpm/action-setup@v4`'s unpinned `version: latest` resolving to pnpm 11 against workflows pinned to Node 20. Pinned pnpm via `package.json`'s `packageManager` field instead.
 - 2026-06-27: Reported a second CI failure right after — `Cannot find module '@dendelion/paper-ui'` cascading across every file. Root cause was the `link:../paper-ui` dependency, which only resolves on the dev machine. Confirmed the deeper problem (this would break a real `npm install` too, since the package is already published to npm), and chose to publish the pending paper-ui work as `0.2.0` and switch paper-camp to depend on the registry version, with `pnpm link` documented for local co-development.
 - 2026-06-27: Noticed duplicated CI jobs — once for `push`, once for `pull_request` — on the same feature-branch commit. Root cause was `ci.yml` triggering on both events for feature branches; fixed by dropping the feature-branch `push` trigger now that `draft-pr.yml` guarantees a PR exists from the first push onward.
+- 2026-06-27: Asked about adding automated PR review beyond the local Claude-based `/code-review` skill, specifically a tool different from Claude to double-check code style/rule fit. Compared CodeRabbit, Greptile, Qodo Merge, Sourcery; picked CodeRabbit (free for public repos, lowest setup friction, low false-positive rate) over Greptile (pricier/noisier) and Qodo Merge (more configurable but self-hosted). Appended a phase; not implementing yet.
