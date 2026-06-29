@@ -136,7 +136,6 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const [pushing, setPushing] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
-  const [addRefs, setAddRefs] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -248,12 +247,13 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
     setCommitting(true);
     setCommitError(null);
     try {
-      const msg =
-        addRefs && activePlan?.id ? `${commitMessage}\n\nRefs: ${activePlan.id}` : commitMessage;
-      await commitChanges([...selectedFiles], commitTitle.trim(), msg.trim() || undefined);
+      await commitChanges(
+        [...selectedFiles],
+        commitTitle.trim(),
+        commitMessage.trim() || undefined,
+      );
       setCommitTitle(suggestedTitle);
       setCommitMessage('');
-      setAddRefs(false);
       setCommitExpanded(false);
       await loadGitStatus();
     } catch (err) {
@@ -261,15 +261,7 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
     } finally {
       setCommitting(false);
     }
-  }, [
-    commitTitle,
-    commitMessage,
-    selectedFiles,
-    addRefs,
-    activePlan,
-    suggestedTitle,
-    loadGitStatus,
-  ]);
+  }, [commitTitle, commitMessage, selectedFiles, suggestedTitle, loadGitStatus]);
 
   const handlePush = useCallback(async () => {
     setPushing(true);
@@ -826,39 +818,15 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
             }}
           >
             <div
-              style={{
-                ...sectionLabelStyle,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: space[2],
-              }}
+              style={{ ...sectionLabelStyle, display: 'flex', alignItems: 'center', gap: space[2] }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
-                Commit
-                {gitBranch && (
-                  <Stamp variant="chalkboard" size="small">
-                    {gitBranch}
-                  </Stamp>
-                )}
-              </div>
-              {gitAhead > 0 && (
-                <Button
-                  variant="chalkboard"
-                  size="small"
-                  icon={<PushIcon size={14} />}
-                  disabled={pushing}
-                  onClick={handlePush}
-                >
-                  {pushing ? 'Pushing…' : `Push ${gitAhead} commit${gitAhead === 1 ? '' : 's'}`}
-                </Button>
+              Commit
+              {gitBranch && (
+                <Stamp variant="chalkboard" size="small">
+                  {gitBranch}
+                </Stamp>
               )}
             </div>
-            {pushError && (
-              <Alert variant="chalkboard" dismissible onDismiss={() => setPushError(null)}>
-                {pushError}
-              </Alert>
-            )}
             <Card variant="chalkboard" size="small" className="stack-card-fill">
               {gitStatus && gitStatus.length > 0 ? (
                 <>
@@ -960,27 +928,6 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                       onChange={(e) => setCommitMessage(e.currentTarget.value)}
                       rows={2}
                     />
-                    {activePlan?.id && (
-                      <label
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: space[2],
-                          fontFamily: fontFamily.handwritten,
-                          fontSize: fontSize.sm,
-                          color: deskChalk,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={addRefs}
-                          onChange={() => setAddRefs(!addRefs)}
-                          style={{ accentColor: deskChalk }}
-                        />
-                        Add Refs: {activePlan.id}
-                      </label>
-                    )}
                     {commitError && (
                       <Alert
                         variant="chalkboard"
@@ -1007,13 +954,44 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                     flex: 1,
                     minHeight: 0,
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    gap: space[3],
                   }}
                 >
-                  <p style={{ opacity: 0.5, fontSize: fontSize.xs, margin: 0 }}>
-                    No changed files.
-                  </p>
+                  {gitAhead > 0 ? (
+                    <>
+                      <p style={{ opacity: 0.5, fontSize: fontSize.xs, margin: 0 }}>
+                        All changes committed — {gitAhead} commit{gitAhead === 1 ? '' : 's'} ready
+                        to push.
+                      </p>
+                      {pushError && (
+                        <Alert
+                          variant="chalkboard"
+                          dismissible
+                          onDismiss={() => setPushError(null)}
+                        >
+                          {pushError}
+                        </Alert>
+                      )}
+                      <Button
+                        variant="chalkboard"
+                        size="small"
+                        icon={<PushIcon size={14} />}
+                        disabled={pushing}
+                        onClick={handlePush}
+                      >
+                        {pushing
+                          ? 'Pushing…'
+                          : `Push ${gitAhead} commit${gitAhead === 1 ? '' : 's'}`}
+                      </Button>
+                    </>
+                  ) : (
+                    <p style={{ opacity: 0.5, fontSize: fontSize.xs, margin: 0 }}>
+                      No changed files.
+                    </p>
+                  )}
                 </div>
               )}
             </Card>
