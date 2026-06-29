@@ -1,7 +1,7 @@
 function buildPrompt(diffText: string, planContext?: string): string {
   return `You are writing a single git commit message for the diff below. Do not use any tools, do not read or edit any files — base your answer only on the diff text given.
 
-Follow this repo's commit convention: \`type(scope): Description\`, where type is one of feat|fix|chore|docs|refactor and scope is a short identifier (often a plan number).${
+Follow this repo's commit convention: \`type(scope): Description\`, where type is one of feat|fix|chore|docs|refactor and scope is a short identifier (often a plan number). Keep the whole title under 100 characters and do not end it with a period.${
     planContext
       ? `\nThis work belongs to plan ${planContext} — use it as the scope unless the diff clearly suggests otherwise.`
       : ''
