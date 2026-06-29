@@ -26,6 +26,26 @@ import { useAppStore } from '../stores/app-store';
 import { summarizeQualityFailure, summarizeTestFailure } from '../utils/check-summary';
 import { CopyPromptButton } from './copy-prompt-button';
 
+const COMMIT_TITLE_STORAGE_KEY = 'papercamp.commitTitle';
+const COMMIT_MESSAGE_STORAGE_KEY = 'papercamp.commitMessage';
+
+function readStoredCommitField(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeStoredCommitField(key: string, value: string): void {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    // localStorage unavailable (e.g. private browsing) — fall back to in-memory only
+  }
+}
+
 const WandIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     width={size}
@@ -88,8 +108,12 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const [consistencyExpanded, setConsistencyExpanded] = useState(false);
   const [commitExpanded, setCommitExpanded] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [commitTitle, setCommitTitle] = useState('');
-  const [commitMessage, setCommitMessage] = useState('');
+  const [commitTitle, setCommitTitle] = useState(() =>
+    readStoredCommitField(COMMIT_TITLE_STORAGE_KEY),
+  );
+  const [commitMessage, setCommitMessage] = useState(() =>
+    readStoredCommitField(COMMIT_MESSAGE_STORAGE_KEY),
+  );
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [addRefs, setAddRefs] = useState(false);
@@ -175,6 +199,14 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
       setCommitMessage(suggestedMessage);
     }
   }, [suggestedMessage, commitMessage]);
+
+  useEffect(() => {
+    writeStoredCommitField(COMMIT_TITLE_STORAGE_KEY, commitTitle);
+  }, [commitTitle]);
+
+  useEffect(() => {
+    writeStoredCommitField(COMMIT_MESSAGE_STORAGE_KEY, commitMessage);
+  }, [commitMessage]);
 
   useEffect(() => {
     if (gitStatus) {
@@ -387,7 +419,9 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                             ? ' — drafting'
                             : agentStatus.taskKind === 'extend'
                               ? ' — extending'
-                              : ''}{' '}
+                              : agentStatus.taskKind === 'commit-suggest'
+                                ? ' — suggesting commit message'
+                                : ''}{' '}
                       · {AGENT_LABELS[agentStatus.agentId]}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>

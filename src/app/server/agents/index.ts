@@ -29,6 +29,9 @@ const TASK_KIND_TO_DEFAULT_KEY: Record<TaskKind, keyof DefaultAgentsMap> = {
   audit: 'phase',
   draft: 'planDraft',
   extend: 'ideaExtend',
+  // Unused: commit-suggest always runs claude-code directly (see agent.ts runCommitSuggest)
+  // rather than going through resolveAgent, since it must skip the shared --permission-mode flag.
+  'commit-suggest': 'phase',
 };
 
 export function resolveAgent(opts: {

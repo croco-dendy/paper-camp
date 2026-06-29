@@ -22,7 +22,7 @@ import {
   type PlanEntry,
   type TaskKind,
 } from '../../types/index';
-import { type AgentAdapter, resolveAgent } from './agents';
+import { AGENTS, type AgentAdapter, resolveAgent } from './agents';
 
 const MAX_LINES = 50;
 
@@ -294,6 +294,65 @@ export function createAgentManager(
     });
   }
 
+  // Read-only, one-shot task: ask claude-code to turn a diff into a commit message.
+  // Deliberately bypasses launch()/resolveAgent so it never picks up the shared
+  // adapter's `--permission-mode auto` flag — this call must stay deny-by-default
+  // since the model is only ever supposed to read the diff text, not touch the repo.
+  function runCommitSuggest(prompt: string): Promise<string> {
+    if (isBusy()) {
+      return Promise.reject(new Error('An agent task is already running'));
+    }
+    return new Promise((resolve, reject) => {
+      const proc = spawn('claude', ['-p', prompt, '--output-format', 'json'], {
+        cwd: root,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      const task: AgentTask = {
+        taskKind: 'commit-suggest',
+        planTitle: 'Suggest commit message',
+        status: 'starting',
+        agentId: 'claude-code',
+        adapter: AGENTS['claude-code'],
+        proc,
+        lines: [],
+      };
+      current = task;
+      setStatus(task, 'running');
+
+      let stdout = '';
+      let stderr = '';
+      proc.stdout?.on('data', (d: Buffer) => {
+        stdout += d.toString();
+      });
+      proc.stderr?.on('data', (d: Buffer) => {
+        stderr += d.toString();
+      });
+      proc.on('close', (code) => {
+        if (current !== task) return;
+        if (task.status === 'stopping') {
+          setStatus(task, 'done');
+          reject(new Error('Stopped'));
+          return;
+        }
+        if (code === 0) {
+          setStatus(task, 'done');
+          resolve(stdout);
+        } else {
+          const errText = stderr || `claude exited with code ${code}`;
+          pushLine(task, errText);
+          setStatus(task, 'error');
+          reject(new Error(errText));
+        }
+      });
+      proc.on('error', (err) => {
+        if (current !== task) return;
+        pushLine(task, `Failed to spawn agent: ${err.message}`);
+        setStatus(task, 'error');
+        reject(err);
+      });
+    });
+  }
+
   function stop(): Result {
     if (!current) {
       return { ok: false, error: 'No agent task running' };
@@ -330,6 +389,7 @@ export function createAgentManager(
     startForPlan,
     startForIdea,
     startForIdeaExtend,
+    runCommitSuggest,
     stop,
     getStatus,
     subscribe(res: ServerResponse) {
@@ -349,6 +409,7 @@ export interface AgentManager {
   startForPlan: (plan: PlanEntry, prompt: string) => Result;
   startForIdea: (idea: IdeaEntry, prompt: string) => Result;
   startForIdeaExtend: (idea: IdeaEntry, prompt: string) => Result;
+  runCommitSuggest: (prompt: string) => Promise<string>;
   stop: () => Result;
   getStatus: () => AgentTaskState | null;
   subscribe: (res: ServerResponse) => void;

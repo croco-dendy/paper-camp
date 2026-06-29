@@ -638,7 +638,11 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           campFile(root, 'plans.md'),
         );
         const activePlan = findFocusPlan(entries);
-        const suggestion = await suggestCommitMessage(diffText, activePlan?.id);
+        const suggestion = await suggestCommitMessage(
+          diffText,
+          activePlan?.id,
+          agent.runCommitSuggest,
+        );
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(suggestion));

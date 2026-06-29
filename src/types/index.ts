@@ -167,7 +167,7 @@ export interface GitStatusResponse {
 
 export type AgentTaskStatus = 'starting' | 'running' | 'stopping' | 'done' | 'error';
 
-export type TaskKind = 'phase' | 'audit' | 'draft' | 'extend';
+export type TaskKind = 'phase' | 'audit' | 'draft' | 'extend' | 'commit-suggest';
 
 export interface AgentTaskState {
   status: AgentTaskStatus;

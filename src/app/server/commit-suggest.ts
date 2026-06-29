@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process';
-
 function buildPrompt(diffText: string, planContext?: string): string {
   return `You are writing a single git commit message for the diff below. Do not use any tools, do not read or edit any files — base your answer only on the diff text given.
 
@@ -18,36 +16,21 @@ ${diffText}`;
 
 /**
  * One-shot, read-only agent call — not the long-running phase/task system in agent.ts.
- * No --permission-mode flag: this task never needs file/bash access, so the default
- * (auto-deny outside a TTY) is exactly what's wanted if the model attempts a tool call.
+ * The actual process spawn lives in agent.ts's runCommitSuggest, which tracks it on the
+ * shared `current` task so the UI's Agent card shows it running; this module only builds
+ * the prompt and parses the result.
  */
 export async function suggestCommitMessage(
   diffText: string,
-  planContext?: string,
+  planContext: string | undefined,
+  runPrompt: (prompt: string) => Promise<string>,
 ): Promise<{ title: string; message: string }> {
   if (!diffText.trim()) {
     throw new Error('No changes to summarize — select at least one file first');
   }
 
   const prompt = buildPrompt(diffText, planContext);
-  const output = await new Promise<string>((resolve, reject) => {
-    const proc = spawn('claude', ['-p', prompt, '--output-format', 'json'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    proc.stdout?.on('data', (d: Buffer) => {
-      stdout += d.toString();
-    });
-    proc.stderr?.on('data', (d: Buffer) => {
-      stderr += d.toString();
-    });
-    proc.on('close', (code) => {
-      if (code === 0) resolve(stdout);
-      else reject(new Error(stderr || `claude exited with code ${code}`));
-    });
-    proc.on('error', reject);
-  });
+  const output = await runPrompt(prompt);
 
   let resultText = output;
   try {
