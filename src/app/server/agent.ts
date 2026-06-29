@@ -1,10 +1,9 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { readAllIdeaFiles, readIdeasMerged, readPlansMerged } from '../../core/parser';
+import { readIdeasMerged, readPlansMerged } from '../../core/parser';
 import {
   type AgentId,
   type AgentTaskState,
@@ -105,18 +104,9 @@ export function createAgentManager(
     try {
       if (task.taskKind === 'extend') {
         const ideasDir = join(root, 'papercamp', 'ideas');
-        const ideas = await readAllIdeaFiles(ideasDir);
-        const idea = ideas.entries.find((e) => e.id === task.ideaId);
-        if (!idea) {
-          const mono = await readFile(join(root, 'papercamp', 'ideas.md'), 'utf-8').catch(() => '');
-          const { parseIdeas } = await import('../../core/parser');
-          const monoIdea = parseIdeas(mono).find(
-            (e: { id: string | null }) => e.id === task.ideaId,
-          );
-          if (!monoIdea) return null;
-          if (task.ideaBodyBaseline === undefined) return null;
-          return monoIdea.body !== task.ideaBodyBaseline;
-        }
+        const { entries } = await readIdeasMerged(ideasDir, join(root, 'papercamp', 'ideas.md'));
+        const idea = entries.find((e) => e.id === task.ideaId);
+        if (!idea) return null;
         if (task.ideaBodyBaseline === undefined) return null;
         return idea.body !== task.ideaBodyBaseline;
       }
@@ -293,14 +283,20 @@ export function createAgentManager(
   // Deliberately bypasses launch()/resolveAgent so it never picks up the shared
   // adapter's `--permission-mode auto` flag — this call must stay deny-by-default
   // since the model is only ever supposed to read the diff text, not touch the repo.
+  const COMMIT_SUGGEST_TIMEOUT_MS = 60_000;
+  const STDIN_MAX_BYTES = 10 * 1024 * 1024;
+
   function runCommitSuggest(prompt: string): Promise<string> {
     if (isBusy()) {
       return Promise.reject(new Error('An agent task is already running'));
     }
+    if (Buffer.byteLength(prompt, 'utf-8') > STDIN_MAX_BYTES) {
+      return Promise.reject(new Error('Commit suggestion prompt exceeds the 10MB stdin limit'));
+    }
     return new Promise((resolve, reject) => {
-      const proc = spawn('claude', ['-p', prompt, '--output-format', 'json'], {
+      const proc = spawn('claude', ['-p', '--output-format', 'json'], {
         cwd: root,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
       const task: AgentTask = {
         taskKind: 'commit-suggest',
@@ -314,6 +310,27 @@ export function createAgentManager(
       current = task;
       setStatus(task, 'running');
 
+      let settled = false;
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        fn();
+      };
+      const timeout = setTimeout(() => {
+        settle(() => {
+          if (current === task) {
+            pushLine(task, 'Commit suggestion timed out');
+            setStatus(task, 'error');
+            if (!proc.killed) proc.kill('SIGTERM');
+          }
+          reject(new Error('Commit suggestion timed out'));
+        });
+      }, COMMIT_SUGGEST_TIMEOUT_MS);
+
+      proc.stdin?.write(prompt);
+      proc.stdin?.end();
+
       let stdout = '';
       let stderr = '';
       proc.stdout?.on('data', (d: Buffer) => {
@@ -324,26 +341,30 @@ export function createAgentManager(
       });
       proc.on('close', (code) => {
         if (current !== task) return;
-        if (task.status === 'stopping') {
-          setStatus(task, 'done');
-          reject(new Error('Stopped'));
-          return;
-        }
-        if (code === 0) {
-          setStatus(task, 'done');
-          resolve(stdout);
-        } else {
-          const errText = stderr || `claude exited with code ${code}`;
-          pushLine(task, errText);
-          setStatus(task, 'error');
-          reject(new Error(errText));
-        }
+        settle(() => {
+          if (task.status === 'stopping') {
+            setStatus(task, 'done');
+            reject(new Error('Stopped'));
+            return;
+          }
+          if (code === 0) {
+            setStatus(task, 'done');
+            resolve(stdout);
+          } else {
+            const errText = stderr || `claude exited with code ${code}`;
+            pushLine(task, errText);
+            setStatus(task, 'error');
+            reject(new Error(errText));
+          }
+        });
       });
       proc.on('error', (err) => {
         if (current !== task) return;
-        pushLine(task, `Failed to spawn agent: ${err.message}`);
-        setStatus(task, 'error');
-        reject(err);
+        settle(() => {
+          pushLine(task, `Failed to spawn agent: ${err.message}`);
+          setStatus(task, 'error');
+          reject(err);
+        });
       });
     });
   }

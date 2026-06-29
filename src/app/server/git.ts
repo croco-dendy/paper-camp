@@ -1,11 +1,16 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { watch } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import type { GitStatusEntry, PlanEntry } from '../../types';
 
 const AI_DIFF_BLOCKLIST = [/(^|\/)\.env(\.|$)/i, /\.(pem|key|p12|crt)$/i];
+
+// Git expands pathspec magic (e.g. `:/`) even after `--`, which can broaden a
+// command beyond the caller-selected files. Force every API-supplied path to be
+// treated literally so selections can't widen to unrelated files.
+const toLiteralPathspec = (file: string) => `:(literal)${file}`;
 
 export function createGitManager(root: string) {
   const clients = new Set<ServerResponse>();
@@ -78,11 +83,17 @@ export function createGitManager(root: string) {
         return status === undefined || status[1] !== ' ';
       });
       if (toAdd.length > 0) {
-        await runGit(['add', '--', ...toAdd]);
+        await runGit(['add', '--', ...toAdd.map(toLiteralPathspec)]);
       }
     }
     const args = ['commit', '-m', title];
     if (message) args.push('-m', message);
+    // Restrict the commit to the selected files so unrelated already-staged
+    // paths aren't swept in; an empty selection falls through to "commit
+    // whatever's staged", which is the intended behavior for that case.
+    if (files.length > 0) {
+      args.push('--', ...files.map(toLiteralPathspec));
+    }
     await runGit(args);
   }
 
@@ -217,12 +228,25 @@ export function createGitManager(root: string) {
     const parts: string[] = [];
 
     if (tracked.length > 0) {
-      const trackedDiff = await runGit(['diff', 'HEAD', '--', ...tracked]).catch(() => '');
+      const trackedDiff = await runGit([
+        'diff',
+        'HEAD',
+        '--',
+        ...tracked.map(toLiteralPathspec),
+      ]).catch(() => '');
       if (trackedDiff) parts.push(trackedDiff);
     }
 
     for (const file of files.filter((f) => untracked.has(f))) {
-      const content = await readFile(join(root, file), 'utf-8').catch(() => '');
+      const filePath = join(root, file);
+      const size = await stat(filePath)
+        .then((s) => s.size)
+        .catch(() => 0);
+      if (size > maxChars) {
+        parts.push(`--- /dev/null\n+++ b/${file}\n(new file omitted: exceeds diff size cap)`);
+        continue;
+      }
+      const content = await readFile(filePath, 'utf-8').catch(() => '');
       if (content) {
         parts.push(`--- /dev/null\n+++ b/${file}\n(new file)\n${content}`);
       }
