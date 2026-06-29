@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { watch } from 'node:fs';
-import { readFile, stat } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import type { GitStatusEntry, PlanEntry } from '../../types';
@@ -239,10 +239,15 @@ export function createGitManager(root: string) {
 
     for (const file of files.filter((f) => untracked.has(f))) {
       const filePath = join(root, file);
-      const size = await stat(filePath)
-        .then((s) => s.size)
-        .catch(() => 0);
-      if (size > maxChars) {
+      // lstat (not stat) so a symlink is identified as such instead of followed —
+      // otherwise its target's content, possibly outside the repo, leaks into the AI prompt.
+      const stats = await lstat(filePath).catch(() => null);
+      if (!stats) continue;
+      if (stats.isSymbolicLink()) {
+        parts.push(`--- /dev/null\n+++ b/${file}\n(new file omitted: symlink)`);
+        continue;
+      }
+      if (stats.size > maxChars) {
         parts.push(`--- /dev/null\n+++ b/${file}\n(new file omitted: exceeds diff size cap)`);
         continue;
       }

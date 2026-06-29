@@ -328,6 +328,10 @@ export function createAgentManager(
         });
       }, COMMIT_SUGGEST_TIMEOUT_MS);
 
+      proc.stdin?.on('error', () => {
+        // EPIPE if the process exits before reading stdin — proc.on('error'/'close')
+        // already handles the resulting failure, so this just stops it from crashing.
+      });
       proc.stdin?.write(prompt);
       proc.stdin?.end();
 
