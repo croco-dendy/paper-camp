@@ -40,8 +40,10 @@ import {
   type PlanEntry,
   type PlanStatus,
 } from '../../types/index';
+import { findFocusPlan } from '../features/plans/helpers';
 import { createActivityManager } from './activity';
 import { type AgentManager, createAgentManager } from './agent';
+import { suggestCommitMessage } from './commit-suggest';
 import { createGitManager } from './git';
 import { createStatusManager } from './status';
 
@@ -611,6 +613,35 @@ export function createApiMiddleware(root: string): ApiMiddleware {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/git/suggest-commit-message — agent-written title/body from the actual diff
+    if (req.method === 'POST' && pathname === '/api/git/suggest-commit-message') {
+      try {
+        const body = await readBody(req);
+        const { files } = JSON.parse(body) as { files?: string[] };
+        if (!files?.length) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'files is required' }));
+          return;
+        }
+        const diffText = await git.diff(files);
+        const { entries } = await readPlansMerged(
+          campFile(root, 'plans'),
+          campFile(root, 'plans.md'),
+        );
+        const activePlan = findFocusPlan(entries);
+        const suggestion = await suggestCommitMessage(diffText, activePlan?.id);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(suggestion));
       } catch (error) {
         res.statusCode = 400;
         res.setHeader('Content-Type', 'application/json');

@@ -21,10 +21,28 @@ import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findFocusPlan } from '../features/plans/helpers';
-import { commitChanges } from '../services/git-api';
+import { commitChanges, suggestCommitMessage } from '../services/git-api';
 import { useAppStore } from '../stores/app-store';
 import { summarizeQualityFailure, summarizeTestFailure } from '../utils/check-summary';
 import { CopyPromptButton } from './copy-prompt-button';
+
+const WandIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="m12 3-1.6 4.85a2 2 0 0 1-1.27 1.27L4.27 10.7l4.86 1.6a2 2 0 0 1 1.27 1.27L12 18.4l1.6-4.86a2 2 0 0 1 1.27-1.27l4.86-1.6-4.86-1.6a2 2 0 0 1-1.27-1.27L12 3Z" />
+    <path d="M19 3v3" />
+    <path d="M20.5 4.5h-3" />
+  </svg>
+);
 
 const CHALKBOARD_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.28 0 0 0 0 0.20 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='1'/%3E%3C/svg%3E")`;
 
@@ -75,6 +93,8 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [addRefs, setAddRefs] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const refreshRef = useRef({
@@ -127,16 +147,22 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
       .slice(0, 30);
   }, [activePlan]);
 
+  const allPhasesDone = useMemo(
+    () => Boolean(activePlan?.phases.length) && activePlan!.phases.every((phase) => phase.done),
+    [activePlan],
+  );
+
   const suggestedTitle = useMemo(() => {
     if (!activePlan) return '';
     const kind = activePlan.kind ?? 'feat';
+    if (allPhasesDone) return `${kind}(${suggestedScope}): updates`;
     return `${kind}(${suggestedScope}): ${activePlan.title}`;
-  }, [activePlan, suggestedScope]);
+  }, [activePlan, suggestedScope, allPhasesDone]);
 
   const suggestedMessage = useMemo(() => {
-    if (!activePlan?.phases.length) return '';
+    if (!activePlan?.phases.length || allPhasesDone) return '';
     return activePlan.phases.map((phase) => `- ${phase.text}`).join('\n');
-  }, [activePlan]);
+  }, [activePlan, allPhasesDone]);
 
   useEffect(() => {
     if (suggestedTitle && !commitTitle) {
@@ -183,6 +209,21 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
       setCommitting(false);
     }
   }, [commitTitle, commitMessage, selectedFiles, addRefs, activePlan, suggestedTitle]);
+
+  const handleSuggestFromChanges = useCallback(async () => {
+    if (selectedFiles.size === 0) return;
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const result = await suggestCommitMessage([...selectedFiles]);
+      setCommitTitle(result.title);
+      setCommitMessage(result.message);
+    } catch (err) {
+      setSuggestError((err as Error).message);
+    } finally {
+      setSuggesting(false);
+    }
+  }, [selectedFiles]);
 
   const handleFindingClick = useCallback(
     (issue: ConsistencyIssue) => {
@@ -782,13 +823,35 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                       marginTop: space[3],
                     }}
                   >
-                    <Input
-                      variant="chalkboard"
-                      size="small"
-                      placeholder="Commit title"
-                      value={commitTitle}
-                      onChange={(e) => setCommitTitle(e.currentTarget.value)}
-                    />
+                    {suggestError && (
+                      <Alert
+                        variant="chalkboard"
+                        dismissible
+                        onDismiss={() => setSuggestError(null)}
+                      >
+                        {suggestError}
+                      </Alert>
+                    )}
+                    <div style={{ display: 'flex', gap: space[2], alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <Input
+                          variant="chalkboard"
+                          size="small"
+                          placeholder="Commit title"
+                          value={commitTitle}
+                          onChange={(e) => setCommitTitle(e.currentTarget.value)}
+                        />
+                      </div>
+                      <IconButton
+                        icon={<WandIcon size={16} />}
+                        variant="chalkboard"
+                        size="small"
+                        label="Suggest title and message from the diff"
+                        disabled={selectedFiles.size === 0 || suggesting}
+                        onClick={handleSuggestFromChanges}
+                        wobble={suggesting ? 1 : 0}
+                      />
+                    </div>
                     <Textarea
                       variant="chalkboard"
                       size="small"

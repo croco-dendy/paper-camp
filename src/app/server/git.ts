@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { watch } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import type { GitStatusEntry, PlanEntry } from '../../types';
@@ -66,7 +67,17 @@ export function createGitManager(root: string) {
 
   async function commit(files: string[], title: string, message?: string): Promise<void> {
     if (files.length > 0) {
-      await runGit(['add', '--', ...files]);
+      const statusEntries = await runGitStatus();
+      const statusByPath = new Map(statusEntries.map((e) => [e.path, e.status]));
+      // Files already fully staged (no pending worktree change) have nothing left for
+      // `git add` to match — passing them anyway makes git fail with "did not match any files".
+      const toAdd = files.filter((f) => {
+        const status = statusByPath.get(f);
+        return status === undefined || status[1] !== ' ';
+      });
+      if (toAdd.length > 0) {
+        await runGit(['add', '--', ...toAdd]);
+      }
     }
     const args = ['commit', '-m', title];
     if (message) args.push('-m', message);
@@ -155,12 +166,43 @@ export function createGitManager(root: string) {
     return match ? match[1].toUpperCase() : null;
   }
 
+  /**
+   * Diff text for the given paths, capped to a sane size for feeding into a prompt.
+   * Plain `git diff` skips untracked files entirely, so those are read directly and
+   * presented as new-file content instead.
+   */
+  async function diff(files: string[], maxChars = 12000): Promise<string> {
+    if (files.length === 0) return '';
+    const statusEntries = await runGitStatus();
+    const untracked = new Set(statusEntries.filter((e) => e.status === '??').map((e) => e.path));
+    const tracked = files.filter((f) => !untracked.has(f));
+    const parts: string[] = [];
+
+    if (tracked.length > 0) {
+      const trackedDiff = await runGit(['diff', 'HEAD', '--', ...tracked]).catch(() => '');
+      if (trackedDiff) parts.push(trackedDiff);
+    }
+
+    for (const file of files.filter((f) => untracked.has(f))) {
+      const content = await readFile(join(root, file), 'utf-8').catch(() => '');
+      if (content) {
+        parts.push(`--- /dev/null\n+++ b/${file}\n(new file)\n${content}`);
+      }
+    }
+
+    const combined = parts.join('\n\n');
+    return combined.length > maxChars
+      ? `${combined.slice(0, maxChars)}\n... (truncated)`
+      : combined;
+  }
+
   return {
     async getStatus(): Promise<GitStatusEntry[]> {
       return runGitStatus();
     },
     getCurrentBranch,
     commit,
+    diff,
     ensureBranch,
     getFeatureBranchPlanId,
     subscribe(res: ServerResponse) {
