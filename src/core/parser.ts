@@ -488,21 +488,24 @@ async function readFileMaybe(path: string): Promise<string> {
 }
 
 /**
- * Reads all per-file plans from a directory (non-recursive, excludes index.md).
+ * Reads all per-file plans from a directory, including its `archive/` subdirectory
+ * (done/dropped plans live there — see core/serializer.ts's archive move). Excludes
+ * index.md in either directory.
  * Returns empty result if the directory doesn't exist or has no plan files.
  */
 export async function readAllPlanFiles(plansDir: string): Promise<ParseResult<PlanEntry>> {
   const entries: PlanEntry[] = [];
   const warnings: ParseWarning[] = [];
 
-  const files = (await readdirMaybe(plansDir)).filter((f) => f.endsWith('.md') && f !== 'index.md');
-
-  for (const file of files) {
-    const content = await readFileMaybe(join(plansDir, file));
-    if (!content) continue;
-    const result = parsePlanFile(content);
-    entries.push(...result.entries);
-    warnings.push(...result.warnings);
+  for (const dir of [plansDir, join(plansDir, 'archive')]) {
+    const files = (await readdirMaybe(dir)).filter((f) => f.endsWith('.md') && f !== 'index.md');
+    for (const file of files) {
+      const content = await readFileMaybe(join(dir, file));
+      if (!content) continue;
+      const result = parsePlanFile(content);
+      entries.push(...result.entries);
+      warnings.push(...result.warnings);
+    }
   }
 
   return { entries, warnings };
