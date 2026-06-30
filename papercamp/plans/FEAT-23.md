@@ -17,7 +17,7 @@ The Docs page's open-question detail view is read-only today — it shows the qu
 - [x] Add `formatOpenQuestions` serializer
       The plural formatter needed by the resolve endpoint to rewrite the full `open-questions.md` file after flipping an entry's status — mirrors `formatPlanEntry`'s per-entry join in the existing `formatPlans`.
 - [x] Add resolve API endpoint
-      `POST /api/open-questions/resolve?title=<question title>` with `{ decision, rationale? }`. Writes the new decision entry to `decisions.md` first (via `formatDecisionEntry`/`appendBlock`), then flips the matched question entry to `status: 'resolved'` with `Resolved-by` set — order matters so `findConsistencyIssues` never sees a dangling `Resolved-by`.
+      `POST /api/open-questions/resolve?title=<question title>` with `{ decision, rationale? }`. Validates the target question exists, is `open`, and has no parse warnings before touching any file — then writes the decision entry to `decisions.md` (via `formatDecisionEntry`/`appendBlock`) and flips the matched question to `status: 'resolved'` with `Resolved-by` set. Returns 409 if already resolved or if parse warnings are present.
 - [x] Add resolve action UI to OpenQuestionDetail
       A "Resolve" `Button` on `open-question-detail.tsx` (gated on `question.status === 'open'`) opens a `Modal` with a short **Decision** `Input` and optional **Rationale** `Textarea`, following `add-idea-modal.tsx`'s controlled `open`/`onClose`/`onAdd` pattern with local `loading` state.
 - [x] Wire frontend API and store refresh

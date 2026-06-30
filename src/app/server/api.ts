@@ -1121,16 +1121,7 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           return;
         }
 
-        // Step 1: append new decision entry to decisions.md first
-        const decisionBlock = formatDecisionEntry({
-          title: decision.trim(),
-          date: todayDateString(),
-          status: 'decided',
-          body: rationale?.trim(),
-        });
-        await appendBlock(campFile(root, 'decisions.md'), decisionBlock);
-
-        // Step 2: flip the matched open question to resolved
+        // Validate everything before any writes — avoids partial state on failure.
         const questionsPath = campFile(root, 'open-questions.md');
         const raw = await readMaybe(questionsPath);
         if (!raw) {
@@ -1140,6 +1131,18 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           return;
         }
         const parsed = parseOpenQuestions(raw);
+        if (parsed.warnings.length > 0) {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(
+            JSON.stringify({
+              error:
+                'open-questions.md has parse warnings — resolve them before updating to avoid data loss',
+              warnings: parsed.warnings.map((w) => `${w.title}: ${w.message}`),
+            }),
+          );
+          return;
+        }
         const trimmed = title.trim();
         const target = parsed.entries.find((q) => q.title === trimmed);
         if (!target) {
@@ -1148,6 +1151,24 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           res.end(JSON.stringify({ error: `open question "${trimmed}" not found` }));
           return;
         }
+        if (target.status !== 'open') {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(
+            JSON.stringify({ error: `open question "${trimmed}" is already ${target.status}` }),
+          );
+          return;
+        }
+
+        // Both targets validated — now write the two files.
+        const decisionBlock = formatDecisionEntry({
+          title: decision.trim(),
+          date: todayDateString(),
+          status: 'decided',
+          body: rationale?.trim(),
+        });
+        await appendBlock(campFile(root, 'decisions.md'), decisionBlock);
+
         target.status = 'resolved';
         target.resolvedBy = decision.trim();
         const updated = formatOpenQuestions(parsed.entries);
