@@ -142,6 +142,12 @@ export function formatPlans(entries: NewPlanInput[]): string {
   return `${entries.map((entry) => formatPlanEntry(entry)).join('\n\n')}\n`;
 }
 
+/** Serializes an array of open-question entries back to an open-questions.md file. */
+export function formatOpenQuestions(entries: NewOpenQuestionInput[]): string {
+  if (entries.length === 0) return '';
+  return `${entries.map((entry) => formatOpenQuestionEntry(entry)).join('\n\n')}\n`;
+}
+
 /** Appends a pre-formatted block to a papercamp file, separated by a single blank line. */
 export async function appendBlock(filePath: string, block: string): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true });

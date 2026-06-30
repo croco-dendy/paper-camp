@@ -30,5 +30,5 @@
 | FEAT-20 | Add opencode agent support | done | app, agent, settings |
 | FEAT-21 | Settings config workspace | done | app, settings |
 | FEAT-22 | GitHub CI/CD automation | done | ci, cd, github |
-| FEAT-23 | Resolve open questions from Docs | idea | app, docs |
+| FEAT-23 | Resolve open questions from Docs | in-progress | app, docs |
 | FEAT-24 | Plan storage architecture | done | core, cli, plans, ideas |

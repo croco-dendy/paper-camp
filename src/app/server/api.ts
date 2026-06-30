@@ -17,10 +17,13 @@ import {
   readPlansMerged,
 } from '../../core/parser';
 import {
+  appendBlock,
   archivePlanFile,
   assignPlanId,
+  formatDecisionEntry,
   formatIdeaFile,
   formatIdeasIndex,
+  formatOpenQuestions,
   formatPlanEntry,
   formatPlanFile,
   formatPlansIndex,
@@ -1084,6 +1087,72 @@ export function createApiMiddleware(root: string): ApiMiddleware {
         const envPath = join(root, '.env');
         const current = await readMaybe(envPath);
         await writeFile(envPath, applyEnvEntries(current, entries));
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
+      return;
+    }
+
+    // POST /api/open-questions/resolve?title=... — resolve an open question with a new decision
+    if (req.method === 'POST' && pathname === '/api/open-questions/resolve') {
+      try {
+        const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`);
+        const title = url.searchParams.get('title');
+        if (!title?.trim()) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'title is required' }));
+          return;
+        }
+        const body = await readBody(req);
+        const { decision, rationale } = JSON.parse(body) as {
+          decision?: string;
+          rationale?: string;
+        };
+        if (!decision?.trim()) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'decision is required' }));
+          return;
+        }
+
+        // Step 1: append new decision entry to decisions.md first
+        const decisionBlock = formatDecisionEntry({
+          title: decision.trim(),
+          date: todayDateString(),
+          status: 'decided',
+          body: rationale?.trim(),
+        });
+        await appendBlock(campFile(root, 'decisions.md'), decisionBlock);
+
+        // Step 2: flip the matched open question to resolved
+        const questionsPath = campFile(root, 'open-questions.md');
+        const raw = await readMaybe(questionsPath);
+        if (!raw) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'open-questions.md not found' }));
+          return;
+        }
+        const parsed = parseOpenQuestions(raw);
+        const trimmed = title.trim();
+        const target = parsed.entries.find((q) => q.title === trimmed);
+        if (!target) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: `open question "${trimmed}" not found` }));
+          return;
+        }
+        target.status = 'resolved';
+        target.resolvedBy = decision.trim();
+        const updated = formatOpenQuestions(parsed.entries);
+        await writeFile(questionsPath, `${updated}\n`, 'utf-8');
+
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true }));

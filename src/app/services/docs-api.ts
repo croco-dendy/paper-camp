@@ -35,3 +35,20 @@ export const fetchConsistency = async () => {
   const res = await fetch('/api/consistency');
   return res.json() as Promise<ConsistencyIssue[]>;
 };
+
+export const resolveOpenQuestion = async (title: string, decision: string, rationale?: string) => {
+  const res = await fetch(`/api/open-questions/resolve?title=${encodeURIComponent(title)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision, rationale }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(err.error ?? 'Failed to resolve open question');
+  }
+  const { loadDecisions, loadOpenQuestions } = await import('@/app/stores/app-store').then((m) =>
+    m.useAppStore.getState(),
+  );
+  await Promise.all([loadDecisions(), loadOpenQuestions()]);
+  return res.json() as Promise<{ ok: boolean }>;
+};
