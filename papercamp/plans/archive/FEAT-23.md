@@ -2,7 +2,7 @@
 id: FEAT-23
 title: Resolve open questions from Docs
 kind: feat
-status: review
+status: done
 created: 2026-06-28
 idea: IDEA-19
 updated: 2026-06-30
