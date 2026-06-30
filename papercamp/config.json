@@ -10,7 +10,7 @@
     "refactor": 5
   },
   "defaultAgents": {
-    "phase": "opencode",
+    "phase": "claude-code",
     "planDraft": "claude-code",
     "ideaExtend": "claude-code",
     "commitSuggest": "claude-code"

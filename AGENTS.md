@@ -16,8 +16,8 @@ When all phases of a plan are complete, set its `Status` to `review` — not `do
 
 ## UI code style and UX principles
 
-For `src/app` code, also follow `CODE_STYLE.md` (how the code is written) and
-`UX_PRINCIPLES.md` (how the UI should feel to use — layout stability, visual
+For `src/app` code, also follow `docs/CODE_STYLE.md` (how the code is written) and
+`docs/UX_PRINCIPLES.md` (how the UI should feel to use — layout stability, visual
 hierarchy, motion). Read both before making UI changes.
 
 ## Working with the paper-ui sibling repo
