@@ -33,11 +33,13 @@ export function createGitManager(root: string) {
       const x = line[0] ?? ' ';
       const y = line[1] ?? ' ';
       const rest = line.slice(3);
-      const path = rest.split(' -> ').pop() ?? rest;
+      const parts = rest.split(' -> ');
+      const path = parts.pop() ?? rest;
       entries.push({
         path,
         status: `${x}${y}`,
         staged: x !== ' ' && x !== '?',
+        renameSource: (x === 'R' || x === 'C') && parts.length > 0 ? parts[0] : undefined,
       });
     }
     return entries;
@@ -224,7 +226,19 @@ export function createGitManager(root: string) {
     }
     const statusEntries = await runGitStatus();
     const untracked = new Set(statusEntries.filter((e) => e.status === '??').map((e) => e.path));
-    const tracked = files.filter((f) => !untracked.has(f));
+
+    const renameSources = new Map(
+      statusEntries
+        .filter((e): e is GitStatusEntry & { renameSource: string } => !!e.renameSource)
+        .map((e) => [e.path, e.renameSource]),
+    );
+
+    const tracked = files.filter((f) => {
+      if (untracked.has(f)) return false;
+      const source = renameSources.get(f);
+      if (source && AI_DIFF_BLOCKLIST.some((pattern) => pattern.test(source))) return false;
+      return true;
+    });
     const parts: string[] = [];
 
     if (tracked.length > 0) {

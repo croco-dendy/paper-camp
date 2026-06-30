@@ -12,6 +12,7 @@
   "defaultAgents": {
     "phase": "opencode",
     "planDraft": "opencode",
-    "ideaExtend": "opencode"
+    "ideaExtend": "opencode",
+    "commitSuggest": "opencode"
   }
 }

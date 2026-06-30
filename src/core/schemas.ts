@@ -83,6 +83,7 @@ export const paperCampConfigSchema = z.object({
       phase: z.enum(AGENT_IDS),
       planDraft: z.enum(AGENT_IDS),
       ideaExtend: z.enum(AGENT_IDS),
+      commitSuggest: z.enum(AGENT_IDS),
     })
     .optional(),
 });

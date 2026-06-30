@@ -988,7 +988,7 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           return;
         }
         if (defaultAgents !== undefined) {
-          for (const key of ['phase', 'planDraft', 'ideaExtend'] as const) {
+          for (const key of ['phase', 'planDraft', 'ideaExtend', 'commitSuggest'] as const) {
             if (!AGENT_IDS.includes(defaultAgents[key])) {
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
@@ -998,10 +998,15 @@ export function createApiMiddleware(root: string): ApiMiddleware {
           }
         }
         const config = JSON.parse(raw) as PaperCampConfig;
-        const resolvedDefaultAgents =
+        const resolvedDefaultAgents: DefaultAgentsMap | undefined =
           defaultAgents ??
           (defaultAgent !== undefined
-            ? { phase: defaultAgent, planDraft: defaultAgent, ideaExtend: defaultAgent }
+            ? {
+                phase: defaultAgent,
+                planDraft: defaultAgent,
+                ideaExtend: defaultAgent,
+                commitSuggest: defaultAgent,
+              }
             : undefined);
         const configWithOld = config as PaperCampConfig & { defaultAgent?: AgentId };
         const { defaultAgent: _oldAgent, ...configRest } = configWithOld;

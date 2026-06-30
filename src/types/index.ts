@@ -127,12 +127,14 @@ export interface DefaultAgentsMap {
   phase: AgentId;
   planDraft: AgentId;
   ideaExtend: AgentId;
+  commitSuggest: AgentId;
 }
 
 export const DEFAULT_AGENTS: DefaultAgentsMap = {
   phase: 'opencode',
   planDraft: 'claude-code',
   ideaExtend: 'claude-code',
+  commitSuggest: 'claude-code',
 };
 
 export interface PaperCampConfig {
@@ -158,6 +160,7 @@ export interface GitStatusEntry {
   path: string;
   status: string;
   staged: boolean;
+  renameSource?: string;
 }
 
 export interface GitStatusResponse {

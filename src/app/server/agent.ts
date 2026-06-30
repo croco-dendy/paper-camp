@@ -51,6 +51,7 @@ function readDefaultAgentIds(root: string): DefaultAgentsMap {
         phase: config.defaultAgent,
         planDraft: config.defaultAgent,
         ideaExtend: config.defaultAgent,
+        commitSuggest: config.defaultAgent,
       };
     }
     return DEFAULT_AGENTS;
@@ -279,10 +280,10 @@ export function createAgentManager(
     });
   }
 
-  // Read-only, one-shot task: ask claude-code to turn a diff into a commit message.
-  // Deliberately bypasses launch()/resolveAgent so it never picks up the shared
-  // adapter's `--permission-mode auto` flag — this call must stay deny-by-default
-  // since the model is only ever supposed to read the diff text, not touch the repo.
+  // Read-only, one-shot task: ask the configured agent to turn a diff into a commit
+  // message.  Uses the configured agent's binary but constructs its own arguments so it
+  // never picks up the shared adapter's `--permission-mode auto` flag — this call must
+  // stay deny-by-default since the model is only ever supposed to read the diff text.
   const COMMIT_SUGGEST_TIMEOUT_MS = 60_000;
   const STDIN_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -293,8 +294,18 @@ export function createAgentManager(
     if (Buffer.byteLength(prompt, 'utf-8') > STDIN_MAX_BYTES) {
       return Promise.reject(new Error('Commit suggestion prompt exceeds the 10MB stdin limit'));
     }
+    const defaultAgents = readDefaultAgentIds(root);
+    const { id: agentId, adapter } = resolveAgent({
+      defaultAgents,
+      taskKind: 'commit-suggest',
+    });
+
+    // claude-code uses -p to read from stdin; opencode takes the prompt as a positional arg.
+    const isClaude = agentId === 'claude-code';
+    const args = isClaude ? ['-p', '--output-format', 'json'] : ['run', prompt, '--format', 'json'];
+
     return new Promise((resolve, reject) => {
-      const proc = spawn('claude', ['-p', '--output-format', 'json'], {
+      const proc = spawn(adapter.command, args, {
         cwd: root,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
@@ -302,8 +313,8 @@ export function createAgentManager(
         taskKind: 'commit-suggest',
         planTitle: 'Suggest commit message',
         status: 'starting',
-        agentId: 'claude-code',
-        adapter: AGENTS['claude-code'],
+        agentId,
+        adapter,
         proc,
         lines: [],
       };
@@ -328,11 +339,12 @@ export function createAgentManager(
         });
       }, COMMIT_SUGGEST_TIMEOUT_MS);
 
-      proc.stdin?.on('error', () => {
-        // EPIPE if the process exits before reading stdin — proc.on('error'/'close')
-        // already handles the resulting failure, so this just stops it from crashing.
-      });
-      proc.stdin?.write(prompt);
+      proc.stdin?.on('error', () => {});
+
+      // claude-code reads the prompt from stdin; opencode already has it in args.
+      if (isClaude) {
+        proc.stdin?.write(prompt);
+      }
       proc.stdin?.end();
 
       let stdout = '';
@@ -353,9 +365,23 @@ export function createAgentManager(
           }
           if (code === 0) {
             setStatus(task, 'done');
-            resolve(stdout);
+            // opencode outputs JSON events — extract text content to find the response.
+            const result = isClaude
+              ? stdout
+              : stdout
+                  .split('\n')
+                  .map((line) => {
+                    try {
+                      const evt = JSON.parse(line);
+                      if (evt?.type === 'text' && evt?.part?.text) return evt.part.text;
+                    } catch {}
+                    return null;
+                  })
+                  .filter(Boolean)
+                  .join('\n');
+            resolve(result);
           } else {
-            const errText = stderr || `claude exited with code ${code}`;
+            const errText = stderr || `${adapter.command} exited with code ${code}`;
             pushLine(task, errText);
             setStatus(task, 'error');
             reject(new Error(errText));
