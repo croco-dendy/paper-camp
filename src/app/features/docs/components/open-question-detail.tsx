@@ -1,13 +1,20 @@
 import { LinkButton, Markdown } from '@/app/components';
-import { useAppStore } from '@/app/stores/app-store';
+import { resolveOpenQuestion } from '@/app/services/docs-api';
+import { useAppStore } from '@/app/stores';
 import { color, fontFamily, fontSize, lineHeight, space } from '@/app/styles/tokens';
-import { Stamp } from '@dendelion/paper-ui';
+import { Button, Input, Modal, Stamp, Textarea } from '@dendelion/paper-ui';
+import { useState } from 'react';
 
 export const OpenQuestionDetail = () => {
   const openQuestions = useAppStore((s) => s.openQuestions);
   const activeDocTitle = useAppStore((s) => s.activeDocTitle);
   const setActiveDocSection = useAppStore((s) => s.setActiveDocSection);
   const setActiveDocTitle = useAppStore((s) => s.setActiveDocTitle);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [decision, setDecision] = useState('');
+  const [rationale, setRationale] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const question = openQuestions.find((q) => q.title === activeDocTitle);
   if (!question) return null;
@@ -16,6 +23,29 @@ export const OpenQuestionDetail = () => {
     if (question.resolvedBy) {
       setActiveDocSection('decisions');
       setActiveDocTitle(question.resolvedBy);
+    }
+  };
+
+  const handleOpenModal = () => {
+    setDecision('');
+    setRationale('');
+    setLoading(false);
+    setModalOpen(true);
+  };
+
+  const handleClose = () => {
+    setModalOpen(false);
+  };
+
+  const handleResolve = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!decision.trim() || loading) return;
+    setLoading(true);
+    try {
+      await resolveOpenQuestion(question.title, decision.trim(), rationale.trim() || undefined);
+      setModalOpen(false);
+    } catch {
+      setLoading(false);
     }
   };
 
@@ -52,6 +82,11 @@ export const OpenQuestionDetail = () => {
             <LinkButton onClick={handleResolvedByClick}>{question.resolvedBy}</LinkButton>
           </span>
         )}
+        {question.status === 'open' && (
+          <Button variant="chalkboard" onClick={handleOpenModal}>
+            Resolve
+          </Button>
+        )}
       </div>
 
       <div
@@ -64,6 +99,39 @@ export const OpenQuestionDetail = () => {
       >
         <Markdown>{question.body}</Markdown>
       </div>
+
+      <Modal open={modalOpen} onClose={handleClose} title="Resolve question" size="small">
+        <form
+          onSubmit={handleResolve}
+          style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
+        >
+          <Input
+            label="Decision"
+            value={decision}
+            onChange={(e) => setDecision(e.target.value)}
+            placeholder="What was decided?"
+            disabled={loading}
+            autoFocus
+            required
+          />
+          <Textarea
+            label="Rationale"
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            placeholder="Optional reasoning…"
+            disabled={loading}
+            rows={4}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: space[2] }}>
+            <Button type="button" variant="ghost" onClick={handleClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={!decision.trim() || loading}>
+              Resolve
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

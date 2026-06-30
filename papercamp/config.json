@@ -11,8 +11,8 @@
   },
   "defaultAgents": {
     "phase": "opencode",
-    "planDraft": "opencode",
-    "ideaExtend": "opencode",
-    "commitSuggest": "opencode"
+    "planDraft": "claude-code",
+    "ideaExtend": "claude-code",
+    "commitSuggest": "claude-code"
   }
 }
