@@ -5,6 +5,7 @@
 | DOCS-1 | Refresh about.md reference | done | docs |
 | FEAT-1 | Build core library | done | core, cli |
 | REFACTOR-1 | UI cleanup: style guide and tokens | done | app, ui, refactor |
+| DOCS-2 | Restructure repo-root docs | done | docs, readme, restructure, coderabbit |
 | FEAT-2 | Build dashboard app | done | app, paper-ui |
 | FIX-2 | Fix Review status bugs | done | app, plans, core |
 | REFACTOR-2 | UI cleanup follow-up | done | app, ui, refactor |
@@ -34,4 +35,3 @@
 | FEAT-24 | Plan storage architecture | done | core, cli, plans, ideas |
 | FEAT-25 | Batch plan freshness audit | idea | audit, convergence-audit, batch, cli, dashboard |
 | FEAT-26 | Per-agent model and effort | idea | agents, settings, config, model, effort, ui |
-| DOCS-2 | Restructure repo-root docs | idea | docs, readme, restructure, coderabbit |

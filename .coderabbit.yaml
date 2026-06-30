@@ -27,7 +27,7 @@ reviews:
         - framer-motion for route transitions, list animations, panel slides — keep restrained, respect reduced-motion
         - Layout stability: reserve space for changing content (visibility:hidden instead of conditional mount), center content within fixed-height containers, empty states match populated state height
         - The "3 copies = extract" rule: if the same logic/style/fetch appears three times, extract it
-    - path: "*.md"
+    - path: "**/*.md"
       instructions: |
         Follow AGENTS.md and the repo's established markdown conventions:
         - plans.md entries use ## Title, Status/Id/Kind/Idea/Created/Updated/Tags frontmatter, ### Phases with - [ ] checkboxes
