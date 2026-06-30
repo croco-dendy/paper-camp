@@ -2,7 +2,7 @@
 id: DOCS-2
 title: Restructure repo-root docs
 kind: docs
-status: review
+status: done
 created: 2026-06-30
 idea: IDEA-22
 updated: 2026-06-30
