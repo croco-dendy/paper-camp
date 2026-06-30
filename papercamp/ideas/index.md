@@ -24,3 +24,5 @@
 | IDEA-20 | Plan storage architecture | done |
 | IDEA-21 | Batch plan-doc freshness audit | planned |
 | IDEA-22 | Restructure and actualize repo-root docs | planned |
+| IDEA-23 | Per-agent model and effort settings | planned |
+| IDEA-24 | Sync to main before new plan | planned |

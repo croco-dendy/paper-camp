@@ -15,7 +15,7 @@ export function buildConvergenceAuditPrompt(plan: PlanEntry): string {
       ? plan.clarifications.map((entry) => `- ${entry.date}: ${entry.text}`).join('\n')
       : '(none)';
 
-  return `You're auditing the plan "${plan.title}" (${plan.id ?? 'no id'}) in papercamp/plans.md.
+  return `You're auditing the plan "${plan.title}" (${plan.id ?? 'no id'}), stored as a single file at papercamp/plans/${plan.id ?? '<ID>'}.md (or papercamp/plans/archive/${plan.id ?? '<ID>'}.md if it's already done/dropped — check both). Edit only that file.
 
 Plan body: ${plan.body}
 
@@ -36,18 +36,18 @@ If nothing is missing, write nothing at all — not even an empty heading or a L
 }
 
 export function buildIdeaExtendPrompt(idea: IdeaEntry): string {
-  return `You're extending an idea in papercamp/ideas.md: ${idea.id ?? 'no id'} ("${idea.title}").
+  return `You're extending an idea stored as a single file at papercamp/ideas/${idea.id ?? '<ID>'}.md: ${idea.id ?? 'no id'} ("${idea.title}").
 
 Idea body, in full:
 ${idea.body}
 
-Your job: explore the current codebase and rewrite this idea's body in place in ideas.md with more specific detail — concrete approaches, file references, and any relevant architectural context you find in the code. Keep the idea's heading (${idea.id ?? 'IDEA-N'}: ${idea.title}) unchanged; only update the prose body below it.
+Your job: explore the current codebase and rewrite this idea's body in place in that file with more specific detail — concrete approaches, file references, and any relevant architectural context you find in the code. Leave the YAML frontmatter (id, title) and the idea's \`### ${idea.id ?? 'IDEA-N'}: ${idea.title}\` heading unchanged; only update the prose body below the heading.
 
 Write the full updated body — everything below the heading. Make the description more specific and actionable while keeping the same general intent. Do not change the \`### IDEA-N:\` heading line.`;
 }
 
 export function buildClarifyPrompt(plan: PlanEntry): string {
-  return `You're clarifying the plan "${plan.title}" (${plan.id ?? 'no id'}) in papercamp/plans.md.
+  return `You're clarifying the plan "${plan.title}" (${plan.id ?? 'no id'}), stored as a single file at papercamp/plans/${plan.id ?? '<ID>'}.md (or papercamp/plans/archive/${plan.id ?? '<ID>'}.md if done/dropped). Edit only that file.
 
 Plan body: ${plan.body}
 
@@ -80,67 +80,66 @@ ${phaseList || '  (no phases yet)'}`;
         .join('\n\n')
     : '(no other open plans exist yet)';
 
-  return `You're drafting a new plans.md entry from an idea: ${idea.id ?? 'no id'} ("${idea.title}") in papercamp/ideas.md.
+  return `You're drafting a new plan from an idea: ${idea.id ?? 'no id'} ("${idea.title}"), stored at papercamp/ideas/${idea.id ?? '<ID>'}.md.
 
 Idea body, in full:
 ${idea.body}
 
-## Plan record shape (papercamp/about.md)
+## Plan file shape (see papercamp/about.md)
 
-Each plan is a \`## <Title>\` heading (a short verb-led headline, 2-6 words) followed by \`**Field:** value\` lines, a free-prose body paragraph, then an optional \`### Phases\` checklist:
+Each plan is its own file at \`papercamp/plans/<KIND>-<N>.md\` (the file name is the plan's id). It has YAML frontmatter, a free-prose body paragraph, then an optional \`### Phases\` checklist:
 
 \`\`\`
-## <Short headline>
-
-**Status:** idea
-**Kind:** feat | fix | chore | docs | refactor
-**Id:** <KIND>-<N>
-**Idea:** ${idea.id ?? 'IDEA-N'}
-**Created:** <today, YYYY-MM-DD>
-**Tags:** comma, separated
+---
+id: <KIND>-<N>
+title: <Short headline>
+kind: feat | fix | chore | docs | refactor
+status: idea
+created: <today, YYYY-MM-DD>
+idea: ${idea.id ?? 'IDEA-N'}
+tags:
+  - comma
+  - separated
+---
 
 One or two paragraphs of free prose giving context — what this is and why,
-in the same voice as the existing entries in plans.md.
+in the same voice as the existing plan files.
 
 ### Phases
 - [ ] Short phase title
       Optional indented long-form description of the phase.
 \`\`\`
 
-- \`Kind\` picks the ID prefix — choose whichever Conventional Commits type
+- \`title\` is a short verb-led headline, 2-6 words.
+- \`kind\` picks the ID prefix — choose whichever Conventional Commits type
   best fits this idea (most are \`feat\`).
-- \`Id\` must come from the persistent per-kind counter in
+- \`id\` must come from the persistent per-kind counter in
   \`papercamp/config.json\`'s \`nextId\` field — read the current value for
-  your chosen \`Kind\` (e.g. \`nextId.feat\`), use it as \`<KIND>-<N>\`, and
+  your chosen \`kind\` (e.g. \`nextId.feat\`), use it as \`<KIND>-<N>\`, and
   increment that counter in the same write. Never derive the number by
-  scanning plans.md for the highest existing one — a deleted plan's number
+  scanning existing plan files for the highest one — a deleted plan's number
   must never be reused.
-- \`Idea\` must be exactly \`${idea.id ?? "this idea's id"}\` — that backlink is
+- \`idea\` must be exactly \`${idea.id ?? "this idea's id"}\` — that backlink is
   what the rest of the dashboard (and this task's own success check) uses to
   find the plan you wrote.
-- Write \`Status: idea\`, never anything further along. Per
-  papercamp/decisions.md ("Plan-drafting agent writes plans.md directly,
-  same as phase execution"), this entry lands straight in the Backlog with
-  no separate approval step — a human reviews and promotes it from there,
-  the same as any other backlog entry.
+- Write \`status: idea\`, never anything further along. Per
+  papercamp/decisions.md ("Plan-drafting agent writes directly, same as
+  phase execution"), this entry lands straight in the Backlog with no
+  separate approval step — a human reviews and promotes it from there, the
+  same as any other backlog entry.
 - Phases should be genuinely actionable steps a future agent or human could
   pick up one at a time — match the granularity of the existing phases shown
   below, not a single giant phase.
 
-## Every other open (non-done) plan, for priority/ordering context
+## Every other open (non-done) plan, for scope context
 
 ${plansContext}
 
-## Where to insert it
+## What to write
 
-Plan priority is file order in papercamp/plans.md — earlier means higher
-priority. Compare this idea's scope and urgency against every plan listed
-above and insert your new \`## Heading\` block at the file position that
-actually reflects where it belongs, not appended at the end by default.
-
-If the right position means an existing plan should now sit before or after
-where it currently sits, you may move that plan's whole heading block to its
-new position — but you must never edit its title, phases, or body while
-doing so; a moved block must be byte-for-byte identical content, just
-relocated. Do not touch any other plan's content for any other reason.`;
+Create exactly one new file, \`papercamp/plans/<KIND>-<N>.md\`, using the id
+you allocated above. Use the list of existing plans only to avoid
+duplicating an in-flight plan's scope and to match phase granularity —
+never create, edit, move, or rename any other plan file, and never write to
+the legacy \`papercamp/plans.md\` (it is unused under per-file storage).`;
 }

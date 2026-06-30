@@ -32,3 +32,6 @@
 | FEAT-22 | GitHub CI/CD automation | done | ci, cd, github |
 | FEAT-23 | Resolve open questions from Docs | done | app, docs |
 | FEAT-24 | Plan storage architecture | done | core, cli, plans, ideas |
+| FEAT-25 | Batch plan freshness audit | idea | audit, convergence-audit, batch, cli, dashboard |
+| FEAT-26 | Per-agent model and effort | idea | agents, settings, config, model, effort, ui |
+| DOCS-2 | Restructure repo-root docs | idea | docs, readme, restructure, coderabbit |

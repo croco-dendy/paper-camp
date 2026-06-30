@@ -62,14 +62,14 @@ function readDefaultAgentIds(root: string): DefaultAgentsMap {
 
 type Result = { ok: true } | { ok: false; error: string };
 
-function buildAgentPrompt(plan: PlanEntry, phase: PhaseItem, phaseIndex: number): string {
-  return `You're working on phase ${phaseIndex + 1} ("${phase.text}") of the plan "${plan.title}" (${plan.id ?? 'no id'}) in papercamp/plans.md.
+export function buildAgentPrompt(plan: PlanEntry, phase: PhaseItem, phaseIndex: number): string {
+  return `You're working on phase ${phaseIndex + 1} ("${phase.text}") of the plan "${plan.title}" (${plan.id ?? 'no id'}), stored as a single file at papercamp/plans/${plan.id ?? '<ID>'}.md.
 
 ${phase.description ?? ''}
 
 Plan context: ${plan.body}
 
-Do only this phase. When done, check it off in plans.md (- [ ] -> - [x]) and append what you did to progress.md. If this was the last unchecked phase, set the plan's Status to \`review\`, not \`done\`, per this repo's AGENTS.md.`;
+Do only this phase. When done, check it off in that file's \`### Phases\` list (- [ ] -> - [x]) and append what you did to progress.md. If this was the last unchecked phase, set the plan's \`status:\` frontmatter field to \`review\`, not \`done\`, per this repo's AGENTS.md.`;
 }
 
 export function createAgentManager(
@@ -142,9 +142,9 @@ export function createAgentManager(
           task.taskKind === 'extend'
             ? `Warning: agent finished but the idea body for ${task.ideaId} did not change — verify manually`
             : task.ideaId !== undefined
-              ? `Warning: agent finished but no plan linking idea: ${task.ideaId} appeared in plans.md — verify manually`
+              ? `Warning: agent finished but no plan linking idea: ${task.ideaId} appeared in papercamp/plans/ — verify manually`
               : task.phaseIndex !== undefined
-                ? 'Warning: agent finished but did not check off this phase in plans.md — verify manually'
+                ? 'Warning: agent finished but did not check off this phase in the plan file — verify manually'
                 : 'Warning: agent finished but appended nothing to Phases or Log — verify manually';
         pushLine(task, warning);
       }
@@ -255,7 +255,7 @@ export function createAgentManager(
 
   // Idea-drafting launch mode: there's no plan yet (and so no per-plan agent override
   // either) — the plan only exists once the agent writes it, so success is judged by
-  // whether a new plan entry linking this idea's id shows up in plans.md.
+  // whether a new plan file linking this idea's id shows up in papercamp/plans/.
   function startForIdea(idea: IdeaEntry, prompt: string): Result {
     if (!idea.id) {
       return { ok: false, error: 'Idea has no id to link a drafted plan back to' };
@@ -267,7 +267,7 @@ export function createAgentManager(
   }
 
   // Idea-extend launch mode: given an idea, explores the codebase and rewrites its
-  // body in place in ideas.md. Success is judged by whether that idea's body text
+  // body in place in its papercamp/ideas/ file. Success is judged by whether that idea's body text
   // actually changed.
   function startForIdeaExtend(idea: IdeaEntry, prompt: string): Result {
     if (!idea.id) {
