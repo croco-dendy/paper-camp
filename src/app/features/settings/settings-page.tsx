@@ -9,8 +9,11 @@ import { color, fontFamily, fontSize, space } from '@/app/styles/tokens';
 import {
   AGENT_IDS,
   AGENT_LABELS,
+  AGENT_OPTIONS,
+  type AgentConfig,
   type AgentId,
   DEFAULT_AGENTS,
+  type DefaultAgentsMap,
   type EnvEntry,
   type PaperCampConfig,
 } from '@/types/index';
@@ -28,6 +31,114 @@ import {
 } from '@dendelion/paper-ui';
 import { useEffect, useRef, useState } from 'react';
 
+const TASK_TYPE_KEYS = ['phase', 'planDraft', 'ideaExtend', 'commitSuggest'] as const;
+type TaskTypeKey = (typeof TASK_TYPE_KEYS)[number];
+
+const TASK_TYPE_LABELS: Record<TaskTypeKey, string> = {
+  phase: 'Phase run',
+  planDraft: 'Plan draft',
+  ideaExtend: 'Idea extend',
+  commitSuggest: 'Commit suggest',
+};
+
+interface AgentTaskRowProps {
+  taskKey: TaskTypeKey;
+  agentConfig: AgentConfig;
+  isLast: boolean;
+  onSave: (key: TaskTypeKey, config: AgentConfig) => Promise<void>;
+  isSaved: boolean;
+}
+
+const AgentTaskRow = ({ taskKey, agentConfig, isLast, onSave, isSaved }: AgentTaskRowProps) => {
+  const opts = AGENT_OPTIONS[agentConfig.agent];
+  const modelOpts = opts.model;
+  const effortOpts = opts.effort;
+  const [localModel, setLocalModel] = useState(agentConfig.model ?? '');
+
+  useEffect(() => {
+    setLocalModel(agentConfig.model ?? '');
+  }, [agentConfig.model]);
+
+  const handleAgentChange = (v: string) => {
+    const newId = v as AgentId;
+    const newOpts = AGENT_OPTIONS[newId];
+    const newConfig: AgentConfig = { agent: newId };
+    if (agentConfig.model) newConfig.model = agentConfig.model;
+    if (agentConfig.effort && Array.isArray(newOpts.effort)) newConfig.effort = agentConfig.effort;
+    onSave(taskKey, newConfig);
+  };
+
+  const handleModelSelectChange = (v: string) => {
+    onSave(taskKey, { ...agentConfig, model: v || undefined });
+  };
+
+  const handleModelInputBlur = () => {
+    onSave(taskKey, { ...agentConfig, model: localModel || undefined });
+  };
+
+  const handleEffortChange = (v: string) => {
+    onSave(taskKey, { ...agentConfig, effort: v || undefined });
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: space[3],
+        ...(!isLast && { borderBottom: '1px solid rgba(61, 53, 43, 0.1)' }),
+        paddingBottom: space[2],
+        paddingTop: space[2],
+      }}
+    >
+      <span style={{ width: 110, flexShrink: 0, fontSize: fontSize.sm, opacity: 0.65 }}>
+        {TASK_TYPE_LABELS[taskKey]}
+      </span>
+      <Select
+        size="small"
+        value={agentConfig.agent}
+        onChange={handleAgentChange}
+        options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
+      />
+      {Array.isArray(modelOpts) ? (
+        <Select
+          size="small"
+          value={agentConfig.model ?? ''}
+          onChange={handleModelSelectChange}
+          options={[
+            { value: '', label: 'Default' },
+            ...modelOpts.map((m) => ({ value: m, label: m })),
+          ]}
+        />
+      ) : modelOpts === null ? (
+        <Input
+          size="small"
+          value={localModel}
+          placeholder="Default model"
+          onChange={(e) => setLocalModel(e.target.value)}
+          onBlur={handleModelInputBlur}
+        />
+      ) : null}
+      {Array.isArray(effortOpts) && (
+        <Select
+          size="small"
+          value={agentConfig.effort ?? ''}
+          onChange={handleEffortChange}
+          options={[
+            { value: '', label: 'Default' },
+            ...effortOpts.map((e) => ({ value: e, label: e })),
+          ]}
+        />
+      )}
+      {isSaved && (
+        <span className="text-sm" style={{ opacity: 0.6 }}>
+          Saved
+        </span>
+      )}
+    </div>
+  );
+};
+
 const GeneralSection = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [config, setConfig] = useState<PaperCampConfig | null | undefined>(undefined);
@@ -42,10 +153,7 @@ const GeneralSection = () => {
   const [nameInput, setNameInput] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
-  const [agentSavedPhase, setAgentSavedPhase] = useState(false);
-  const [agentSavedDraft, setAgentSavedDraft] = useState(false);
-  const [agentSavedExtend, setAgentSavedExtend] = useState(false);
-  const [agentSavedSuggest, setAgentSavedSuggest] = useState(false);
+  const [agentSavedKey, setAgentSavedKey] = useState<TaskTypeKey | null>(null);
 
   useEffect(() => {
     fetchConfig().then((c) => {
@@ -55,28 +163,20 @@ const GeneralSection = () => {
     });
   }, []);
 
-  const handleSaveAgent = async (key: keyof typeof DEFAULT_AGENTS, value: string) => {
+  const handleSaveAgentConfig = async (key: TaskTypeKey, newEntry: AgentConfig) => {
     const current = config?.defaultAgents;
-    const updated: typeof DEFAULT_AGENTS = {
+    const updated: DefaultAgentsMap = {
       phase: current?.phase ?? DEFAULT_AGENTS.phase,
       planDraft: current?.planDraft ?? DEFAULT_AGENTS.planDraft,
       ideaExtend: current?.ideaExtend ?? DEFAULT_AGENTS.ideaExtend,
       commitSuggest: current?.commitSuggest ?? DEFAULT_AGENTS.commitSuggest,
-      [key]: value as AgentId,
+      [key]: newEntry,
     };
     const ok = await saveConfig({ defaultAgents: updated });
     if (ok) {
       setConfig((prev) => (prev ? { ...prev, defaultAgents: updated } : prev));
-      const setter =
-        key === 'phase'
-          ? setAgentSavedPhase
-          : key === 'planDraft'
-            ? setAgentSavedDraft
-            : key === 'ideaExtend'
-              ? setAgentSavedExtend
-              : setAgentSavedSuggest;
-      setter(true);
-      setTimeout(() => setter(false), 2000);
+      setAgentSavedKey(key);
+      setTimeout(() => setAgentSavedKey(null), 2000);
     }
   };
 
@@ -264,94 +364,16 @@ const GeneralSection = () => {
             )}
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: space[3],
-              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
-              paddingBottom: space[3],
-              paddingTop: space[3],
-            }}
-          >
-            <Select
-              value={config.defaultAgents?.phase ?? DEFAULT_AGENTS.phase}
-              onChange={(v: string) => handleSaveAgent('phase', v)}
-              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
-              label="Phase execution"
-              helperText="Runs a single phase of a plan."
+          {TASK_TYPE_KEYS.map((key, idx) => (
+            <AgentTaskRow
+              key={key}
+              taskKey={key}
+              agentConfig={config.defaultAgents?.[key] ?? DEFAULT_AGENTS[key]}
+              isLast={idx === TASK_TYPE_KEYS.length - 1}
+              onSave={handleSaveAgentConfig}
+              isSaved={agentSavedKey === key}
             />
-            {agentSavedPhase && (
-              <span className="text-sm" style={{ opacity: 0.6 }}>
-                Saved
-              </span>
-            )}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: space[3],
-              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
-              paddingBottom: space[3],
-              paddingTop: space[3],
-            }}
-          >
-            <Select
-              value={config.defaultAgents?.planDraft ?? DEFAULT_AGENTS.planDraft}
-              onChange={(v: string) => handleSaveAgent('planDraft', v)}
-              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
-              label="Plan drafting"
-              helperText="Writes a new plan from an idea."
-            />
-            {agentSavedDraft && (
-              <span className="text-sm" style={{ opacity: 0.6 }}>
-                Saved
-              </span>
-            )}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: space[3],
-              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
-              paddingBottom: space[3],
-              paddingTop: space[3],
-            }}
-          >
-            <Select
-              value={config.defaultAgents?.ideaExtend ?? DEFAULT_AGENTS.ideaExtend}
-              onChange={(v: string) => handleSaveAgent('ideaExtend', v)}
-              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
-              label="Idea extension"
-              helperText="Expands an idea with AI-generated detail."
-            />
-            {agentSavedExtend && (
-              <span className="text-sm" style={{ opacity: 0.6 }}>
-                Saved
-              </span>
-            )}
-          </div>
-
-          <div
-            style={{ display: 'flex', alignItems: 'flex-end', gap: space[3], paddingTop: space[3] }}
-          >
-            <Select
-              value={config.defaultAgents?.commitSuggest ?? DEFAULT_AGENTS.commitSuggest}
-              onChange={(v: string) => handleSaveAgent('commitSuggest', v)}
-              options={AGENT_IDS.map((id) => ({ value: id, label: AGENT_LABELS[id] }))}
-              label="Commit suggestion"
-              helperText="Generates commit title and message from the diff."
-            />
-            {agentSavedSuggest && (
-              <span className="text-sm" style={{ opacity: 0.6 }}>
-                Saved
-              </span>
-            )}
-          </div>
+          ))}
         </Card>
       )}
 
