@@ -2,7 +2,7 @@
 id: FEAT-25
 title: Batch plan freshness audit
 kind: feat
-status: review
+status: done
 created: 2026-06-30
 idea: IDEA-21
 updated: 2026-07-01
