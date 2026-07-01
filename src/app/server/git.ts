@@ -3,7 +3,7 @@ import { watch } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import type { GitStatusEntry, PlanEntry } from '../../types';
+import type { BranchHygieneStatus, GitStatusEntry, PlanEntry } from '../../types';
 
 const AI_DIFF_BLOCKLIST = [/(^|\/)\.env(\.|$)/i, /\.(pem|key|p12|crt)$/i];
 
@@ -207,6 +207,46 @@ export function createGitManager(root: string) {
     return result.stdout.toString().trim();
   }
 
+  async function isMergedIntoMain(): Promise<boolean> {
+    const currentBranch = getCurrentBranch();
+    if (currentBranch === 'main' || currentBranch === 'master') return false;
+
+    try {
+      const mergedBranches = await runGit(['branch', '--merged', 'main']);
+      const isMerged = mergedBranches.split('\n').some((line) => {
+        const branch = line.trim().replace(/^\*\s+/, '');
+        return branch === currentBranch;
+      });
+
+      if (!isMerged) return false;
+      return !(await hasUpstream());
+    } catch {
+      return false;
+    }
+  }
+
+  async function getBranchHygieneStatus(): Promise<BranchHygieneStatus> {
+    const currentBranch = getCurrentBranch();
+    const status = await runGitStatus();
+    const isDirty = status.length > 0;
+
+    if (currentBranch === 'main' || currentBranch === 'master') {
+      return isDirty ? 'dirty' : 'clean-on-main';
+    }
+
+    const isMerged = await isMergedIntoMain();
+    if (isMerged) {
+      return 'stale-merged';
+    }
+
+    const hasUp = await hasUpstream();
+    if (!hasUp) {
+      return 'stale-no-upstream';
+    }
+
+    return isDirty ? 'dirty' : 'fine';
+  }
+
   function getFeatureBranchPlanId(): string | null {
     const branch = getCurrentBranch();
     const match = branch.match(/^[a-z]+\/([a-z]+-\d+)-/);
@@ -277,6 +317,13 @@ export function createGitManager(root: string) {
       : combined;
   }
 
+  async function runGitSync(): Promise<void> {
+    // Clean sync: checkout main, fetch, and fast-forward merge
+    await runGit(['checkout', 'main']);
+    await runGit(['fetch', '--prune']);
+    await runGit(['merge', '--ff-only', 'origin/main']);
+  }
+
   return {
     async getStatus(): Promise<GitStatusEntry[]> {
       return runGitStatus();
@@ -288,6 +335,9 @@ export function createGitManager(root: string) {
     getFeatureBranchPlanId,
     getAheadCount,
     push,
+    isMergedIntoMain,
+    getBranchHygieneStatus,
+    runGitSync,
     subscribe(res: ServerResponse) {
       clients.add(res);
       res.on('close', () => clients.delete(res));

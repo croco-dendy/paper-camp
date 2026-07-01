@@ -49,3 +49,15 @@ export const suggestCommitMessage = async (
   }
   return response.json();
 };
+
+export const syncToMain = async (mode: 'clean' | 'dirty'): Promise<void> => {
+  const response = await fetch('/api/git/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Sync failed' }));
+    throw new Error(err.error);
+  }
+};
