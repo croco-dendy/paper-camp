@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/adooone/paper-camp/compare/v0.2.1...v0.3.0) (2026-07-01)
+
+
+### Features
+
+* **23:** Resolve open questions from Docs ([7a8179b](https://github.com/adooone/paper-camp/commit/7a8179b9183aa8f729ed72b3f30f26d023637244))
+* **24:** Add push button to commit panel ([a1867ed](https://github.com/adooone/paper-camp/commit/a1867ed01b6bb7c05d27235e1d6e8d3f107654d3))
+* **24:** Archive FEAT-24 and close IDEA-20 as done ([1520ab2](https://github.com/adooone/paper-camp/commit/1520ab27d314e7ea2b1d86c5ede5375ff94370a3))
+* **24:** Make commit-suggestion agent configurable ([57cc445](https://github.com/adooone/paper-camp/commit/57cc445377e6e20df6ab5c580c8410710cb52129))
+* **24:** Plan storage architecture ([3c3f849](https://github.com/adooone/paper-camp/commit/3c3f849650a4aee47f18906ab6c1b77091285a3e))
+* **24:** Track commit-suggest as a visible agent task ([071219a](https://github.com/adooone/paper-camp/commit/071219ae93c632d470be8686c67af6ece2d19993))
+* **cli:** updates ([201fe09](https://github.com/adooone/paper-camp/commit/201fe094ef2409832725d582c973bb1c103afe70))
+* **plans:** Complete FEAT-25 batch audit — all phases done, status → review ([17a8f66](https://github.com/adooone/paper-camp/commit/17a8f6666bcc547026bd9fb9ffc72e47714ed532))
+* **stack:** Use subsystem-area scopes and move plan id to Refs footer ([da665b7](https://github.com/adooone/paper-camp/commit/da665b7cba34dc833f2da2e6c1745c8bcac544ab))
+
+
+### Bug Fixes
+
+* **23:** Validate before writing in resolve-open-question handler ([b4481e4](https://github.com/adooone/paper-camp/commit/b4481e4259508726d569da78831ba54b0c57e8c7))
+* **24:** Move push button to empty-changes state, drop Refs checkbox ([e6ec4d7](https://github.com/adooone/paper-camp/commit/e6ec4d78bb718647f992fe435cc6bddcca6830d9))
+* **24:** Prevent stdin EPIPE crash and skip symlinks in untracked diffs ([ef47bb2](https://github.com/adooone/paper-camp/commit/ef47bb208e9d783615f6099d731786c0a1ef2ead))
+* **24:** Read archived plan files and sync ideas/plans status to done ([70de972](https://github.com/adooone/paper-camp/commit/70de972f64f487ea66027e345f1da416b4511994))
+* **24:** Use merged plan/idea readers and harden push, diff, and migration ([a0f7964](https://github.com/adooone/paper-camp/commit/a0f7964ee90ee80ce908686ebdb1106e897f45a1))
+* **24:** Use merged plan/idea readers and harden push, diff, and migration ([a590a21](https://github.com/adooone/paper-camp/commit/a590a2108d4acb994e994ce98e4690551f2a07ce))
+* **agent:** Harden batch audit — drain stderr, archived plans, branch guard ([20821be](https://github.com/adooone/paper-camp/commit/20821bea89d60be9502ccad7b535f7393221549b))
+
+
+### Code Refactoring
+
+* **feat-24:** Adapt prompts and activity to per-file plan storage ([a127f74](https://github.com/adooone/paper-camp/commit/a127f7482346f0828fe449754bd1cd54345d6e65))
+* **feat-24:** Pass commit-suggest prompt via stdin for all agents ([290124c](https://github.com/adooone/paper-camp/commit/290124c846f98400b5ffb8c4a4465edef7163cdf))
+
+
+### Documentation
+
+* **docs:** Actualize about.md for per-file plan/idea storage ([f4663ef](https://github.com/adooone/paper-camp/commit/f4663efb4646504a32a893ae4f2e0c9c5660d054))
+* **plans:** Archive completed plan and mark done in index ([15123ba](https://github.com/adooone/paper-camp/commit/15123bab2c09c6542a429f43024ece738d948812))
+* **repo:** Remove CODE_STYLE.md and UX_PRINCIPLES.md from repo root ([f87993c](https://github.com/adooone/paper-camp/commit/f87993c505767ecd77ee1250c32df2ce6e02c43a))
+* **repo:** Restructure repo-root docs ([f1076ed](https://github.com/adooone/paper-camp/commit/f1076ed30cad2e16ea5fdcb2d6b7076d5b9cc198))
+* **repo:** Switch commit scope to subsystem areas and update per-file plan references ([5155b07](https://github.com/adooone/paper-camp/commit/5155b0707a16bcfde73bc7d3a5ae94e49bdeeb50))
+* **repo:** Update papercamp config ([92ec60b](https://github.com/adooone/paper-camp/commit/92ec60b3ecf7a64a226008fe718abe7fd12fba46))
+
 ## [0.2.1](https://github.com/adooone/paper-camp/compare/v0.2.0...v0.2.1) (2026-06-28)
 
 
