@@ -5,7 +5,7 @@ import { fetchConfigFile } from '@/app/services/configs-api';
 import { fetchEnv, saveEnv } from '@/app/services/env-api';
 import { uploadIcon } from '@/app/services/icon-api';
 import { useAppStore } from '@/app/stores/app-store';
-import { color, fontFamily, fontSize, space } from '@/app/styles/tokens';
+import { color, fontFamily, fontSize, rowDivider, space } from '@/app/styles/tokens';
 import {
   AGENT_IDS,
   AGENT_LABELS,
@@ -64,7 +64,15 @@ const AgentTaskRow = ({ taskKey, agentConfig, isLast, onSave, isSaved }: AgentTa
     const newId = v as AgentId;
     const newOpts = AGENT_OPTIONS[newId];
     const newConfig: AgentConfig = { agent: newId };
-    if (agentConfig.model) newConfig.model = agentConfig.model;
+    // Only carry the model over if the new agent accepts it: free-text (null) takes
+    // anything, an enumerated list must contain it — otherwise a claude model like
+    // 'opus' would leak into opencode and fail at launch.
+    if (
+      agentConfig.model &&
+      (newOpts.model === null || newOpts.model?.includes(agentConfig.model))
+    ) {
+      newConfig.model = agentConfig.model;
+    }
     if (agentConfig.effort && Array.isArray(newOpts.effort)) newConfig.effort = agentConfig.effort;
     onSave(taskKey, newConfig);
   };
@@ -87,7 +95,7 @@ const AgentTaskRow = ({ taskKey, agentConfig, isLast, onSave, isSaved }: AgentTa
         display: 'flex',
         alignItems: 'center',
         gap: space[3],
-        ...(!isLast && { borderBottom: '1px solid rgba(61, 53, 43, 0.1)' }),
+        ...(!isLast && { borderBottom: rowDivider }),
         paddingBottom: space[2],
         paddingTop: space[2],
       }}
@@ -120,17 +128,19 @@ const AgentTaskRow = ({ taskKey, agentConfig, isLast, onSave, isSaved }: AgentTa
           onBlur={handleModelInputBlur}
         />
       ) : null}
-      {Array.isArray(effortOpts) && (
+      {/* Reserve the effort slot even when the agent has no effort options, so
+          switching agents doesn't change the control count and shift the row. */}
+      <div style={{ visibility: Array.isArray(effortOpts) ? 'visible' : 'hidden' }}>
         <Select
           size="small"
           value={agentConfig.effort ?? ''}
           onChange={handleEffortChange}
           options={[
             { value: '', label: 'Default' },
-            ...effortOpts.map((e) => ({ value: e, label: e })),
+            ...(Array.isArray(effortOpts) ? effortOpts : []).map((e) => ({ value: e, label: e })),
           ]}
         />
-      )}
+      </div>
       {isSaved && (
         <span className="text-sm" style={{ opacity: 0.6 }}>
           Saved
@@ -244,7 +254,7 @@ const GeneralSection = () => {
               display: 'flex',
               alignItems: 'flex-end',
               gap: space[3],
-              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              borderBottom: rowDivider,
               paddingBottom: space[3],
             }}
           >
@@ -280,7 +290,7 @@ const GeneralSection = () => {
               display: 'flex',
               alignItems: 'center',
               gap: space[3],
-              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              borderBottom: rowDivider,
               paddingBottom: space[3],
               paddingTop: space[3],
             }}
@@ -338,7 +348,7 @@ const GeneralSection = () => {
               display: 'flex',
               alignItems: 'flex-end',
               gap: space[3],
-              borderBottom: '1px solid rgba(61, 53, 43, 0.1)',
+              borderBottom: rowDivider,
               paddingBottom: space[3],
               paddingTop: space[3],
             }}

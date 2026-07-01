@@ -2,6 +2,7 @@ import { AGENT_OPTIONS } from '../../../types/index';
 import type {
   AgentId,
   AgentOptionsDescriptor,
+  AgentRunOptions,
   DefaultAgentsMap,
   TaskKind,
 } from '../../../types/index';
@@ -11,7 +12,7 @@ import * as opencode from './opencode';
 
 export interface AgentAdapter {
   command: string;
-  buildArgs: (prompt: string, opts?: { model?: string; effort?: string }) => string[];
+  buildArgs: (prompt: string, opts?: AgentRunOptions) => string[];
   parseLine: (line: string) => ParsedAgentLine | null;
   options: AgentOptionsDescriptor;
 }
@@ -46,7 +47,7 @@ export function resolveAgent(opts: {
   agentId?: AgentId;
   defaultAgents?: DefaultAgentsMap;
   taskKind?: TaskKind;
-}): { id: AgentId; adapter: AgentAdapter; model?: string; effort?: string } {
+}): { id: AgentId; adapter: AgentAdapter } & AgentRunOptions {
   const { agentId, defaultAgents, taskKind } = opts;
   if (agentId && agentId in AGENTS) return { id: agentId, adapter: AGENTS[agentId] };
   if (taskKind && defaultAgents) {

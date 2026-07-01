@@ -23,7 +23,13 @@ import {
   formatPlansIndex,
   todayDateString,
 } from '../core/serializer';
-import { DEFAULT_AGENTS, PLAN_KINDS, type PlanEntry, coerceAgentConfig } from '../types/index';
+import {
+  type AgentRunOptions,
+  DEFAULT_AGENTS,
+  PLAN_KINDS,
+  type PlanEntry,
+  coerceAgentConfig,
+} from '../types/index';
 import { startDevServer } from './dev-server';
 
 async function exists(path: string): Promise<boolean> {
@@ -84,7 +90,7 @@ async function runPlanAudit(
   root: string,
   plan: PlanEntry,
   adapter: AgentAdapter,
-  opts?: { model?: string; effort?: string },
+  opts?: AgentRunOptions,
 ): Promise<boolean> {
   const prompt = buildConvergenceAuditPrompt(plan);
   const proc = spawn(adapter.command, adapter.buildArgs(prompt, opts), {

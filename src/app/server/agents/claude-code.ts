@@ -1,10 +1,12 @@
+import type { AgentRunOptions } from '../../../types/index';
+
 export interface ParsedAgentLine {
   text: string;
   done?: boolean;
   error?: boolean;
 }
 
-export function buildArgs(prompt: string, opts?: { model?: string; effort?: string }): string[] {
+export function buildArgs(prompt: string, opts?: AgentRunOptions): string[] {
   const args = [
     '-p',
     prompt,

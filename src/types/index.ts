@@ -130,6 +130,12 @@ export interface AgentConfig {
   effort?: string;
 }
 
+/** Model/effort passed to an adapter's buildArgs — the AgentConfig minus the agent id. */
+export interface AgentRunOptions {
+  model?: string;
+  effort?: string;
+}
+
 /** Maps option names to a fixed value list (renders a Select) or null (free-text or hidden). */
 export type AgentOptionsDescriptor = Record<string, string[] | null | undefined>;
 
@@ -144,10 +150,14 @@ export const AGENT_OPTIONS: Record<AgentId, AgentOptionsDescriptor> = {
 };
 
 export function coerceAgentConfig(v: unknown): AgentConfig {
-  if (typeof v === 'string') return { agent: v as AgentId };
-  const obj = v as Record<string, unknown>;
+  const toAgent = (a: unknown): AgentId =>
+    AGENT_IDS.includes(a as AgentId) ? (a as AgentId) : 'claude-code';
+  if (typeof v === 'string') return { agent: toAgent(v) };
+  // Tolerate null/undefined and partial legacy entries — a missing key must not
+  // throw (that would 500 the /api/config read this coercion exists to protect).
+  const obj = (v ?? {}) as Record<string, unknown>;
   return {
-    agent: obj.agent as AgentId,
+    agent: toAgent(obj.agent),
     ...(typeof obj.model === 'string' && { model: obj.model }),
     ...(typeof obj.effort === 'string' && { effort: obj.effort }),
   };
