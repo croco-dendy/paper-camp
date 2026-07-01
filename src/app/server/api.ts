@@ -186,7 +186,20 @@ const apiRoutes: ApiRoute[] = [
     path: '/api/config',
     handler: async (root) => {
       const raw = await readMaybe(join(root, 'papercamp', 'config.json'));
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const config = JSON.parse(raw);
+      // Coerce legacy bare-string defaultAgents (e.g. "phase": "opencode") into
+      // the { agent, model?, effort? } shape the settings UI expects — old
+      // config.json files predate FEAT-26 and would otherwise crash the page.
+      if (config?.defaultAgents) {
+        config.defaultAgents = {
+          phase: coerceAgentConfig(config.defaultAgents.phase),
+          planDraft: coerceAgentConfig(config.defaultAgents.planDraft),
+          ideaExtend: coerceAgentConfig(config.defaultAgents.ideaExtend),
+          commitSuggest: coerceAgentConfig(config.defaultAgents.commitSuggest),
+        };
+      }
+      return config;
     },
   },
   {

@@ -483,13 +483,20 @@ export function createAgentManager(
       return Promise.reject(new Error('Commit suggestion prompt exceeds the 10MB stdin limit'));
     }
     const defaultAgents = readDefaultAgentIds(root);
-    const { id: agentId, adapter } = resolveAgent({
+    const {
+      id: agentId,
+      adapter,
+      model,
+      effort,
+    } = resolveAgent({
       defaultAgents,
       taskKind: 'commit-suggest',
     });
 
     const isClaude = agentId === 'claude-code';
     const args = isClaude ? ['-p', '--output-format', 'json'] : ['run', '--format', 'json'];
+    if (model) args.push(isClaude ? '--model' : '-m', model);
+    if (effort) args.push(isClaude ? '--effort' : '--variant', effort);
 
     return new Promise((resolve, reject) => {
       const proc = spawn(adapter.command, args, {

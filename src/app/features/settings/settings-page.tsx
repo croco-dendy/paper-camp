@@ -50,7 +50,8 @@ interface AgentTaskRowProps {
 }
 
 const AgentTaskRow = ({ taskKey, agentConfig, isLast, onSave, isSaved }: AgentTaskRowProps) => {
-  const opts = AGENT_OPTIONS[agentConfig.agent];
+  // Fall back if the config carries an unknown agent id — never white-screen the page.
+  const opts = AGENT_OPTIONS[agentConfig.agent] ?? AGENT_OPTIONS['claude-code'];
   const modelOpts = opts.model;
   const effortOpts = opts.effort;
   const [localModel, setLocalModel] = useState(agentConfig.model ?? '');

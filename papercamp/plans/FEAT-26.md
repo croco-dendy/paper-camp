@@ -6,6 +6,7 @@ status: review
 created: 2026-06-30
 idea: IDEA-23
 updated: 2026-07-01
+audited: 2026-07-01
 tags:
   - agents
   - settings
@@ -26,3 +27,8 @@ Today every task runs on its CLI's default model at default effort — `claude-c
       Update `resolveAgent` in `agents/index.ts` to extract `model` and `effort` from the widened config entry. Update each adapter's `buildArgs(prompt, opts?)` to accept those fields and append `--model`/`--effort` (claude-code) or `-m`/`--variant` (opencode) only when set — omitting the flag when unset so the CLI's own default applies.
 - [x] Redesign Settings page agent section
       Replace the current one-row-per-task wide layout (agent picker + "Saved" span, most space empty) with compact inline rows: one row per task type, containing a short row label and the agent, model, and effort controls side-by-side in the existing flex container. Render controls from the selected agent's options descriptor — `claude-code` shows all three, `opencode` shows agent + free-text model with no effort select. Switching the agent re-renders available controls and clears values that don't apply. Keep the divider rhythm; tighten vertical padding and move the per-type description from a `helperText` under one select to a single short row label so the controls align.
+- [x] Apply model/effort to commit-suggest spawn
+      In `agent.ts`, `resolveAgent` for `commit-suggest` (around line 486) discards `model` and `effort`. The custom args on the next line are hardcoded without using `adapter.buildArgs`, so `--model`/`--effort` (claude-code) or `-m`/`--variant` (opencode) are never appended even when the user has configured them for the `commitSuggest` task type. Destructure `model` and `effort` from the `resolveAgent` return value and append the appropriate flags to the hardcoded args when set.
+
+### Log
+- 2026-07-01: Audit found commit-suggest spawn ignores model/effort — added phase to thread them into the hardcoded args.
