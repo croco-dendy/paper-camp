@@ -31,3 +31,5 @@
 | IDEA-27 | Content-hash freshness for batch audit | planned |
 | IDEA-28 | Idea-file heading level (MD001) | done |
 | IDEA-29 | Run all phases with per-phase commits | planned |
+| IDEA-30 | Claude Code native integration | planned |
+| IDEA-31 | Paper Camp as an MCP server | planned |
