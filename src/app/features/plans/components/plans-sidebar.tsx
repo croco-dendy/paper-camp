@@ -28,8 +28,9 @@ export const PlansSidebar = () => {
   const [addingIdea, setAddingIdea] = useState(false);
   const [creatingIdea, setCreatingIdea] = useState(false);
 
-  const isStale =
-    gitBranchHygiene && gitBranchHygiene !== 'clean-on-main' && gitBranchHygiene !== 'fine';
+  const isStale = Boolean(
+    gitBranchHygiene && gitBranchHygiene !== 'clean-on-main' && gitBranchHygiene !== 'fine',
+  );
 
   const active =
     plans?.entries.filter((p) => p.status === 'in-progress' || p.status === 'review') ?? [];
@@ -70,15 +71,17 @@ export const PlansSidebar = () => {
   return (
     <>
       {isStale && (
-        <Alert variant="warning" title="Branch hygiene alert" style={{ marginBottom: space[4] }}>
-          {gitBranchHygiene === 'stale-merged'
-            ? "You're on a merged branch. Switch to main first before creating new plans."
-            : gitBranchHygiene === 'stale-no-upstream'
-              ? 'This branch has no upstream yet. Switch to main first before creating new plans.'
-              : gitBranchHygiene === 'dirty'
-                ? 'Working tree has uncommitted changes. Switch to clean main before creating new plans.'
-                : 'Switch to main first before creating new plans.'}
-        </Alert>
+        <div style={{ marginBottom: space[4] }}>
+          <Alert variant="warning" title="Branch hygiene alert">
+            {gitBranchHygiene === 'stale-merged'
+              ? "You're on a merged branch. Switch to main first before creating new plans."
+              : gitBranchHygiene === 'stale-no-upstream'
+                ? 'This branch has no upstream yet. Switch to main first before creating new plans.'
+                : gitBranchHygiene === 'dirty'
+                  ? 'Working tree has uncommitted changes. Switch to clean main before creating new plans.'
+                  : 'Switch to main first before creating new plans.'}
+          </Alert>
+        </div>
       )}
       {active.length > 0 && (
         <SidebarSection label="In progress">

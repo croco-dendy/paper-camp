@@ -1193,7 +1193,7 @@ Report the final branch and status to verify the sync completed.`;
           ...(projectName !== undefined && { projectName: projectName.trim() }),
           ...(resolvedDefaultAgents && { defaultAgents: resolvedDefaultAgents }),
         };
-        await writeFile(configPath, JSON.stringify(updated, null, 2));
+        await writeFile(configPath, `${JSON.stringify(updated, null, 2)}\n`);
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true }));
