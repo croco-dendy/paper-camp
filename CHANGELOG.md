@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/adooone/paper-camp/compare/v0.3.0...v0.4.0) (2026-07-02)
+
+
+### Features
+
+* **agent:** updates ([bf00b26](https://github.com/adooone/paper-camp/commit/bf00b264e62e8f6a4ee98eebc7caedab75f69b6f))
+* **ideas:** Add IDEA-35/36, mark FEAT-27 review, tighten sync guards ([a5b8c5d](https://github.com/adooone/paper-camp/commit/a5b8c5d1a2f47d36b11a3b0dc30295324ecbc533))
+* **plans:** complete FEAT-30 run-all-phases implementation ([5a97451](https://github.com/adooone/paper-camp/commit/5a974511048ea9030e2738fadf6cc4b0c14cd46b))
+* **repo:** updates ([9a2b36a](https://github.com/adooone/paper-camp/commit/9a2b36a1b0b6623625e6b7341557380f867f1924))
+
+
+### Bug Fixes
+
+* **config:** Upgrade phase/commitSuggest agents to sonnet and fix config file newline ([d29b89b](https://github.com/adooone/paper-camp/commit/d29b89bb0b57a7ec7b1b6099a48137c627ef8cbb))
+
 ## [0.3.0](https://github.com/adooone/paper-camp/compare/v0.2.1...v0.3.0) (2026-07-01)
 
 
