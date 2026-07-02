@@ -21,6 +21,7 @@ import {
   launchIdeaExtend,
   launchPlanAudit,
   launchPlanDraft,
+  launchRunAll,
   stopAgent,
 } from '../services/agent-api';
 import {
@@ -108,6 +109,7 @@ type AppStore = {
   launchPlanDraft: (ideaId: string, prompt: string) => Promise<void>;
   launchIdeaExtend: (ideaId: string, prompt: string) => Promise<void>;
   launchBatchAudit: () => Promise<void>;
+  launchRunAll: (planId: string) => Promise<void>;
   stopAgent: () => Promise<void>;
 };
 
@@ -299,6 +301,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   launchBatchAudit: async () => {
     await launchBatchAudit();
+    await get().loadAgentStatus();
+  },
+  launchRunAll: async (planId) => {
+    await launchRunAll(planId);
     await get().loadAgentStatus();
   },
   stopAgent: async () => {

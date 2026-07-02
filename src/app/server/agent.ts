@@ -27,6 +27,8 @@ import { buildConvergenceAuditPrompt } from '../features/plans/prompts';
 import { AGENTS, type AgentAdapter, resolveAgent } from './agents';
 
 const MAX_LINES = 50;
+// Maximum wall-clock time per phase before treating it as a stall/clarifying-question hang.
+const PHASE_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface AgentTask {
   taskKind: TaskKind;
@@ -93,6 +95,8 @@ export function createAgentManager(
   root: string,
   ensureBranch: (plan: PlanEntry) => void = () => {},
   onAuditComplete?: (planId: string, gapPhases: number) => Promise<void>,
+  onPhaseCommit?: (plan: PlanEntry, phase: PhaseItem, phaseIndex: number) => Promise<void>,
+  onRunComplete?: (plan: PlanEntry) => Promise<void>,
 ) {
   const clients = new Set<ServerResponse>();
   let current: AgentTask | null = null;
@@ -472,6 +476,176 @@ export function createAgentManager(
     return { ok: true };
   }
 
+  // Run all unchecked phases sequentially, spawning a fresh agent per phase.
+  // Calls ensureBranch up front, then iterates unchecked phases in order.
+  // Stops on first failure; calls onPhaseCommit (wired at construction) after each verified success.
+  function startRunAllPhases(plan: PlanEntry, runProjectChecks?: () => Promise<boolean>): Result {
+    if (isBusy()) {
+      return { ok: false, error: 'An agent task is already running' };
+    }
+    const unchecked = plan.phases
+      .map((phase, i) => ({ phase, i }))
+      .filter(({ phase }) => !phase.done);
+
+    if (unchecked.length === 0) {
+      return { ok: false, error: 'No unchecked phases to run' };
+    }
+
+    ensureBranch(plan);
+
+    const defaultAgents = readDefaultAgentIds(root);
+    const {
+      id: agentId,
+      adapter,
+      model,
+      effort,
+    } = resolveAgent({ agentId: plan.agent, defaultAgents, taskKind: 'run-all' });
+
+    const stubProc = spawn('sh', ['-c', 'exit 0'], { cwd: root, stdio: 'ignore' });
+    const task: AgentTask = {
+      taskKind: 'run-all',
+      planTitle: plan.title,
+      planId: plan.id,
+      status: 'starting',
+      agentId,
+      adapter,
+      proc: stubProc,
+      lines: [],
+    };
+    current = task;
+    setStatus(task, 'running');
+
+    (async () => {
+      try {
+        const total = plan.phases.length;
+        let completed = 0;
+        let failed = 0;
+
+        for (const { phase, i } of unchecked) {
+          if (current !== task || task.status === 'stopping') break;
+
+          // Set phaseIndex so didTaskProgress can verify the right checkbox.
+          task.phaseIndex = i;
+          pushLine(task, `[phase ${i + 1}/${total}] ${phase.text}`);
+
+          const prompt = buildAgentPrompt(plan, phase, i);
+          const proc = spawn(adapter.command, adapter.buildArgs(prompt, { model, effort }), {
+            cwd: root,
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          task.proc = proc;
+
+          if (proc.stdout) {
+            const rl = createInterface({ input: proc.stdout });
+            rl.on('line', (line) => {
+              if (current !== task) return;
+              const parsed = adapter.parseLine(line);
+              if (parsed?.text && parsed.text !== 'Agent is working…') {
+                pushLine(task, `  ${parsed.text}`);
+              }
+            });
+          }
+          proc.stderr?.on('data', () => {});
+
+          // Wait for the agent with a timeout so a stall or clarifying-question
+          // hang is treated as a failure rather than blocking indefinitely.
+          let timedOut = false;
+          const procDone = new Promise<boolean>((resolve) => {
+            proc.on('close', (code) => resolve(code === 0));
+            proc.on('error', () => resolve(false));
+          });
+          const timeoutHandle = setTimeout(() => {
+            timedOut = true;
+            if (!proc.killed) proc.kill('SIGTERM');
+          }, PHASE_TIMEOUT_MS);
+          const exitedOk = await procDone;
+          clearTimeout(timeoutHandle);
+
+          if (current !== task) return;
+
+          if (timedOut) {
+            failed++;
+            pushLine(
+              task,
+              `[timeout] phase ${i + 1} — no progress for ${PHASE_TIMEOUT_MS / 60000}min, stopping`,
+            );
+            break;
+          }
+
+          if (!exitedOk) {
+            failed++;
+            pushLine(task, `[fail] phase ${i + 1} — agent error, stopping`);
+            break;
+          }
+
+          // Gate 1: did the phase checkbox actually flip?
+          const progressed = await didTaskProgress(task);
+          if (!progressed) {
+            failed++;
+            pushLine(
+              task,
+              progressed === null
+                ? `[fail] phase ${i + 1} — could not read plan after run, stopping`
+                : `[fail] phase ${i + 1} — phase checkbox did not flip, stopping`,
+            );
+            break;
+          }
+
+          // Gate 2: lint / format / test must all pass.
+          if (runProjectChecks) {
+            pushLine(task, `[verify] phase ${i + 1} — running lint/format/test`);
+            const checksOk = await runProjectChecks();
+            if (current !== task) return;
+            if (!checksOk) {
+              failed++;
+              pushLine(task, `[fail] phase ${i + 1} — project checks failed, stopping`);
+              break;
+            }
+          }
+
+          completed++;
+          if (onPhaseCommit) {
+            pushLine(task, `[commit] phase ${i + 1} — ${phase.text}`);
+            await onPhaseCommit(plan, phase, i);
+          }
+        }
+
+        if (current !== task) return;
+
+        if (task.status === 'stopping') {
+          setStatus(task, 'done');
+          return;
+        }
+
+        if (failed > 0) {
+          pushLine(task, `Run stopped after ${completed} phase(s) completed, 1 failed`);
+          setStatus(task, 'error');
+        } else {
+          pushLine(task, `All ${completed} phase(s) completed`);
+          if (onRunComplete) {
+            try {
+              pushLine(task, `[review] setting plan status to review`);
+              await onRunComplete(plan);
+            } catch (err) {
+              pushLine(
+                task,
+                `Warning: could not set plan status to review: ${(err as Error).message}`,
+              );
+            }
+          }
+          setStatus(task, 'done');
+        }
+      } catch (err) {
+        if (current === task) {
+          pushLine(task, `Run all phases failed: ${(err as Error).message}`);
+          setStatus(task, 'error');
+        }
+      }
+    })();
+
+    return { ok: true };
+  }
+
   // Read-only, one-shot task: ask the configured agent to turn a diff into a commit
   // message.  Uses the configured agent's binary but constructs its own arguments so it
   // never picks up the shared adapter's `--permission-mode auto` flag — this call must
@@ -630,6 +804,7 @@ export function createAgentManager(
     startForIdea,
     startForIdeaExtend,
     startBatchAudit,
+    startRunAllPhases,
     startSync,
     runCommitSuggest,
     stop,
@@ -652,6 +827,7 @@ export interface AgentManager {
   startForIdea: (idea: IdeaEntry, prompt: string) => Result;
   startForIdeaExtend: (idea: IdeaEntry, prompt: string) => Result;
   startBatchAudit: () => Result;
+  startRunAllPhases: (plan: PlanEntry, runProjectChecks?: () => Promise<boolean>) => Result;
   startSync: (prompt: string) => Result;
   runCommitSuggest: (prompt: string) => Promise<string>;
   stop: () => Result;

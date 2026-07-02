@@ -235,14 +235,15 @@ export function createGitManager(root: string) {
       return isDirty ? 'dirty' : 'clean-on-main';
     }
 
-    const isMerged = await isMergedIntoMain();
-    if (isMerged) {
-      return 'stale-merged';
-    }
-
-    const hasUp = await hasUpstream();
-    if (!hasUp) {
-      return 'stale-no-upstream';
+    // Only "stale" if the branch is fully merged into main AND main has advanced
+    // past it — i.e. its work is done and elsewhere. A freshly-created branch still
+    // at main's tip, or one with un-merged local work (with or without an upstream),
+    // is normal active work, not stale.
+    if (await isMergedIntoMain()) {
+      const behind = await runGit(['rev-list', '--count', 'HEAD..main'])
+        .then((n) => Number.parseInt(n.trim(), 10) || 0)
+        .catch(() => 0);
+      if (behind > 0) return 'stale-merged';
     }
 
     return isDirty ? 'dirty' : 'fine';
@@ -318,6 +319,10 @@ export function createGitManager(root: string) {
       : combined;
   }
 
+  async function stageAll(): Promise<void> {
+    await runGit(['add', '-A']);
+  }
+
   async function runGitSync(): Promise<void> {
     // Clean sync: checkout main, fetch, and fast-forward merge
     await runGit(['checkout', 'main']);
@@ -331,6 +336,7 @@ export function createGitManager(root: string) {
     },
     getCurrentBranch,
     commit,
+    stageAll,
     diff,
     ensureBranch,
     getFeatureBranchPlanId,

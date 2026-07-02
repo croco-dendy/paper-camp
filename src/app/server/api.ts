@@ -106,14 +106,20 @@ async function checkBranchConflictForPlan(
   },
   targetPlanId?: string,
 ): Promise<string | null> {
+  const activePlanId = git.getFeatureBranchPlanId();
+  // Working on the current branch's own plan (e.g. running its phases) is always
+  // allowed — this must come before any hygiene/other check so you can never be
+  // blocked from advancing the plan you're already on.
+  if (targetPlanId && activePlanId === targetPlanId) return null;
+  // Not on a feature branch (on main, etc.) — nothing to finish first.
+  if (!activePlanId) return null;
+
+  // Only relevant when starting a *different* plan than the one this branch is for.
   const hygiene = await git.getBranchHygieneStatus();
   if (hygiene === 'stale-merged') {
-    return "You're on a merged branch — switch to main first";
+    return "You're on a merged branch — switch to main before starting another plan";
   }
 
-  const activePlanId = git.getFeatureBranchPlanId();
-  if (!activePlanId) return null;
-  if (targetPlanId && activePlanId === targetPlanId) return null;
   const plansDir = campFile(root, 'plans');
   const { entries } = await readPlansMerged(plansDir, campFile(root, 'plans.md'));
   const activePlan = entries.find((p) => p.id === activePlanId);
@@ -315,7 +321,54 @@ export function createApiMiddleware(root: string): ApiMiddleware {
     }
   }
 
-  const agent = createAgentManager(root, (plan) => git.ensureBranch(plan), stampAuditDate);
+  async function commitPhase(plan: PlanEntry, phase: PhaseItem): Promise<void> {
+    const area = plan.tags?.[0] ?? 'plans';
+    const title = `${plan.kind ?? 'feat'}(${area}): ${phase.text}`;
+    const refs = plan.id ? `Refs: ${plan.id}` : undefined;
+    await git.stageAll();
+    await git.commit([], title, refs);
+  }
+
+  async function setRunReview(plan: PlanEntry): Promise<void> {
+    if (!plan.id) return;
+    const plansDir = campFile(root, 'plans');
+    const planFile = join(plansDir, `${plan.id}.md`);
+    const raw = await readMaybe(planFile);
+    if (!raw) return;
+    const parsed = parsePlanFile(raw);
+    if (parsed.entries.length === 0) return;
+    const entry = parsed.entries[0];
+    if (entry.status === 'review' || entry.status === 'done' || entry.status === 'dropped') return;
+    const writeInput: Parameters<typeof formatPlanFile>[0] = {
+      id: entry.id ?? plan.id,
+      title: entry.title,
+      kind: entry.kind ?? 'feat',
+      status: 'review',
+      idea: entry.idea,
+      agent: entry.agent,
+      created: entry.created,
+      updated: todayDateString(),
+      audited: entry.audited,
+      tags: entry.tags,
+      body: entry.body,
+      phases: entry.phases,
+      log: entry.log,
+      clarifications: entry.clarifications,
+    };
+    await writeFile(planFile, `${formatPlanFile(writeInput)}\n`, 'utf-8');
+    const area = plan.tags?.[0] ?? 'plans';
+    const refs = plan.id ? `Refs: ${plan.id}` : undefined;
+    await git.stageAll();
+    await git.commit([], `${entry.kind ?? 'feat'}(${area}): mark ${plan.id} review`, refs);
+  }
+
+  const agent = createAgentManager(
+    root,
+    (plan) => git.ensureBranch(plan),
+    stampAuditDate,
+    commitPhase,
+    setRunReview,
+  );
   const handler = async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const pathname = (req.url ?? '').split('?')[0];
 
@@ -1118,6 +1171,55 @@ Report the final branch and status to verify the sync completed.`;
       res.statusCode = 202;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // POST /api/agent/launch-run-all — run every unchecked phase sequentially with per-phase commits
+    if (req.method === 'POST' && pathname === '/api/agent/launch-run-all') {
+      try {
+        const reqBody = await readBody(req);
+        const { planId } = JSON.parse(reqBody) as { planId?: string };
+        if (!planId) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'planId is required' }));
+          return;
+        }
+        const plansDir = campFile(root, 'plans');
+        const parsed = await readAllPlanFiles(plansDir);
+        let plan = parsed.entries.find((p) => p.id === planId);
+        if (!plan) {
+          const mono = parsePlans(await readMaybe(campFile(root, 'plans.md')));
+          plan = mono.entries.find((p) => p.id === planId);
+        }
+        if (!plan) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'plan not found' }));
+          return;
+        }
+        const conflict = await checkBranchConflictForPlan(root, git, plan.id);
+        if (conflict) {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: conflict }));
+          return;
+        }
+        const result = agent.startRunAllPhases(plan, () => status.runChecksAndWait());
+        if (!result.ok) {
+          res.statusCode = 409;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: result.error }));
+          return;
+        }
+        res.statusCode = 202;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: (error as Error).message }));
+      }
       return;
     }
 

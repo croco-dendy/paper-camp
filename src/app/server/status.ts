@@ -126,6 +126,29 @@ export function createStatusManager(root: string) {
     // watcher not available (src/ doesn't exist or platform doesn't support recursive)
   }
 
+  // One-shot: spawn fresh processes for all three checks and resolve true only if
+  // all pass. Intentionally bypasses the queue so callers get a clean result that
+  // reflects the current working tree rather than a stale cached status.
+  function runChecksAndWait(): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const names: CheckName[] = ['lint', 'format', 'test'];
+      const passed: Record<CheckName, boolean | null> = { lint: null, format: null, test: null };
+      let pending = names.length;
+
+      function onDone(name: CheckName, ok: boolean) {
+        passed[name] = ok;
+        pending--;
+        if (pending === 0) resolve(names.every((n) => passed[n] === true));
+      }
+
+      for (const name of names) {
+        const proc = spawn(CHECK_COMMANDS[name], { cwd: root, stdio: 'ignore', shell: true });
+        proc.on('close', (code) => onDone(name, code === 0));
+        proc.on('error', () => onDone(name, false));
+      }
+    });
+  }
+
   return {
     getStatus(): StatusSnapshot {
       return {
@@ -135,6 +158,7 @@ export function createStatusManager(root: string) {
       };
     },
     runCheck,
+    runChecksAndWait,
     runQualityFix,
     subscribe(res: ServerResponse) {
       clients.add(res);

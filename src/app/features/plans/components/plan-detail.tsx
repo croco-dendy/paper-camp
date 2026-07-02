@@ -22,6 +22,7 @@ import { ClarifyButton } from './clarify-button';
 import { PhaseCopyButton } from './phase-copy-button';
 import { PlanIdStamp } from './plan-id-stamp';
 import { ProgressBar } from './progress-bar';
+import { RunAllPhasesButton } from './run-all-phases-button';
 
 interface PlanDetailProps {
   plan: PlanEntry;
@@ -290,6 +291,10 @@ export const PlanDetail = ({ plan }: PlanDetailProps) => {
               {auditRunning && (
                 <span className="spinner" style={{ opacity: 0.6 }} title="Audit running…" />
               )}
+              {(plan.status === 'planned' || plan.status === 'in-progress') &&
+                plan.phases.some((p) => !p.done) && (
+                  <RunAllPhasesButton plan={plan} disabled={agentBusy} />
+                )}
               <AuditPhasesButton plan={plan} disabled={agentBusy} />
               <AddReviewPhasesButton onAdd={handleAddReviewPhases} disabled={updating} />
             </div>
