@@ -223,6 +223,7 @@ export type TaskKind =
   | 'phase'
   | 'audit'
   | 'batch-audit'
+  | 'run-all'
   | 'draft'
   | 'extend'
   | 'commit-suggest'

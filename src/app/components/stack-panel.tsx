@@ -519,7 +519,9 @@ export const StackPanel = ({ open, onToggle }: StackPanelProps) => {
                                   ? ' — suggesting commit message'
                                   : agentStatus.taskKind === 'sync'
                                     ? ' — syncing to main'
-                                    : ''}{' '}
+                                    : agentStatus.taskKind === 'run-all'
+                                      ? ' — run all phases'
+                                      : ''}{' '}
                       · {AGENT_LABELS[agentStatus.agentId]}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>

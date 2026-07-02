@@ -38,6 +38,7 @@ const TASK_KIND_TO_DEFAULT_KEY: Record<TaskKind, keyof DefaultAgentsMap> = {
   phase: 'phase',
   audit: 'phase',
   'batch-audit': 'phase',
+  'run-all': 'phase',
   sync: 'phase',
   draft: 'planDraft',
   extend: 'ideaExtend',
