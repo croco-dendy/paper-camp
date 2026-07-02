@@ -624,7 +624,7 @@ export function createAgentManager(
           pushLine(task, `All ${completed} phase(s) completed`);
           if (onRunComplete) {
             try {
-              pushLine(task, `[review] setting plan status to review`);
+              pushLine(task, '[review] setting plan status to review');
               await onRunComplete(plan);
             } catch (err) {
               pushLine(
